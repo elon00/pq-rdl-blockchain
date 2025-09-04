@@ -6,9 +6,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Development resources
 
-- Web: [www.abelianfoundation.org](https://www.abelianfoundation.org)
-- Mail: [info@abelianfoundation.org](mailto:info@abelianfoundation.org)
-- GitLab: [https://gitlab.com/abeliancoin/abelian](https://gitlab.com/abeliancoin/abelian)
+- Mail: [martinlutherupa1@gmail.com](mailto:martinlutherupa1@gmail.com)
 
 ## Introduction
 
@@ -24,13 +22,13 @@ The PQ-RDL Blockchain platform is developing and adopting well-studied cryptogra
 
 More information on the project can be found on the website and in the whitepaper.  
 
-PQ-RDL Blockchain is an open source project, and we encourage contributions from anyone with something to offer. For more information on contributing, please contact info@abelianfoundation.org
+PQ-RDL Blockchain is an open source project, and we encourage contributions from anyone with something to offer. For more information on contributing, please contact martinlutherupa1@gmail.com
 
 ## About this project
 
 This is the core implementation of PQ-RDL Blockchain. It is open source and completely free to use without restrictions, except for those specified in the license agreement below. There are no restrictions on anyone creating an alternative implementation of PQ-RDL Blockchain that uses the protocol and network in a compatible manner.
 
-As with many development projects, the repository on GitLab is considered to be the "staging" area for the latest changes. Before changes are merged into that branch on the main repository, they are tested by individual developers in their own branches, submitted as a pull request, and then subsequently tested by contributors who focus on testing and code reviews. That having been said, the repository should be carefully considered before using it in a production environment, unless there is a patch in the repository for a particular show-stopping issue you are experiencing. It is generally a better idea to use a tagged release for stability.
+As with many development projects, the repository on GitHub is considered to be the "staging" area for the latest changes. Before changes are merged into that branch on the main repository, they are tested by individual developers in their own branches, submitted as a pull request, and then subsequently tested by contributors who focus on testing and code reviews. That having been said, the repository should be carefully considered before using it in a production environment, unless there is a patch in the repository for a particular show-stopping issue you are experiencing. It is generally a better idea to use a tagged release for stability.
 
 **Anyone is welcome to contribute to PQ-RDL Blockchain's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
@@ -167,7 +165,7 @@ abelian-wallet-cli, and possibly abeliand, if you get crashes refreshing.
 
 ## Debugging
 
-This section contains general instructions for debugging failed installs or problems encountered with PQ-RDL Blockchain. First ensure you are running the latest version built from the GitLab repo.
+This section contains general instructions for debugging failed installs or problems encountered with PQ-RDL Blockchain. First ensure you are running the latest version built from the GitHub repo.
 
 ### Obtaining stack traces and core dumps on Unix systems
 
