@@ -1,6 +1,6 @@
-# Abelian [![Build Status](https://travis-ci.com/CryptoBLK/Abelian.svg?branch=master)](https://travis-ci.com/CryptoBLK/Abelian)
+# PQ-RDL Blockchain [![Build Status](https://travis-ci.com/CryptoBLK/PQ-RDL Blockchain.svg?branch=master)](https://travis-ci.com/CryptoBLK/PQ-RDL Blockchain)
 
-Copyright (c) 2019 The Abelian Project.  
+Copyright (c) 2019 The PQ-RDL Blockchain Project.  
 Portions Copyright (c) 2014-2019 The Monero Project.  
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
@@ -12,27 +12,27 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Introduction
 
-Abelian is a cryptocurrency platform, which aims to achieve both privacy and accountability using post-quantum cryptographic techniques. Traditional cryptocurrencies use pseudonyms and achieve limited anonymity as transactions on the cryptocurrency platforms are traceable. Some `privacy coins’ achieve a higher level of anonymity by making transactions on their platforms untraceable. Furthermore, those privacy coins also strive to hide the amount in each transaction. Accountability means that users can choose to allow a third party, such as a regulatory body, to trace their transactions and access information regarding the amount of each transaction, while at the same time, ensure that their transactions remain anonymous and untraceable to the rest of the platform.  
+PQ-RDL Blockchain is a cryptocurrency platform, which aims to achieve both privacy and accountability using post-quantum cryptographic techniques. Traditional cryptocurrencies use pseudonyms and achieve limited anonymity as transactions on the cryptocurrency platforms are traceable. Some `privacy coins’ achieve a higher level of anonymity by making transactions on their platforms untraceable. Furthermore, those privacy coins also strive to hide the amount in each transaction. Accountability means that users can choose to allow a third party, such as a regulatory body, to trace their transactions and access information regarding the amount of each transaction, while at the same time, ensure that their transactions remain anonymous and untraceable to the rest of the platform.  
 
-The Abelian platform is developing and adopting well-studied cryptographic algorithms with their security being based on hard problems such as Learning With Errors (LWE), which are as hard to solve as several worst-case lattice problems, and are not known to have any efficient solution in quantum computing. The Abelian research and development group is also building new lattice-based cryptographic primitives for enhancing the efficiency, privacy and security of the Abelian cryptocurrency platform. Led by Dr. Duncan Wong, the R&D group consists of scholars from Shanghai JiaoTong University, Nanyang Technological University, University of Wollongong, and experienced Crypto & Blockchain developers from CryptoBLK.
+The PQ-RDL Blockchain platform is developing and adopting well-studied cryptographic algorithms with their security being based on hard problems such as Learning With Errors (LWE), which are as hard to solve as several worst-case lattice problems, and are not known to have any efficient solution in quantum computing. The PQ-RDL Blockchain research and development group is also building new lattice-based cryptographic primitives for enhancing the efficiency, privacy and security of the PQ-RDL Blockchain cryptocurrency platform. Led by Dr. Duncan Wong, the R&D group consists of scholars from Shanghai JiaoTong University, Nanyang Technological University, University of Wollongong, and experienced Crypto & Blockchain developers from CryptoBLK.
 
-**Privacy:** In Abelian, proven technologies including linkable ring signature, cryptographic commitment scheme, and zero-knowledge proof are incorporated into the design to offer users uncompromising privacy. Abelian is focusing on providing quantum-resistance and privacy with optional accountability.
+**Privacy:** In PQ-RDL Blockchain, proven technologies including linkable ring signature, cryptographic commitment scheme, and zero-knowledge proof are incorporated into the design to offer users uncompromising privacy. PQ-RDL Blockchain is focusing on providing quantum-resistance and privacy with optional accountability.
 
-**Accountability:** Abelian will apply a cryptographic primitive called verifiable encryption to enable and abide by regulations, such as AML and taxation policies, in the design to solve concerns from enterprises. Abelian aims to develop a post-quantum anonymous digital signature that can support optional accountability. The system allows a user to produce a digital signature that is fully anonymous to the public but can be traced by a designated authority (or a combination of several authorities) chosen by the signer. Different authorities could be designated by a signer for different types of transactions. It allows an authority to passively monitor transactions under its supervision while maintaining user privacy against other players in the system.
+**Accountability:** PQ-RDL Blockchain will apply a cryptographic primitive called verifiable encryption to enable and abide by regulations, such as AML and taxation policies, in the design to solve concerns from enterprises. PQ-RDL Blockchain aims to develop a post-quantum anonymous digital signature that can support optional accountability. The system allows a user to produce a digital signature that is fully anonymous to the public but can be traced by a designated authority (or a combination of several authorities) chosen by the signer. Different authorities could be designated by a signer for different types of transactions. It allows an authority to passively monitor transactions under its supervision while maintaining user privacy against other players in the system.
 
-**Quantum-safe:** The privacy and accountability features of Abelian are built on Lattice-based cryptography, which enables post-quantum security. When combined with a compatible stealth address mechanism that has been developed in the project, the system will ensure security, anonymity and efficient wallet management for Abelian coin in the post-quantum era.  
+**Quantum-safe:** The privacy and accountability features of PQ-RDL Blockchain are built on Lattice-based cryptography, which enables post-quantum security. When combined with a compatible stealth address mechanism that has been developed in the project, the system will ensure security, anonymity and efficient wallet management for PQ-RDL Blockchain coin in the post-quantum era.  
 
 More information on the project can be found on the website and in the whitepaper.  
 
-Abelian is an open source project, and we encourage contributions from anyone with something to offer. For more information on contributing, please contact info@abelianfoundation.org
+PQ-RDL Blockchain is an open source project, and we encourage contributions from anyone with something to offer. For more information on contributing, please contact info@abelianfoundation.org
 
 ## About this project
 
-This is the core implementation of Abelian. It is open source and completely free to use without restrictions, except for those specified in the license agreement below. There are no restrictions on anyone creating an alternative implementation of Abelian that uses the protocol and network in a compatible manner.
+This is the core implementation of PQ-RDL Blockchain. It is open source and completely free to use without restrictions, except for those specified in the license agreement below. There are no restrictions on anyone creating an alternative implementation of PQ-RDL Blockchain that uses the protocol and network in a compatible manner.
 
 As with many development projects, the repository on GitLab is considered to be the "staging" area for the latest changes. Before changes are merged into that branch on the main repository, they are tested by individual developers in their own branches, submitted as a pull request, and then subsequently tested by contributors who focus on testing and code reviews. That having been said, the repository should be carefully considered before using it in a production environment, unless there is a patch in the repository for a particular show-stopping issue you are experiencing. It is generally a better idea to use a tagged release for stability.
 
-**Anyone is welcome to contribute to Abelian's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
+**Anyone is welcome to contribute to PQ-RDL Blockchain's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
 ## License
 
@@ -42,7 +42,7 @@ See [LICENSE](LICENSE).
 
 If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
 
-## Compiling Abelian from source
+## Compiling PQ-RDL Blockchain from source
 
 ### Dependencies
 
@@ -97,7 +97,7 @@ https://github.com/pq-crystals/dilithium
 
 ### Build instructions
 
-Abelian uses the CMake build system and a top-level [Makefile](Makefile) that
+PQ-RDL Blockchain uses the CMake build system and a top-level [Makefile](Makefile) that
 invokes cmake commands as needed.
 
 #### On Linux and OS X
@@ -117,7 +117,7 @@ invokes cmake commands as needed.
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
     
     *Note*: The instructions above will compile the most stable release of the
-    Abelian software. If you would like to use and test the most recent software,
+    PQ-RDL Blockchain software. If you would like to use and test the most recent software,
     use ```git checkout master```. The master branch may contain updates that are
     both unstable and incompatible with release software, though testing is always 
     encouraged. 
@@ -126,7 +126,7 @@ invokes cmake commands as needed.
 
 * Add `PATH="$PATH:$HOME/abelian/build/release/bin"` to `.profile`
 
-* Run Abelian with `abeliand --detach`
+* Run PQ-RDL Blockchain with `abeliand --detach`
 
 * **Optional**: build and run the test suite to verify the binaries:
 
@@ -167,7 +167,7 @@ abelian-wallet-cli, and possibly abeliand, if you get crashes refreshing.
 
 ## Debugging
 
-This section contains general instructions for debugging failed installs or problems encountered with Abelian. First ensure you are running the latest version built from the GitLab repo.
+This section contains general instructions for debugging failed installs or problems encountered with PQ-RDL Blockchain. First ensure you are running the latest version built from the GitLab repo.
 
 ### Obtaining stack traces and core dumps on Unix systems
 
@@ -215,7 +215,7 @@ There are two tools available:
 
 * ASAN
 
-Configure Abelian with the -D SANITIZE=ON cmake flag, eg:
+Configure PQ-RDL Blockchain with the -D SANITIZE=ON cmake flag, eg:
 
     cd build/debug && cmake -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug ../..
 
