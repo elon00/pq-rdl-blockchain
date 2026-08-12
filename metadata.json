@@ -1,0 +1,8 @@
+{
+  "name": "Remix PQ-RDL Quantum Automaton Blockchain",
+  "description": "Next-generation Web 4.0 blockchain powered by Post-Quantum Cryptography (Dilithium/SPHINCS+) and Conway\u0027s Game of Life AI cellular automaton consensus engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
