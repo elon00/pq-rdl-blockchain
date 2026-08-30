@@ -69,10 +69,12 @@ export interface ChainState {
   quantumDifficulty: number;
   totalTransactions: number;
   pendingMempool: Transaction[];
-  activeNodes: number;
+  activeNodes: number | null;
   averageEntropy: number;
-  tps: number;
-  networkHashrate: string;
+  tps: number | null;
+  networkHashrate: string | null;
+  mode?: string;
+  statusNote?: string;
 }
 
 export interface NetworkNode {
