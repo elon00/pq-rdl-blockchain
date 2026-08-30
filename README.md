@@ -1,20 +1,69 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 🏛️ Republic of Divine Light — PQ-RDL Blockchain
 
-# Run and deploy your AI Studio app
+Research and prototype implementation for the **Republic of Divine Light (RDL)** ecosystem.
 
-This contains everything you need to run your app locally.
+## Canonical implementation
 
-View your app in AI Studio: https://ai.studio/apps/2dde57d5-4b15-480a-9666-575c02f86f1f
+This repository is the canonical runnable implementation for RDL.
 
-## Run Locally
+The companion repository `Republic-of-Divine-Light` serves as the ecosystem identity and governance landing repository.
 
-**Prerequisites:**  Node.js
+## Current status
 
+**Status: PROTOTYPE / IN-MEMORY DEMONSTRATION**
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+The current server demonstrates local state transitions, Conway-inspired automation, AI-assisted workflows, and research interfaces. It is **not currently evidence of**:
+
+- a live distributed blockchain or validator network,
+- externally measured TPS, hashrate, or active-node telemetry,
+- public-chain transaction settlement,
+- externally deployed smart contracts,
+- verified production PQC protection,
+- an independent security audit or legal compliance certification.
+
+## Reality and evidence rules
+
+```text
+Research → Prototype → Tests → Evidence → Independent Review → Deployment → VERIFIED
+```
+
+A simulation must remain labelled as a simulation. A random identifier or local response is not cryptographic proof, a blockchain transaction, or a deployment record.
+
+## Run locally
+
+**Prerequisites:** Node.js 20+ and npm.
+
+1. Install the locked dependency set:
+
+   `npm ci`
+
+2. Copy the safe environment template:
+
+   `cp .env.example .env.local`
+
+3. Add `GEMINI_API_KEY` only if the optional Gemini functionality is used.
+
+4. Start the development server:
+
    `npm run dev`
+
+## Verification
+
+Run:
+
+`npm test`
+
+The intended verification flow is:
+
+`Environment → Truth → Lint/Type Checks → Production Build`
+
+## Governance
+
+See [RDL_CONSTITUTION.md](./RDL_CONSTITUTION.md) for the RDL Constitution and Reality Charter.
+
+## Repository relationship
+
+- **`pq-rdl-blockchain`** — canonical runnable prototype and implementation
+- **`Republic-of-Divine-Light`** — ecosystem identity and governance landing repository
+
+© 2026 Republic of Divine Light — research and prototype ecosystem.
