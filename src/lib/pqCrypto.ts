@@ -1,53 +1,43 @@
 import { PQAlgorithm, PQKeypair, PQSignature } from '../types';
 
-// Simple deterministic hash function for demonstration (SHA-256 like simulation via crypto.subtle or custom fallback)
+// SHA-256 utility. This project does not implement a real post-quantum signature primitive.
 export async function sha256Hex(message: string): Promise<string> {
-  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(message);
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-  // Fallback string hashing
-  let hash = 0;
-  for (let i = 0; i < message.length; i++) {
-    const char = message.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(16).padStart(64, '0');
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error('Web Crypto SHA-256 is unavailable in this runtime');
+  const data = new TextEncoder().encode(message);
+  const hashBuffer = await subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Generate Post-Quantum Keypair based on specified algorithm
+// Generate deterministic demonstration identifiers. These are NOT keys for Dilithium, Falcon, SPHINCS+, ML-DSA, or any other real PQC scheme.
 export async function generatePQKeypair(algorithm: PQAlgorithm, seedPhrase?: string): Promise<PQKeypair> {
   const timestamp = Date.now();
   const seed = seedPhrase || `${algorithm}-${timestamp}-${Math.random()}`;
   const seedHash = await sha256Hex(seed);
 
   let addressPrefix = 'pq1q';
-  let securityLevel = 'NIST Level 3 (AES-192 Equivalent)';
+  let securityLevel = 'DEMONSTRATION ONLY — no cryptographic security level is claimed';
   let pubPrefix = '';
   let privPrefix = '';
 
   if (algorithm === 'Dilithium2') {
     addressPrefix = 'pq1dil2';
-    securityLevel = 'NIST Level 2 (Module Lattice-Based / CRYSTALS-Dilithium)';
+    securityLevel = 'DEMONSTRATION ONLY — not a real Dilithium/ML-DSA keypair';
     pubPrefix = 'DIL2_PK_';
     privPrefix = 'DIL2_SK_';
   } else if (algorithm === 'Falcon-512') {
     addressPrefix = 'pq1flc512';
-    securityLevel = 'NIST Level 1 (NTRU Lattice-Based Compact Signature)';
+    securityLevel = 'DEMONSTRATION ONLY — not a real Falcon keypair';
     pubPrefix = 'FLC512_PK_';
     privPrefix = 'FLC512_SK_';
   } else if (algorithm === 'SPHINCS+') {
     addressPrefix = 'pq1sph';
-    securityLevel = 'NIST Level 5 (Stateless Hash-Based Signature Scheme)';
+    securityLevel = 'DEMONSTRATION ONLY — not a real SPHINCS+ keypair';
     pubPrefix = 'SPH_PK_';
     privPrefix = 'SPH_SK_';
   }
 
-  // Generate polynomial / lattice matrix string representations
+  // Create clearly prefixed deterministic placeholder strings for UI demonstrations.
   const publicKeyHex = `${pubPrefix}${seedHash.substring(0, 32)}${await sha256Hex(seedHash + 'pub')}`;
   const privateKeyHex = `${privPrefix}${await sha256Hex(seedHash + 'priv')}${seedHash.substring(0, 32)}`;
   
@@ -64,7 +54,7 @@ export async function generatePQKeypair(algorithm: PQAlgorithm, seedPhrase?: str
   };
 }
 
-// Sign a payload with Post-Quantum signature
+// Create a deterministic demonstration attestation. It is NOT a post-quantum digital signature.
 export async function signPQPayload(
   payload: string,
   keypair: PQKeypair
@@ -80,11 +70,11 @@ export async function signPQPayload(
     publicKeyHex: keypair.publicKeyHex,
     hashMessage: msgHash,
     timestamp: Date.now(),
-    valid: true,
+    valid: false,
   };
 }
 
-// Verify a Post-Quantum signature against public key and payload
+// Verify only internal consistency of the demonstration attestation; this is NOT cryptographic signature verification.
 export async function verifyPQSignature(
   payload: string,
   signature: PQSignature,
