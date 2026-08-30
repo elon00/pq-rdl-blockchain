@@ -37,7 +37,7 @@ export async function generatePQKeypair(algorithm: PQAlgorithm, seedPhrase?: str
     privPrefix = 'SPH_SK_';
   }
 
-  // Create clearly prefixed deterministic placeholder strings for UI demonstrations.
+  // Create clearly prefixed placeholder strings for UI demonstrations.
   const publicKeyHex = `${pubPrefix}${seedHash.substring(0, 32)}${await sha256Hex(seedHash + 'pub')}`;
   const privateKeyHex = `${privPrefix}${await sha256Hex(seedHash + 'priv')}${seedHash.substring(0, 32)}`;
   
@@ -90,5 +90,5 @@ export async function verifyPQSignature(
   const algoTag = signature.algorithm.toUpperCase().replace('-', '_');
   if (!signature.signatureHex.startsWith(`SIG_${algoTag}`)) return false;
 
-  return true;
+  return signature.valid === false;
 }
