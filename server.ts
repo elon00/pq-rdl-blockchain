@@ -38,7 +38,7 @@ async function startServer() {
 
   app.use(express.json({ limit: '10mb' }));
 
-  // Initialize In-Memory Genesis Blockchain State
+  // Initialize in-memory demonstration state. This is not a distributed blockchain network.
   const genesisKeypair = await generatePQKeypair('Dilithium2', 'Genesis-PostQuantum-Node-0');
   const genesisSeed = generateRandomGrid(0.3);
   const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
@@ -121,7 +121,7 @@ contract ConwayGliderYield {
   
   // Health & Status
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', time: new Date().toISOString() });
+    res.json({ status: 'ok', mode: 'DEMONSTRATION_IN_MEMORY', time: new Date().toISOString(), statusNote: 'No external blockchain consensus, validator network, or Solana settlement is connected by this server.' });
   });
 
   // Get Chain Status & Network Metrics
@@ -138,10 +138,12 @@ contract ConwayGliderYield {
       quantumDifficulty: latestBlock.quantumDifficulty,
       totalTransactions: totalTx,
       pendingMempool: mempool,
-      activeNodes: 148,
+      activeNodes: null,
       averageEntropy: avgEntropy,
-      tps: 1840,
-      networkHashrate: '14.2 QFLOPS (Lattice Entropy Rate)',
+      tps: null,
+      networkHashrate: null,
+      mode: 'DEMONSTRATION_IN_MEMORY',
+      statusNote: 'Metrics are derived from local in-memory state and are not live network telemetry.',
     };
 
     res.json(chainState);
@@ -182,7 +184,7 @@ contract ConwayGliderYield {
       };
 
       mempool.push(newTx);
-      res.json({ success: true, transaction: newTx, mempoolSize: mempool.length });
+      res.json({ success: true, simulation: true, transaction: newTx, mempoolSize: mempool.length, statusNote: 'Transaction exists only in this process memory and has not been broadcast to an external network.' });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Failed to submit transaction' });
     }
@@ -240,7 +242,7 @@ contract ConwayGliderYield {
 
       blockchain.push(newBlock);
 
-      res.json({ success: true, block: newBlock, chainHeight: blockchain.length });
+      res.json({ success: true, simulation: true, block: newBlock, chainHeight: blockchain.length, statusNote: 'Block is an in-memory Conway demonstration and is not consensus-finalized on an external blockchain.' });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Block mining failed' });
     }
@@ -357,7 +359,7 @@ Always structure JSON output with properties:
       };
 
       deployedContracts.push(newContract);
-      res.json({ success: true, contract: newContract });
+      res.json({ success: true, simulation: true, contract: newContract, statusNote: 'Contract is stored only in local process memory; no external VM or chain deployment occurred.' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
