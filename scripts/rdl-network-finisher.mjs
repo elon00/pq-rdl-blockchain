@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { spawnSync as run } from "node:child_process";
 
 const exec = (cmd, args) => {
