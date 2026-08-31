@@ -2,12 +2,17 @@ name: RDL Reality Gate
 
 on:
   push:
-    branches: [qmoosa/reality-chain-v1]
+    branches: ["**"]
   pull_request:
-    branches: [qmoosa/reality-chain-v1]
+    branches: ["**"]
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: rdl-reality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   rust-quality:
@@ -22,8 +27,8 @@ jobs:
       - name: Format check
         run: cargo fmt --all -- --check
       - name: Compile
-        run: cargo check --workspace --all-targets
+        run: cargo check --workspace --all-targets --locked
       - name: Unit tests
-        run: cargo test --workspace --all-targets
+        run: cargo test --workspace --all-targets --locked
       - name: Lint
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
