@@ -3,9 +3,9 @@ use rand_core::OsRng;
 use rdl_types::{Block, Transaction};
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::Path;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
+use std::path::Path;
 
 const LEDGER_PATH: &str = "data/rdl-ledger.json";
 const MAX_BLOCK_TXS: usize = 1_000;
@@ -45,43 +45,53 @@ fn validate_chain(chain: &[Block]) -> Result<(), String> {
 
 fn produce_block(chain: &mut Vec<Block>, mempool: &mut Vec<Transaction>) -> Result<(), String> {
     let previous = chain.last();
-    let height = previous.map(|b| b.height + 1).unwrap_or(0);
-    let transactions: Vec<Transaction> = mempool.drain(..).take(MAX_BLOCK_TXS).collect();
     let block = Block {
-        height,
+        height: previous.map(|b| b.height + 1).unwrap_or(0),
         parent_hash: previous.map(hash_block).unwrap_or([0; 32]),
         state_root: [0; 32],
-        transactions,
+        transactions: mempool.drain(..).take(MAX_BLOCK_TXS).collect(),
     };
     validate_block(&block, previous)?;
     chain.push(block);
     Ok(())
 }
 
-fn run_listener(addr: &str) -> std::io::Result<()> {
-    let listener = TcpListener::bind(addr)?;
-    println!("RDL development node listening on {}", addr);
-    for stream in listener.incoming() {
-        let mut stream = stream?;
-        let mut line = String::new();
-        BufReader::new(stream.try_clone()?).read_line(&mut line)?;
-        if line.trim() == "PING" {
-            stream.write_all(b"PONG\n")?;
+fn handle_peer(mut stream: TcpStream, chain: &Vec<Block>) -> std::io::Result<()> {
+    let mut line = String::new();
+    BufReader::new(stream.try_clone()?).read_line(&mut line)?;
+    match line.trim() {
+        "PING" => stream.write_all(b"PONG\n")?,
+        "GET_HEIGHT" => stream.write_all(format!("HEIGHT {}\n", chain.last().map(|b| b.height).unwrap_or(0)).as_bytes())?,
+        "GET_TIP_HASH" => {
+            let tip = chain.last().map(hash_block).unwrap_or([0; 32]);
+            stream.write_all(format!("TIP {}\n", hex_encode(&tip)).as_bytes())?
         }
+        _ => stream.write_all(b"ERROR unknown_message\n")?,
     }
     Ok(())
 }
 
-fn ping(addr: &str) -> std::io::Result<()> {
+fn run_listener(addr: &str) -> std::io::Result<()> {
+    let listener = TcpListener::bind(addr)?;
+    let chain = load_chain();
+    validate_chain(&chain).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    println!("RDL development node listening on {}", addr);
+    for stream in listener.incoming() {
+        handle_peer(stream?, &chain)?;
+    }
+    Ok(())
+}
+
+fn request(addr: &str, message: &str) -> std::io::Result<String> {
     let mut stream = TcpStream::connect(addr)?;
-    stream.write_all(b"PING\n")?;
+    stream.write_all(format!("{}\n", message).as_bytes())?;
     let mut response = String::new();
     BufReader::new(stream).read_line(&mut response)?;
-    if response.trim() != "PONG" {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "unexpected peer response"));
-    }
-    println!("peer {} responded PONG", addr);
-    Ok(())
+    Ok(response.trim().to_string())
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn main() {
@@ -90,17 +100,18 @@ fn main() {
         run_listener(&args[2]).expect("listener");
         return;
     }
-    if args.len() == 3 && args[1] == "--ping" {
-        ping(&args[2]).expect("peer ping");
+    if args.len() == 3 && (args[1] == "--ping" || args[1] == "--height" || args[1] == "--tip") {
+        let command = match args[1].as_str() {
+            "--ping" => "PING", "--height" => "GET_HEIGHT", _ => "GET_TIP_HASH",
+        };
+        println!("{}", request(&args[2], command).expect("peer request"));
         return;
     }
+
     let mut chain = load_chain();
     validate_chain(&chain).expect("existing ledger validation");
-
     if chain.is_empty() {
-        let genesis = Block { height: 0, parent_hash: [0; 32], state_root: [0; 32], transactions: vec![] };
-        validate_block(&genesis, None).expect("genesis validation");
-        chain.push(genesis);
+        chain.push(Block { height: 0, parent_hash: [0; 32], state_root: [0; 32], transactions: vec![] });
     }
 
     let key = SigningKey::generate(&mut OsRng);
@@ -109,13 +120,12 @@ fn main() {
         payload: b"RDL signed transaction".to_vec(), public_key: vec![], signature: vec![]
     };
     tx.sign(&key);
-
     let mut mempool = vec![tx];
     produce_block(&mut chain, &mut mempool).expect("block production");
     validate_chain(&chain).expect("chain validation");
     save_chain(&chain);
 
-    println!("RDL Node v0.1.0 — deterministic block validation foundation");
+    println!("RDL Node v0.1.0 — peer state query foundation");
     println!("ledger blocks: {}", chain.len());
-    println!("STATUS: local block production + minimal development TCP peer probe; no authenticated P2P/consensus/testnet.");
+    println!("STATUS: local ledger + signed blocks + development peer state queries; no authenticated gossip/sync/consensus/testnet.");
 }
