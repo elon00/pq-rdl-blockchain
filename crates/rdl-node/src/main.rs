@@ -59,7 +59,7 @@ fn lock_state_path()->&'static str{"data/rdl-lock-state.json"}
 fn load_lock_state()->LockState{fs::read(lock_state_path()).ok().and_then(|b|serde_json::from_slice(&b).ok()).unwrap_or_default()}
 fn save_lock_state(lock:&LockState){let _=fs::create_dir_all("data");let _=fs::write(lock_state_path(),serde_json::to_vec_pretty(lock).unwrap_or_default());}
 fn lock_payload(ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{consensus_payload(b"RDL-LOCK-v1",ctx,block_hash)}
-fn can_vote_for(lock:&LockState,ctx:ConsensusContext,hash:&[u8;32])->bool{if lock.block_hash.is_empty()||lock.height!=ctx.height{return true}if ctx.round>lock.round||ctx.view>lock.view{return true}lock.round==ctx.round&&lock.view==ctx.view&&lock.block_hash==hex_encode(hash)}
+fn can_vote_for(lock:&LockState,ctx:ConsensusContext,hash:&[u8;32])->bool{if lock.block_hash.is_empty()||lock.height!=ctx.height{return true}lock.block_hash==hex_encode(hash)}
 fn make_proposal_lock(key:&SigningKey,ctx:ConsensusContext,hash:&[u8;32])->ProposalLock{let validator=hex_encode(&key.verifying_key().to_bytes());ProposalLock{height:ctx.height,round:ctx.round,view:ctx.view,block_hash:hex_encode(hash),validator,signature:hex_encode(&key.sign(&lock_payload(ctx,hash)).to_bytes())}}
 fn verify_proposal_lock(lock:&ProposalLock,validators:&HashSet<String>)->bool{if !validators.contains(&lock.validator){return false}let Ok(bytes)=decode_hex(&lock.validator)else{return false};let Ok(pk)=<[u8;32]>::try_from(bytes.as_slice())else{return false};let Ok(hash)=decode_hex(&lock.block_hash)else{return false};let Ok(hash)=<[u8;32]>::try_from(hash.as_slice())else{return false};let Ok(sig)=decode_hex(&lock.signature)else{return false};let Ok(sig)=ed25519_dalek::Signature::from_slice(&sig)else{return false};let Ok(key)=VerifyingKey::from_bytes(&pk)else{return false};key.verify(&lock_payload(ConsensusContext{height:lock.height,round:lock.round,view:lock.view},&hash),&sig).is_ok()}
 fn load_consensus_context(height:u64)->ConsensusContext{if let Ok(bytes)=fs::read(consensus_state_path()){if let Ok(ctx)=serde_json::from_slice::<ConsensusContext>(&bytes){if ctx.height==height{return ctx}}}ConsensusContext{height,round:0,view:0}}
@@ -125,3 +125,77 @@ fn run_listener(addr:&str)->std::io::Result<()> {validate_tls_material()?;if !tl
 fn request(addr:&str,message:&str)->std::io::Result<String>{if !tls_material_present(){return Err(std::io::Error::new(std::io::ErrorKind::NotFound,"TLS certificate/key required by reality-mode client"))}validate_tls_material()?;let mut stream=TcpStream::connect_timeout(&addr.parse().map_err(|_|std::io::Error::new(std::io::ErrorKind::InvalidInput,"invalid peer address"))?,Duration::from_secs(SOCKET_TIMEOUT_SECS))?;configure_socket(&stream)?;let mut reader=BufReader::new(stream.try_clone()?);let nonce=read_challenge(&mut reader)?;let identity=load_or_create_identity();stream.write_all(format!("{}\n{}\n",auth_message(&identity,&nonce),message).as_bytes())?;let response=read_bounded_line(&mut reader)?;Ok(response.trim().to_string())}
 fn sync_from_peer(addr:&str)->Result<(),String>{let payload=request(addr,"GET_CHAIN").map_err(|e|e.to_string())?;let candidate:Vec<Block>=serde_json::from_str(&payload).map_err(|e|e.to_string())?;let mut local=load_chain();validate_chain(&local)?;if replace_chain_if_valid(&mut local,candidate)?{save_chain(&local);println!("SYNCED blocks={}",local.len())}else{println!("SYNC_NOT_NEEDED")}Ok(())}
 fn main(){let args:Vec<String>=std::env::args().collect();if args.len()==3&&args[1]=="--listen"{run_listener(&args[2]).expect("listener");return}if args.len()==3&&args[1]=="--sync"{sync_from_peer(&args[2]).expect("peer sync");return}if args.len()==3&&(args[1]=="--ping"||args[1]=="--height"||args[1]=="--tip"){let command=match args[1].as_str(){"--ping"=>"PING","--height"=>"GET_HEIGHT",_=>"GET_TIP_HASH"};println!("{}",request(&args[2],command).expect("peer request"));return}let mut chain=load_chain();validate_chain(&chain).expect("existing ledger validation");if chain.is_empty(){chain.push(Block{height:0,parent_hash:[0;32],state_root:[0;32],transactions:vec![]})}let key=SigningKey::generate(&mut OsRng);let mut tx=Transaction{from:String::new(),to:"rdl_demo_recipient".into(),nonce:0,payload:b"RDL signed transaction".to_vec(),public_key:vec![],signature:vec![]};tx.sign(&key);let mut mempool=vec![tx];produce_block(&mut chain,&mut mempool).expect("block production");validate_chain(&chain).expect("chain validation");save_chain(&chain);println!("RDL Node v0.1.0 — challenge-authenticated development peer foundation");println!("STATUS: challenge-response authentication, optional peer allowlist, bounded frames, socket timeouts, connection concurrency limits, per-IP caps, per-connection request limits, request pacing and shared identity-aware rate limiting, TLS material gating, bounded transaction admission, and bootstrap-peer propagation, validator authorization, and identity-bound quorum certificates, height/round/view-bound votes, deterministic proposer selection, signed timeout certificates, quorum-gated view changes, and persistent proposal safety locks implemented; encrypted rustls streams and adversarial Byzantine testing remain pending; signed vote equivocation evidence detection is implemented.");}
+
+#[cfg(test)]
+mod reality_tests {
+    use super::*;
+
+    fn ctx() -> ConsensusContext { ConsensusContext { height: 7, round: 2, view: 1 } }
+
+    #[test]
+    fn vote_signature_is_context_bound() {
+        let key = SigningKey::generate(&mut OsRng);
+        let hash = [9u8; 32];
+        let signature = hex_encode(&key.sign(&vote_payload(ctx(), &hash)).to_bytes());
+        assert!(verify_vote(&key.verifying_key().to_bytes(), ctx(), &hash, &signature));
+        assert!(!verify_vote(&key.verifying_key().to_bytes(), ConsensusContext { height: 8, round: 2, view: 1 }, &hash, &signature));
+    }
+
+    #[test]
+    fn qc_rejects_duplicate_validator_identity() {
+        let key = SigningKey::generate(&mut OsRng);
+        let hash = [3u8; 32];
+        let c = ctx();
+        let validator = hex_encode(&key.verifying_key().to_bytes());
+        let sig = hex_encode(&key.sign(&vote_payload(c, &hash)).to_bytes());
+        let mut validators = HashSet::new();
+        validators.insert(validator.clone());
+        let qc = QuorumCertificate {
+            height: c.height, round: c.round, view: c.view, block_hash: hex_encode(&hash),
+            votes: vec![
+                QuorumVote { validator: validator.clone(), signature: sig.clone() },
+                QuorumVote { validator, signature: sig }
+            ]
+        };
+        assert!(!verify_qc(&qc, &validators));
+    }
+
+    #[test]
+    fn equivocation_requires_two_valid_conflicting_votes() {
+        let key = SigningKey::generate(&mut OsRng);
+        let c = ctx();
+        let a = [1u8; 32];
+        let b = [2u8; 32];
+        let validator = hex_encode(&key.verifying_key().to_bytes());
+        let sa = hex_encode(&key.sign(&vote_payload(c, &a)).to_bytes());
+        let sb = hex_encode(&key.sign(&vote_payload(c, &b)).to_bytes());
+        assert!(detect_vote_equivocation(c, &a, &sa, &b, &sb, &validator).is_some());
+        assert!(detect_vote_equivocation(c, &a, &sa, &a, &sa, &validator).is_none());
+    }
+
+    #[test]
+    fn safety_lock_rejects_conflicting_block_after_view_change_without_unlock_certificate() {
+        let lock = LockState { height: 7, round: 2, view: 1, block_hash: hex_encode(&[1u8; 32]) };
+        assert!(can_vote_for(&lock, ctx(), &[1u8; 32]));
+        assert!(!can_vote_for(&lock, ConsensusContext { height: 7, round: 3, view: 2 }, &[2u8; 32]));
+        assert!(can_vote_for(&lock, ConsensusContext { height: 8, round: 0, view: 0 }, &[2u8; 32]));
+    }
+
+    #[test]
+    fn timeout_certificate_rejects_duplicate_identity() {
+        let key = SigningKey::generate(&mut OsRng);
+        let c = ctx();
+        let validator = hex_encode(&key.verifying_key().to_bytes());
+        let sig = hex_encode(&key.sign(&timeout_payload(c)).to_bytes());
+        let mut validators = HashSet::new();
+        validators.insert(validator.clone());
+        let tc = TimeoutCertificate {
+            height: c.height, round: c.round, view: c.view,
+            timeouts: vec![
+                TimeoutVote { validator: validator.clone(), signature: sig.clone() },
+                TimeoutVote { validator, signature: sig }
+            ]
+        };
+        assert!(!verify_timeout_certificate(&tc, &validators));
+    }
+}
