@@ -1,7 +1,7 @@
 services:
   rdl-node-1:
     build: .
-    command: ["./target/release/rdl-node","--listen","0.0.0.0:7001"]
+    command: ["./target/release/rdl-node","--listen","7001"]
     environment:
       RDL_NODE_ID: node-1
       RDL_DATA_DIR: /var/lib/rdl
@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
   rdl-node-2:
     build: .
-    command: ["./target/release/rdl-node","--listen","0.0.0.0:7002"]
+    command: ["./target/release/rdl-node","--listen","7002"]
     environment:
       RDL_NODE_ID: node-2
       RDL_DATA_DIR: /var/lib/rdl
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
   rdl-node-3:
     build: .
-    command: ["./target/release/rdl-node","--listen","0.0.0.0:7003"]
+    command: ["./target/release/rdl-node","--listen","7003"]
     environment:
       RDL_NODE_ID: node-3
       RDL_DATA_DIR: /var/lib/rdl
