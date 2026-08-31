@@ -4,8 +4,9 @@
   "chain_id": "RDL-TESTNET-001",
   "protocol_version": "1",
   "bootstrap_endpoints": [],
-  "genesis_sha256": "PENDING_REPRODUCIBLE_HASH",
+  "genesis_sha256": "GENERATE_WITH_node_scripts/testnet-genesis-hash.mjs",
   "release_version": "UNSET",
   "evidence_policy": "No public Testnet claim until independent infrastructure and reproducible evidence exist.",
-  "genesis_artifact": "testnet/genesis.json"
+  "genesis_artifact": "testnet/genesis.json",
+  "genesis_hash_status": "REPRODUCIBLE_COMMAND_AVAILABLE"
 }
