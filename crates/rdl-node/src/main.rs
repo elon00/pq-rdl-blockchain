@@ -3,15 +3,15 @@ use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey};
 use rand_core::{OsRng, RngCore};
 use rdl_types::{Block, Transaction};
 use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
+use std::io::Cursor;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
-use std::time::{Duration, Instant};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use std::collections::{HashMap, HashSet, VecDeque};
 use std::thread;
-use std::io::Cursor;
+use std::time::{Duration, Instant};
 
 const LEDGER_PATH: &str = "data/rdl-ledger.json";
 const IDENTITY_PATH: &str = "data/rdl-node-ed25519.key";
@@ -34,114 +34,1419 @@ const MAX_VALIDATORS: usize = 64;
 const MAX_TIMEOUT_CERTIFICATES: usize = 64;
 const MAX_EQUIVOCATION_EVIDENCE: usize = 256;
 
-#[derive(Debug,Clone,Copy,serde::Serialize,serde::Deserialize)]
-struct ConsensusContext{height:u64,round:u64,view:u64}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize,Default)]
-struct LockState{height:u64,round:u64,view:u64,block_hash:String}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-struct ProposalLock{height:u64,round:u64,view:u64,block_hash:String,validator:String,signature:String}
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+struct ConsensusContext {
+    height: u64,
+    round: u64,
+    view: u64,
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+struct LockState {
+    height: u64,
+    round: u64,
+    view: u64,
+    block_hash: String,
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ProposalLock {
+    height: u64,
+    round: u64,
+    view: u64,
+    block_hash: String,
+    validator: String,
+    signature: String,
+}
 
-fn transaction_id(tx:&Transaction)->[u8;32]{Sha256::digest(serde_json::to_vec(tx).expect("transaction serialization")).into()}
-fn admit_transaction(mempool:&mut Vec<Transaction>,seen:&mut HashSet<[u8;32]>,tx:Transaction)->Result<[u8;32],String>{if !tx.verify(){return Err("invalid transaction signature".into())}if mempool.len()>=MAX_MEMPOOL_TXS{return Err("mempool full".into())}let id=transaction_id(&tx);if !seen.insert(id){return Err("duplicate transaction".into())}mempool.push(tx);Ok(id)}
-fn configured_peers()->Vec<String>{std::env::var("RDL_BOOTSTRAP_PEERS").ok().map(|v|v.split(',').map(str::trim).filter(|p|!p.is_empty()).take(MAX_GOSSIP_PEERS).map(str::to_owned).collect()).unwrap_or_default()}
-fn valid_peer_address(addr:&str)->bool{addr.parse::<std::net::SocketAddr>().is_ok()}
-fn validator_set_path()->&'static str{"data/rdl-validators.json"}
-fn load_validator_set()->HashSet<String>{if let Ok(bytes)=fs::read(validator_set_path()) && let Ok(values)=serde_json::from_slice::<Vec<String>>(&bytes){return values.into_iter().filter(|v|v.len()==64&&v.bytes().all(|b|b.is_ascii_hexdigit())).take(MAX_VALIDATORS).collect()}HashSet::new()}
+fn transaction_id(tx: &Transaction) -> [u8; 32] {
+    Sha256::digest(serde_json::to_vec(tx).expect("transaction serialization")).into()
+}
+fn admit_transaction(
+    mempool: &mut Vec<Transaction>,
+    seen: &mut HashSet<[u8; 32]>,
+    tx: Transaction,
+) -> Result<[u8; 32], String> {
+    if !tx.verify() {
+        return Err("invalid transaction signature".into());
+    }
+    if mempool.len() >= MAX_MEMPOOL_TXS {
+        return Err("mempool full".into());
+    }
+    let id = transaction_id(&tx);
+    if !seen.insert(id) {
+        return Err("duplicate transaction".into());
+    }
+    mempool.push(tx);
+    Ok(id)
+}
+fn configured_peers() -> Vec<String> {
+    std::env::var("RDL_BOOTSTRAP_PEERS")
+        .ok()
+        .map(|v| {
+            v.split(',')
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .take(MAX_GOSSIP_PEERS)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+fn valid_peer_address(addr: &str) -> bool {
+    addr.parse::<std::net::SocketAddr>().is_ok()
+}
+fn validator_set_path() -> &'static str {
+    "data/rdl-validators.json"
+}
+fn load_validator_set() -> HashSet<String> {
+    if let Ok(bytes) = fs::read(validator_set_path())
+        && let Ok(values) = serde_json::from_slice::<Vec<String>>(&bytes)
+    {
+        return values
+            .into_iter()
+            .filter(|v| v.len() == 64 && v.bytes().all(|b| b.is_ascii_hexdigit()))
+            .take(MAX_VALIDATORS)
+            .collect();
+    }
+    HashSet::new()
+}
 #[allow(dead_code)]
-fn save_validator_set(validators:&HashSet<String>){let mut values:Vec<String>=validators.iter().cloned().collect();values.sort();let _=fs::create_dir_all("data");let _=fs::write(validator_set_path(),serde_json::to_vec_pretty(&values).unwrap_or_default());}
-fn validator_authorized(validators:&HashSet<String>,pk:&[u8;32])->bool{!validators.is_empty()&&validators.contains(&hex_encode(pk))}
-fn validator_quorum(validators:&HashSet<String>)->usize{let n=validators.len();if n==0{0}else{(2*n)/3+1}}
-fn consensus_payload(domain:&[u8],ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{let mut out=Vec::with_capacity(domain.len()+24+32);out.extend_from_slice(domain);out.extend_from_slice(&ctx.height.to_be_bytes());out.extend_from_slice(&ctx.round.to_be_bytes());out.extend_from_slice(&ctx.view.to_be_bytes());out.extend_from_slice(block_hash);out}
-fn vote_payload(ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{consensus_payload(b"RDL-VOTE-v2",ctx,block_hash)}
+fn save_validator_set(validators: &HashSet<String>) {
+    let mut values: Vec<String> = validators.iter().cloned().collect();
+    values.sort();
+    let _ = fs::create_dir_all("data");
+    let _ = fs::write(
+        validator_set_path(),
+        serde_json::to_vec_pretty(&values).unwrap_or_default(),
+    );
+}
+fn validator_authorized(validators: &HashSet<String>, pk: &[u8; 32]) -> bool {
+    !validators.is_empty() && validators.contains(&hex_encode(pk))
+}
+fn validator_quorum(validators: &HashSet<String>) -> usize {
+    let n = validators.len();
+    if n == 0 { 0 } else { (2 * n) / 3 + 1 }
+}
+fn consensus_payload(domain: &[u8], ctx: ConsensusContext, block_hash: &[u8; 32]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(domain.len() + 24 + 32);
+    out.extend_from_slice(domain);
+    out.extend_from_slice(&ctx.height.to_be_bytes());
+    out.extend_from_slice(&ctx.round.to_be_bytes());
+    out.extend_from_slice(&ctx.view.to_be_bytes());
+    out.extend_from_slice(block_hash);
+    out
+}
+fn vote_payload(ctx: ConsensusContext, block_hash: &[u8; 32]) -> Vec<u8> {
+    consensus_payload(b"RDL-VOTE-v2", ctx, block_hash)
+}
 #[allow(dead_code)]
-fn proposal_payload(ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{consensus_payload(b"RDL-PROPOSAL-v2",ctx,block_hash)}
-fn deterministic_proposer(ctx:ConsensusContext,validators:&HashSet<String>)->Option<String>{let mut ids:Vec<String>=validators.iter().cloned().collect();ids.sort();if ids.is_empty(){None}else{Some(ids[((ctx.height+ctx.round+ctx.view)as usize)%ids.len()].clone())}}
-fn consensus_state_path()->&'static str{"data/rdl-consensus.json"}
-fn lock_state_path()->&'static str{"data/rdl-lock-state.json"}
-fn load_lock_state()->LockState{fs::read(lock_state_path()).ok().and_then(|b|serde_json::from_slice(&b).ok()).unwrap_or_default()}
-fn save_lock_state(lock:&LockState){let _=fs::create_dir_all("data");let _=fs::write(lock_state_path(),serde_json::to_vec_pretty(lock).unwrap_or_default());}
-fn lock_payload(ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{consensus_payload(b"RDL-LOCK-v1",ctx,block_hash)}
-fn can_vote_for(lock:&LockState,ctx:ConsensusContext,hash:&[u8;32])->bool{if lock.block_hash.is_empty()||lock.height!=ctx.height{return true}lock.block_hash==hex_encode(hash)}
-fn make_proposal_lock(key:&SigningKey,ctx:ConsensusContext,hash:&[u8;32])->ProposalLock{let validator=hex_encode(&key.verifying_key().to_bytes());ProposalLock{height:ctx.height,round:ctx.round,view:ctx.view,block_hash:hex_encode(hash),validator,signature:hex_encode(&key.sign(&lock_payload(ctx,hash)).to_bytes())}}
-fn verify_proposal_lock(lock:&ProposalLock,validators:&HashSet<String>)->bool{if !validators.contains(&lock.validator){return false}let Ok(bytes)=decode_hex(&lock.validator)else{return false};let Ok(pk)=<[u8;32]>::try_from(bytes.as_slice())else{return false};let Ok(hash)=decode_hex(&lock.block_hash)else{return false};let Ok(hash)=<[u8;32]>::try_from(hash.as_slice())else{return false};let Ok(sig)=decode_hex(&lock.signature)else{return false};let Ok(sig)=ed25519_dalek::Signature::from_slice(&sig)else{return false};let Ok(key)=VerifyingKey::from_bytes(&pk)else{return false};key.verify(&lock_payload(ConsensusContext{height:lock.height,round:lock.round,view:lock.view},&hash),&sig).is_ok()}
-fn load_consensus_context(height:u64)->ConsensusContext{if let Ok(bytes)=fs::read(consensus_state_path()) && let Ok(ctx)=serde_json::from_slice::<ConsensusContext>(&bytes) && ctx.height==height{return ctx}ConsensusContext{height,round:0,view:0}}
-fn save_consensus_context(ctx:ConsensusContext){let _=fs::create_dir_all("data");let _=fs::write(consensus_state_path(),serde_json::to_vec_pretty(&ctx).unwrap_or_default());}
-fn advance_view(ctx:&mut ConsensusContext){ctx.view=ctx.view.saturating_add(1);ctx.round=ctx.round.saturating_add(1);save_consensus_context(*ctx)}
-fn timeout_payload(ctx:ConsensusContext)->Vec<u8>{let mut out=b"RDL-TIMEOUT-v1".to_vec();out.extend_from_slice(&ctx.height.to_be_bytes());out.extend_from_slice(&ctx.round.to_be_bytes());out.extend_from_slice(&ctx.view.to_be_bytes());out}
-fn validator_timeout(key:&SigningKey,ctx:ConsensusContext)->String{let pk=key.verifying_key().to_bytes();format!("TIMEOUT {} {} {} {} {}",ctx.height,ctx.round,ctx.view,hex_encode(&pk),hex_encode(&key.sign(&timeout_payload(ctx)).to_bytes()))}
-fn verify_timeout(pk:&[u8;32],ctx:ConsensusContext,sig_hex:&str)->bool{let Ok(key)=VerifyingKey::from_bytes(pk)else{return false};let Ok(bytes)=decode_hex(sig_hex)else{return false};let Ok(sig)=ed25519_dalek::Signature::from_slice(&bytes)else{return false};key.verify(&timeout_payload(ctx),&sig).is_ok()}
-fn request_timeout(addr:&str,ctx:ConsensusContext)->std::io::Result<String>{request(addr,&format!("TIMEOUT_REQUEST {} {} {}",ctx.height,ctx.round,ctx.view))}
-fn validator_vote(key:&SigningKey,ctx:ConsensusContext,block_hash:&[u8;32])->String{let pk=key.verifying_key().to_bytes();format!("VOTE {} {} {} {} {} {}",ctx.height,ctx.round,ctx.view,hex_encode(block_hash),hex_encode(&pk),hex_encode(&key.sign(&vote_payload(ctx,block_hash)).to_bytes()))}
-fn verify_vote(pk:&[u8;32],ctx:ConsensusContext,block_hash:&[u8;32],signature_hex:&str)->bool{let Ok(key)=VerifyingKey::from_bytes(pk)else{return false};let Ok(bytes)=decode_hex(signature_hex)else{return false};let Ok(sig)=ed25519_dalek::Signature::from_slice(&bytes)else{return false};key.verify(&vote_payload(ctx,block_hash),&sig).is_ok()}
-fn load_peer_table()->Vec<String>{let path="data/rdl-peers.json";let mut peers=configured_peers();if let Ok(bytes)=fs::read(path) && let Ok(saved)=serde_json::from_slice::<Vec<String>>(&bytes){for peer in saved{if valid_peer_address(&peer)&&!peers.contains(&peer)&&peers.len()<MAX_DISCOVERED_PEERS{peers.push(peer)}}}peers}
-fn save_peer_table(peers:&[String]){let _=fs::create_dir_all("data");let _=fs::write("data/rdl-peers.json",serde_json::to_vec_pretty(peers).unwrap_or_default());}
-fn add_discovered_peer(peers:&mut Vec<String>,peer:String)->bool{if !valid_peer_address(&peer)||peers.contains(&peer)||peers.len()>=MAX_DISCOVERED_PEERS{return false}peers.push(peer);save_peer_table(peers);true}
-fn gossip_transaction(tx:&Transaction){let Ok(payload)=serde_json::to_string(tx)else{return};let message=format!("SUBMIT_TX {}",payload);for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS){let message=message.clone();thread::spawn(move||{let _=request(&peer,&message);});}}
-fn request_vote(addr:&str,ctx:ConsensusContext,block_hash:&[u8;32])->std::io::Result<String>{request(addr,&format!("VOTE_REQUEST {} {} {} {}",ctx.height,ctx.round,ctx.view,hex_encode(block_hash)))}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-struct QuorumVote{validator:String,signature:String}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-struct QuorumCertificate{height:u64,round:u64,view:u64,block_hash:String,votes:Vec<QuorumVote>}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-struct TimeoutVote{validator:String,signature:String}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-struct TimeoutCertificate{height:u64,round:u64,view:u64,timeouts:Vec<TimeoutVote>}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-struct EquivocationEvidence{height:u64,round:u64,view:u64,validator:String,first_block_hash:String,first_signature:String,second_block_hash:String,second_signature:String}
-fn parse_verified_vote(response:&str,ctx:ConsensusContext,block_hash:&[u8;32],validators:&HashSet<String>)->Option<QuorumVote>{let mut p=response.split_whitespace();if p.next()!=Some("VOTE"){return None}let h=p.next()?.parse::<u64>().ok()?;let r=p.next()?.parse::<u64>().ok()?;let v=p.next()?.parse::<u64>().ok()?;let(hash,pk,sig)=(p.next()?,p.next()?,p.next()?);if h!=ctx.height||r!=ctx.round||v!=ctx.view||hash!=hex_encode(block_hash)||!validators.contains(pk){return None}let bytes=decode_hex(pk).ok()?;let key=<[u8;32]>::try_from(bytes.as_slice()).ok()?;if !verify_vote(&key,ctx,block_hash,sig){return None}Some(QuorumVote{validator:pk.to_owned(),signature:sig.to_owned()})}
-fn collect_verified_qc(ctx:ConsensusContext,block_hash:&[u8;32],validators:&HashSet<String>,self_key:&SigningKey)->QuorumCertificate{let mut votes=HashMap::<String,String>::new();let self_pk=self_key.verifying_key().to_bytes();let self_id=hex_encode(&self_pk);if validators.contains(&self_id){votes.insert(self_id,hex_encode(&self_key.sign(&vote_payload(ctx,block_hash)).to_bytes()));}for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS){if votes.len()>=validator_quorum(validators){break}if let Ok(response)=request_vote(&peer,ctx,block_hash) && let Some(v)=parse_verified_vote(&response,ctx,block_hash,validators){votes.entry(v.validator).or_insert(v.signature);}}QuorumCertificate{height:ctx.height,round:ctx.round,view:ctx.view,block_hash:hex_encode(block_hash),votes:votes.into_iter().map(|(validator,signature)|QuorumVote{validator,signature}).collect()}}
-fn verify_qc(qc:&QuorumCertificate,validators:&HashSet<String>)->bool{let Ok(hash_bytes)=decode_hex(&qc.block_hash)else{return false};let Ok(hash)=<[u8;32]>::try_from(hash_bytes.as_slice())else{return false};if qc.votes.len()<validator_quorum(validators){return false}let ctx=ConsensusContext{height:qc.height,round:qc.round,view:qc.view};let mut seen=HashSet::new();qc.votes.iter().all(|v|{if !seen.insert(&v.validator)||!validators.contains(&v.validator){return false}let Ok(bytes)=decode_hex(&v.validator)else{return false};let Ok(pk)=<[u8;32]>::try_from(bytes.as_slice())else{return false};verify_vote(&pk,ctx,&hash,&v.signature)})}
-fn parse_verified_timeout(response:&str,ctx:ConsensusContext,validators:&HashSet<String>)->Option<TimeoutVote>{let mut p=response.split_whitespace();if p.next()!=Some("TIMEOUT"){return None}let h=p.next()?.parse::<u64>().ok()?;let r=p.next()?.parse::<u64>().ok()?;let v=p.next()?.parse::<u64>().ok()?;let(pk,sig)=(p.next()?,p.next()?);if h!=ctx.height||r!=ctx.round||v!=ctx.view||!validators.contains(pk){return None}let bytes=decode_hex(pk).ok()?;let key=<[u8;32]>::try_from(bytes.as_slice()).ok()?;if !verify_timeout(&key,ctx,sig){return None}Some(TimeoutVote{validator:pk.to_owned(),signature:sig.to_owned()})}
-fn collect_timeout_certificate(ctx:ConsensusContext,validators:&HashSet<String>,self_key:&SigningKey)->TimeoutCertificate{let mut votes=HashMap::<String,String>::new();let self_pk=hex_encode(&self_key.verifying_key().to_bytes());if validators.contains(&self_pk){votes.insert(self_pk,hex_encode(&self_key.sign(&timeout_payload(ctx)).to_bytes()));}for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS){if votes.len()>=validator_quorum(validators){break}if let Ok(response)=request_timeout(&peer,ctx) && let Some(v)=parse_verified_timeout(&response,ctx,validators){votes.entry(v.validator).or_insert(v.signature);}}TimeoutCertificate{height:ctx.height,round:ctx.round,view:ctx.view,timeouts:votes.into_iter().map(|(validator,signature)|TimeoutVote{validator,signature}).collect()}}
-fn verify_timeout_certificate(tc:&TimeoutCertificate,validators:&HashSet<String>)->bool{if tc.timeouts.len()<validator_quorum(validators){return false}let ctx=ConsensusContext{height:tc.height,round:tc.round,view:tc.view};let mut seen=HashSet::new();tc.timeouts.iter().all(|t|{if !seen.insert(&t.validator)||!validators.contains(&t.validator){return false}let Ok(bytes)=decode_hex(&t.validator)else{return false};let Ok(pk)=<[u8;32]>::try_from(bytes.as_slice())else{return false};verify_timeout(&pk,ctx,&t.signature)})}
-fn coordinated_view_change(ctx:&mut ConsensusContext,validators:&HashSet<String>,identity:&SigningKey)->Option<TimeoutCertificate>{let tc=collect_timeout_certificate(*ctx,validators,identity);if !verify_timeout_certificate(&tc,validators){return None}if tc.timeouts.len()>MAX_TIMEOUT_CERTIFICATES{return None}fs::create_dir_all("data").ok()?;let path=format!("data/tc-{}-{}-{}.json",ctx.height,ctx.round,ctx.view);fs::write(path,serde_json::to_vec_pretty(&tc).ok()?).ok()?;advance_view(ctx);Some(tc)}
-fn detect_vote_equivocation(ctx:ConsensusContext,first_hash:&[u8;32],first_sig:&str,second_hash:&[u8;32],second_sig:&str,validator:&str)->Option<EquivocationEvidence>{if first_hash==second_hash{return None}let bytes=decode_hex(validator).ok()?;let pk=<[u8;32]>::try_from(bytes.as_slice()).ok()?;if !verify_vote(&pk,ctx,first_hash,first_sig)||!verify_vote(&pk,ctx,second_hash,second_sig){return None}Some(EquivocationEvidence{height:ctx.height,round:ctx.round,view:ctx.view,validator:validator.to_owned(),first_block_hash:hex_encode(first_hash),first_signature:first_sig.to_owned(),second_block_hash:hex_encode(second_hash),second_signature:second_sig.to_owned()})}
-fn persist_equivocation(e:&EquivocationEvidence)->std::io::Result<()> {let dir="data/equivocation";fs::create_dir_all(dir)?;let path=format!("{}/{}-{}-{}-{}.json",dir,e.height,e.round,e.view,e.validator);fs::write(path,serde_json::to_vec_pretty(e).map_err(std::io::Error::other)?)}
-fn scan_qc_equivocation(ctx:ConsensusContext,qc:&QuorumCertificate,history:&mut HashMap<(u64,u64,u64,String),(String,String)>)->Vec<EquivocationEvidence>{let mut found=Vec::new();for vote in &qc.votes{let key=(ctx.height,ctx.round,ctx.view,vote.validator.clone());if let Some((old_hash,old_sig))=history.get(&key){if old_hash!=&qc.block_hash{let Ok(a)=decode_hex(old_hash)else{continue};let Ok(b)=decode_hex(&qc.block_hash)else{continue};let Ok(a)=<[u8;32]>::try_from(a.as_slice())else{continue};let Ok(b)=<[u8;32]>::try_from(b.as_slice())else{continue};if let Some(e)=detect_vote_equivocation(ctx,&a,old_sig,&b,&vote.signature,&vote.validator){let _=persist_equivocation(&e);found.push(e);}}}else{history.insert(key,(qc.block_hash.clone(),vote.signature.clone()));}}found}
-fn gossip_block(block:&Block){let Ok(payload)=serde_json::to_string(block)else{return};let message=format!("SUBMIT_BLOCK {}",payload);for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS){let message=message.clone();thread::spawn(move||{let _=request(&peer,&message);});}}
-fn hash_block(block: &Block) -> [u8; 32] { Sha256::digest(serde_json::to_vec(block).expect("block serialization")).into() }
-fn load_chain() -> Vec<Block> { if !Path::new(LEDGER_PATH).exists(){return Vec::new()} serde_json::from_slice(&fs::read(LEDGER_PATH).expect("ledger read")).expect("ledger decode") }
-fn save_chain(chain:&[Block]) { fs::create_dir_all("data").expect("ledger directory"); fs::write(LEDGER_PATH,serde_json::to_vec_pretty(chain).expect("ledger encode")).expect("ledger write"); }
-fn load_or_create_identity()->SigningKey { fs::create_dir_all("data").expect("identity directory"); if let Ok(bytes)=fs::read(IDENTITY_PATH) && let Ok(seed)=<[u8;32]>::try_from(bytes.as_slice()){return SigningKey::from_bytes(&seed)} let key=SigningKey::generate(&mut OsRng); fs::write(IDENTITY_PATH,key.to_bytes()).expect("identity write"); key }
-fn validate_block(block:&Block,previous:Option<&Block>)->Result<(),String>{ if block.transactions.len()>MAX_BLOCK_TXS{return Err("block transaction limit exceeded".into())} for tx in &block.transactions{if !tx.verify(){return Err(format!("invalid transaction signature at height {}",block.height))}} match previous{None if block.height==0&&block.parent_hash==[0;32]=>Ok(()),Some(prev) if block.height==prev.height+1&&block.parent_hash==hash_block(prev)=>Ok(()),_=>Err(format!("invalid block linkage at height {}",block.height))} }
-fn validate_chain(chain:&[Block])->Result<(),String>{for(i,b)in chain.iter().enumerate(){validate_block(b,i.checked_sub(1).map(|j|&chain[j]))?}Ok(())}
-fn replace_chain_if_valid(local:&mut Vec<Block>,candidate:Vec<Block>)->Result<bool,String>{validate_chain(&candidate)?;if candidate.len()>local.len(){*local=candidate;return Ok(true)}Ok(false)}
-fn produce_block(chain:&mut Vec<Block>,mempool:&mut Vec<Transaction>)->Result<(),String>{let previous=chain.last();let block=Block{height:previous.map(|b|b.height+1).unwrap_or(0),parent_hash:previous.map(hash_block).unwrap_or([0;32]),state_root:[0;32],transactions:mempool.drain(..).take(MAX_BLOCK_TXS).collect()};validate_block(&block,previous)?;chain.push(block);Ok(())}
-fn hex_encode(bytes:&[u8])->String{bytes.iter().map(|b|format!("{b:02x}")).collect()}
-fn decode_hex(s:&str)->Result<Vec<u8>,String>{if !s.len().is_multiple_of(2){return Err("invalid hex".into())}(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).map_err(|_|"invalid hex".into())).collect()}
-fn auth_payload(nonce:&[u8;32])->Vec<u8>{[AUTH_DOMAIN,nonce].concat()}
-fn auth_message(key:&SigningKey,nonce:&[u8;32])->String{let public=key.verifying_key().to_bytes();let sig=key.sign(&auth_payload(nonce)).to_bytes();format!("AUTH {} {}",hex_encode(&public),hex_encode(&sig))}
-fn verify_auth_key(line:&str,nonce:&[u8;32])->Option<[u8;32]>{let mut p=line.split_whitespace();if p.next()!=Some("AUTH"){return None}let(Some(pk),Some(sig))=(p.next(),p.next())else{return None};let Ok(pk)=decode_hex(pk)else{return None};let Ok(sig)=decode_hex(sig)else{return None};let Ok(pk)=<[u8;32]>::try_from(pk.as_slice())else{return None};let Ok(key)=VerifyingKey::from_bytes(&pk)else{return None};let Ok(sig)=ed25519_dalek::Signature::from_slice(&sig)else{return None};if key.verify(&auth_payload(nonce),&sig).is_ok(){Some(pk)}else{None}}
-fn peer_authorized(pk:&[u8;32])->bool{match std::env::var("RDL_AUTHORIZED_PEERS"){Ok(list)=>{let id=hex_encode(pk);list.split(',').map(str::trim).any(|x|x==id)},Err(_)=>true}}
-fn identity_rate_allowed(limits:&mut HashMap<[u8;32],VecDeque<Instant>>,pk:[u8;32])->bool{let now=Instant::now();let window=Duration::from_secs(RATE_WINDOW_SECS);let q=limits.entry(pk).or_default();while q.front().is_some_and(|t|now.duration_since(*t)>=window){q.pop_front();}if q.len()>=MAX_REQUESTS_PER_WINDOW{return false}q.push_back(now);true}
-fn read_bounded_line(reader:&mut BufReader<TcpStream>)->std::io::Result<String>{let mut line=String::new();let n=reader.read_line(&mut line)?;if n==0{return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof,"peer closed connection"))}if line.len()>MAX_FRAME_BYTES{return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"frame too large"))}Ok(line)}
-fn issue_challenge(stream:&mut TcpStream)->std::io::Result<[u8;32]>{let mut nonce=[0u8;32];OsRng.fill_bytes(&mut nonce);stream.write_all(format!("CHALLENGE {}\n",hex_encode(&nonce)).as_bytes())?;Ok(nonce)}
-fn read_challenge(reader:&mut BufReader<TcpStream>)->std::io::Result<[u8;32]>{let line=read_bounded_line(reader)?;let mut p=line.split_whitespace();if p.next()!=Some("CHALLENGE"){return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"missing challenge"))}let hex=p.next().ok_or_else(||std::io::Error::new(std::io::ErrorKind::InvalidData,"missing nonce"))?;let bytes=decode_hex(hex).map_err(std::io::Error::other)?;<[u8;32]>::try_from(bytes.as_slice()).map_err(|_|std::io::Error::new(std::io::ErrorKind::InvalidData,"invalid nonce"))}
-fn tls_material_present()->bool{Path::new(TLS_CERT_PATH).exists()&&Path::new(TLS_KEY_PATH).exists()}
-fn load_tls_cert_chain()->std::io::Result<Vec<rustls::pki_types::CertificateDer<'static>>>{let data=fs::read(TLS_CERT_PATH)?;let mut reader=Cursor::new(data);rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>,_>>().map_err(std::io::Error::other)}
-fn load_tls_private_key()->std::io::Result<rustls::pki_types::PrivateKeyDer<'static>>{let data=fs::read(TLS_KEY_PATH)?;let mut reader=Cursor::new(data);rustls_pemfile::private_key(&mut reader)?.ok_or_else(||std::io::Error::new(std::io::ErrorKind::InvalidData,"no private key found"))}
-fn validate_tls_material()->std::io::Result<()> {if !tls_material_present(){return Ok(())}let certs=load_tls_cert_chain()?;let key=load_tls_private_key()?;rustls::ServerConfig::builder().with_no_client_auth().with_single_cert(certs,key).map_err(std::io::Error::other)?;Ok(())}
-fn configure_socket(stream:&TcpStream)->std::io::Result<()> {let timeout=Some(Duration::from_secs(SOCKET_TIMEOUT_SECS));stream.set_read_timeout(timeout)?;stream.set_write_timeout(timeout)?;stream.set_nodelay(true)?;Ok(())}
+fn proposal_payload(ctx: ConsensusContext, block_hash: &[u8; 32]) -> Vec<u8> {
+    consensus_payload(b"RDL-PROPOSAL-v2", ctx, block_hash)
+}
+fn deterministic_proposer(ctx: ConsensusContext, validators: &HashSet<String>) -> Option<String> {
+    let mut ids: Vec<String> = validators.iter().cloned().collect();
+    ids.sort();
+    if ids.is_empty() {
+        None
+    } else {
+        Some(ids[((ctx.height + ctx.round + ctx.view) as usize) % ids.len()].clone())
+    }
+}
+fn consensus_state_path() -> &'static str {
+    "data/rdl-consensus.json"
+}
+fn lock_state_path() -> &'static str {
+    "data/rdl-lock-state.json"
+}
+fn load_lock_state() -> LockState {
+    fs::read(lock_state_path())
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+fn save_lock_state(lock: &LockState) {
+    let _ = fs::create_dir_all("data");
+    let _ = fs::write(
+        lock_state_path(),
+        serde_json::to_vec_pretty(lock).unwrap_or_default(),
+    );
+}
+fn lock_payload(ctx: ConsensusContext, block_hash: &[u8; 32]) -> Vec<u8> {
+    consensus_payload(b"RDL-LOCK-v1", ctx, block_hash)
+}
+fn can_vote_for(lock: &LockState, ctx: ConsensusContext, hash: &[u8; 32]) -> bool {
+    if lock.block_hash.is_empty() || lock.height != ctx.height {
+        return true;
+    }
+    lock.block_hash == hex_encode(hash)
+}
+fn make_proposal_lock(key: &SigningKey, ctx: ConsensusContext, hash: &[u8; 32]) -> ProposalLock {
+    let validator = hex_encode(&key.verifying_key().to_bytes());
+    ProposalLock {
+        height: ctx.height,
+        round: ctx.round,
+        view: ctx.view,
+        block_hash: hex_encode(hash),
+        validator,
+        signature: hex_encode(&key.sign(&lock_payload(ctx, hash)).to_bytes()),
+    }
+}
+fn verify_proposal_lock(lock: &ProposalLock, validators: &HashSet<String>) -> bool {
+    if !validators.contains(&lock.validator) {
+        return false;
+    }
+    let Ok(bytes) = decode_hex(&lock.validator) else {
+        return false;
+    };
+    let Ok(pk) = <[u8; 32]>::try_from(bytes.as_slice()) else {
+        return false;
+    };
+    let Ok(hash) = decode_hex(&lock.block_hash) else {
+        return false;
+    };
+    let Ok(hash) = <[u8; 32]>::try_from(hash.as_slice()) else {
+        return false;
+    };
+    let Ok(sig) = decode_hex(&lock.signature) else {
+        return false;
+    };
+    let Ok(sig) = ed25519_dalek::Signature::from_slice(&sig) else {
+        return false;
+    };
+    let Ok(key) = VerifyingKey::from_bytes(&pk) else {
+        return false;
+    };
+    key.verify(
+        &lock_payload(
+            ConsensusContext {
+                height: lock.height,
+                round: lock.round,
+                view: lock.view,
+            },
+            &hash,
+        ),
+        &sig,
+    )
+    .is_ok()
+}
+fn load_consensus_context(height: u64) -> ConsensusContext {
+    if let Ok(bytes) = fs::read(consensus_state_path())
+        && let Ok(ctx) = serde_json::from_slice::<ConsensusContext>(&bytes)
+        && ctx.height == height
+    {
+        return ctx;
+    }
+    ConsensusContext {
+        height,
+        round: 0,
+        view: 0,
+    }
+}
+fn save_consensus_context(ctx: ConsensusContext) {
+    let _ = fs::create_dir_all("data");
+    let _ = fs::write(
+        consensus_state_path(),
+        serde_json::to_vec_pretty(&ctx).unwrap_or_default(),
+    );
+}
+fn advance_view(ctx: &mut ConsensusContext) {
+    ctx.view = ctx.view.saturating_add(1);
+    ctx.round = ctx.round.saturating_add(1);
+    save_consensus_context(*ctx)
+}
+fn timeout_payload(ctx: ConsensusContext) -> Vec<u8> {
+    let mut out = b"RDL-TIMEOUT-v1".to_vec();
+    out.extend_from_slice(&ctx.height.to_be_bytes());
+    out.extend_from_slice(&ctx.round.to_be_bytes());
+    out.extend_from_slice(&ctx.view.to_be_bytes());
+    out
+}
+fn validator_timeout(key: &SigningKey, ctx: ConsensusContext) -> String {
+    let pk = key.verifying_key().to_bytes();
+    format!(
+        "TIMEOUT {} {} {} {} {}",
+        ctx.height,
+        ctx.round,
+        ctx.view,
+        hex_encode(&pk),
+        hex_encode(&key.sign(&timeout_payload(ctx)).to_bytes())
+    )
+}
+fn verify_timeout(pk: &[u8; 32], ctx: ConsensusContext, sig_hex: &str) -> bool {
+    let Ok(key) = VerifyingKey::from_bytes(pk) else {
+        return false;
+    };
+    let Ok(bytes) = decode_hex(sig_hex) else {
+        return false;
+    };
+    let Ok(sig) = ed25519_dalek::Signature::from_slice(&bytes) else {
+        return false;
+    };
+    key.verify(&timeout_payload(ctx), &sig).is_ok()
+}
+fn request_timeout(addr: &str, ctx: ConsensusContext) -> std::io::Result<String> {
+    request(
+        addr,
+        &format!("TIMEOUT_REQUEST {} {} {}", ctx.height, ctx.round, ctx.view),
+    )
+}
+fn validator_vote(key: &SigningKey, ctx: ConsensusContext, block_hash: &[u8; 32]) -> String {
+    let pk = key.verifying_key().to_bytes();
+    format!(
+        "VOTE {} {} {} {} {} {}",
+        ctx.height,
+        ctx.round,
+        ctx.view,
+        hex_encode(block_hash),
+        hex_encode(&pk),
+        hex_encode(&key.sign(&vote_payload(ctx, block_hash)).to_bytes())
+    )
+}
+fn verify_vote(
+    pk: &[u8; 32],
+    ctx: ConsensusContext,
+    block_hash: &[u8; 32],
+    signature_hex: &str,
+) -> bool {
+    let Ok(key) = VerifyingKey::from_bytes(pk) else {
+        return false;
+    };
+    let Ok(bytes) = decode_hex(signature_hex) else {
+        return false;
+    };
+    let Ok(sig) = ed25519_dalek::Signature::from_slice(&bytes) else {
+        return false;
+    };
+    key.verify(&vote_payload(ctx, block_hash), &sig).is_ok()
+}
+fn load_peer_table() -> Vec<String> {
+    let path = "data/rdl-peers.json";
+    let mut peers = configured_peers();
+    if let Ok(bytes) = fs::read(path)
+        && let Ok(saved) = serde_json::from_slice::<Vec<String>>(&bytes)
+    {
+        for peer in saved {
+            if valid_peer_address(&peer)
+                && !peers.contains(&peer)
+                && peers.len() < MAX_DISCOVERED_PEERS
+            {
+                peers.push(peer)
+            }
+        }
+    }
+    peers
+}
+fn save_peer_table(peers: &[String]) {
+    let _ = fs::create_dir_all("data");
+    let _ = fs::write(
+        "data/rdl-peers.json",
+        serde_json::to_vec_pretty(peers).unwrap_or_default(),
+    );
+}
+fn add_discovered_peer(peers: &mut Vec<String>, peer: String) -> bool {
+    if !valid_peer_address(&peer) || peers.contains(&peer) || peers.len() >= MAX_DISCOVERED_PEERS {
+        return false;
+    }
+    peers.push(peer);
+    save_peer_table(peers);
+    true
+}
+fn gossip_transaction(tx: &Transaction) {
+    let Ok(payload) = serde_json::to_string(tx) else {
+        return;
+    };
+    let message = format!("SUBMIT_TX {}", payload);
+    for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS) {
+        let message = message.clone();
+        thread::spawn(move || {
+            let _ = request(&peer, &message);
+        });
+    }
+}
+fn request_vote(
+    addr: &str,
+    ctx: ConsensusContext,
+    block_hash: &[u8; 32],
+) -> std::io::Result<String> {
+    request(
+        addr,
+        &format!(
+            "VOTE_REQUEST {} {} {} {}",
+            ctx.height,
+            ctx.round,
+            ctx.view,
+            hex_encode(block_hash)
+        ),
+    )
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct QuorumVote {
+    validator: String,
+    signature: String,
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct QuorumCertificate {
+    height: u64,
+    round: u64,
+    view: u64,
+    block_hash: String,
+    votes: Vec<QuorumVote>,
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct TimeoutVote {
+    validator: String,
+    signature: String,
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct TimeoutCertificate {
+    height: u64,
+    round: u64,
+    view: u64,
+    timeouts: Vec<TimeoutVote>,
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct EquivocationEvidence {
+    height: u64,
+    round: u64,
+    view: u64,
+    validator: String,
+    first_block_hash: String,
+    first_signature: String,
+    second_block_hash: String,
+    second_signature: String,
+}
+fn parse_verified_vote(
+    response: &str,
+    ctx: ConsensusContext,
+    block_hash: &[u8; 32],
+    validators: &HashSet<String>,
+) -> Option<QuorumVote> {
+    let mut p = response.split_whitespace();
+    if p.next() != Some("VOTE") {
+        return None;
+    }
+    let h = p.next()?.parse::<u64>().ok()?;
+    let r = p.next()?.parse::<u64>().ok()?;
+    let v = p.next()?.parse::<u64>().ok()?;
+    let (hash, pk, sig) = (p.next()?, p.next()?, p.next()?);
+    if h != ctx.height
+        || r != ctx.round
+        || v != ctx.view
+        || hash != hex_encode(block_hash)
+        || !validators.contains(pk)
+    {
+        return None;
+    }
+    let bytes = decode_hex(pk).ok()?;
+    let key = <[u8; 32]>::try_from(bytes.as_slice()).ok()?;
+    if !verify_vote(&key, ctx, block_hash, sig) {
+        return None;
+    }
+    Some(QuorumVote {
+        validator: pk.to_owned(),
+        signature: sig.to_owned(),
+    })
+}
+fn collect_verified_qc(
+    ctx: ConsensusContext,
+    block_hash: &[u8; 32],
+    validators: &HashSet<String>,
+    self_key: &SigningKey,
+) -> QuorumCertificate {
+    let mut votes = HashMap::<String, String>::new();
+    let self_pk = self_key.verifying_key().to_bytes();
+    let self_id = hex_encode(&self_pk);
+    if validators.contains(&self_id) {
+        votes.insert(
+            self_id,
+            hex_encode(&self_key.sign(&vote_payload(ctx, block_hash)).to_bytes()),
+        );
+    }
+    for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS) {
+        if votes.len() >= validator_quorum(validators) {
+            break;
+        }
+        if let Ok(response) = request_vote(&peer, ctx, block_hash)
+            && let Some(v) = parse_verified_vote(&response, ctx, block_hash, validators)
+        {
+            votes.entry(v.validator).or_insert(v.signature);
+        }
+    }
+    QuorumCertificate {
+        height: ctx.height,
+        round: ctx.round,
+        view: ctx.view,
+        block_hash: hex_encode(block_hash),
+        votes: votes
+            .into_iter()
+            .map(|(validator, signature)| QuorumVote {
+                validator,
+                signature,
+            })
+            .collect(),
+    }
+}
+fn verify_qc(qc: &QuorumCertificate, validators: &HashSet<String>) -> bool {
+    let Ok(hash_bytes) = decode_hex(&qc.block_hash) else {
+        return false;
+    };
+    let Ok(hash) = <[u8; 32]>::try_from(hash_bytes.as_slice()) else {
+        return false;
+    };
+    if qc.votes.len() < validator_quorum(validators) {
+        return false;
+    }
+    let ctx = ConsensusContext {
+        height: qc.height,
+        round: qc.round,
+        view: qc.view,
+    };
+    let mut seen = HashSet::new();
+    qc.votes.iter().all(|v| {
+        if !seen.insert(&v.validator) || !validators.contains(&v.validator) {
+            return false;
+        }
+        let Ok(bytes) = decode_hex(&v.validator) else {
+            return false;
+        };
+        let Ok(pk) = <[u8; 32]>::try_from(bytes.as_slice()) else {
+            return false;
+        };
+        verify_vote(&pk, ctx, &hash, &v.signature)
+    })
+}
+fn parse_verified_timeout(
+    response: &str,
+    ctx: ConsensusContext,
+    validators: &HashSet<String>,
+) -> Option<TimeoutVote> {
+    let mut p = response.split_whitespace();
+    if p.next() != Some("TIMEOUT") {
+        return None;
+    }
+    let h = p.next()?.parse::<u64>().ok()?;
+    let r = p.next()?.parse::<u64>().ok()?;
+    let v = p.next()?.parse::<u64>().ok()?;
+    let (pk, sig) = (p.next()?, p.next()?);
+    if h != ctx.height || r != ctx.round || v != ctx.view || !validators.contains(pk) {
+        return None;
+    }
+    let bytes = decode_hex(pk).ok()?;
+    let key = <[u8; 32]>::try_from(bytes.as_slice()).ok()?;
+    if !verify_timeout(&key, ctx, sig) {
+        return None;
+    }
+    Some(TimeoutVote {
+        validator: pk.to_owned(),
+        signature: sig.to_owned(),
+    })
+}
+fn collect_timeout_certificate(
+    ctx: ConsensusContext,
+    validators: &HashSet<String>,
+    self_key: &SigningKey,
+) -> TimeoutCertificate {
+    let mut votes = HashMap::<String, String>::new();
+    let self_pk = hex_encode(&self_key.verifying_key().to_bytes());
+    if validators.contains(&self_pk) {
+        votes.insert(
+            self_pk,
+            hex_encode(&self_key.sign(&timeout_payload(ctx)).to_bytes()),
+        );
+    }
+    for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS) {
+        if votes.len() >= validator_quorum(validators) {
+            break;
+        }
+        if let Ok(response) = request_timeout(&peer, ctx)
+            && let Some(v) = parse_verified_timeout(&response, ctx, validators)
+        {
+            votes.entry(v.validator).or_insert(v.signature);
+        }
+    }
+    TimeoutCertificate {
+        height: ctx.height,
+        round: ctx.round,
+        view: ctx.view,
+        timeouts: votes
+            .into_iter()
+            .map(|(validator, signature)| TimeoutVote {
+                validator,
+                signature,
+            })
+            .collect(),
+    }
+}
+fn verify_timeout_certificate(tc: &TimeoutCertificate, validators: &HashSet<String>) -> bool {
+    if tc.timeouts.len() < validator_quorum(validators) {
+        return false;
+    }
+    let ctx = ConsensusContext {
+        height: tc.height,
+        round: tc.round,
+        view: tc.view,
+    };
+    let mut seen = HashSet::new();
+    tc.timeouts.iter().all(|t| {
+        if !seen.insert(&t.validator) || !validators.contains(&t.validator) {
+            return false;
+        }
+        let Ok(bytes) = decode_hex(&t.validator) else {
+            return false;
+        };
+        let Ok(pk) = <[u8; 32]>::try_from(bytes.as_slice()) else {
+            return false;
+        };
+        verify_timeout(&pk, ctx, &t.signature)
+    })
+}
+fn coordinated_view_change(
+    ctx: &mut ConsensusContext,
+    validators: &HashSet<String>,
+    identity: &SigningKey,
+) -> Option<TimeoutCertificate> {
+    let tc = collect_timeout_certificate(*ctx, validators, identity);
+    if !verify_timeout_certificate(&tc, validators) {
+        return None;
+    }
+    if tc.timeouts.len() > MAX_TIMEOUT_CERTIFICATES {
+        return None;
+    }
+    fs::create_dir_all("data").ok()?;
+    let path = format!("data/tc-{}-{}-{}.json", ctx.height, ctx.round, ctx.view);
+    fs::write(path, serde_json::to_vec_pretty(&tc).ok()?).ok()?;
+    advance_view(ctx);
+    Some(tc)
+}
+fn detect_vote_equivocation(
+    ctx: ConsensusContext,
+    first_hash: &[u8; 32],
+    first_sig: &str,
+    second_hash: &[u8; 32],
+    second_sig: &str,
+    validator: &str,
+) -> Option<EquivocationEvidence> {
+    if first_hash == second_hash {
+        return None;
+    }
+    let bytes = decode_hex(validator).ok()?;
+    let pk = <[u8; 32]>::try_from(bytes.as_slice()).ok()?;
+    if !verify_vote(&pk, ctx, first_hash, first_sig)
+        || !verify_vote(&pk, ctx, second_hash, second_sig)
+    {
+        return None;
+    }
+    Some(EquivocationEvidence {
+        height: ctx.height,
+        round: ctx.round,
+        view: ctx.view,
+        validator: validator.to_owned(),
+        first_block_hash: hex_encode(first_hash),
+        first_signature: first_sig.to_owned(),
+        second_block_hash: hex_encode(second_hash),
+        second_signature: second_sig.to_owned(),
+    })
+}
+fn persist_equivocation(e: &EquivocationEvidence) -> std::io::Result<()> {
+    let dir = "data/equivocation";
+    fs::create_dir_all(dir)?;
+    let path = format!(
+        "{}/{}-{}-{}-{}.json",
+        dir, e.height, e.round, e.view, e.validator
+    );
+    fs::write(
+        path,
+        serde_json::to_vec_pretty(e).map_err(std::io::Error::other)?,
+    )
+}
+fn scan_qc_equivocation(
+    ctx: ConsensusContext,
+    qc: &QuorumCertificate,
+    history: &mut HashMap<(u64, u64, u64, String), (String, String)>,
+) -> Vec<EquivocationEvidence> {
+    let mut found = Vec::new();
+    for vote in &qc.votes {
+        let key = (ctx.height, ctx.round, ctx.view, vote.validator.clone());
+        if let Some((old_hash, old_sig)) = history.get(&key) {
+            if old_hash != &qc.block_hash {
+                let Ok(a) = decode_hex(old_hash) else {
+                    continue;
+                };
+                let Ok(b) = decode_hex(&qc.block_hash) else {
+                    continue;
+                };
+                let Ok(a) = <[u8; 32]>::try_from(a.as_slice()) else {
+                    continue;
+                };
+                let Ok(b) = <[u8; 32]>::try_from(b.as_slice()) else {
+                    continue;
+                };
+                if let Some(e) =
+                    detect_vote_equivocation(ctx, &a, old_sig, &b, &vote.signature, &vote.validator)
+                {
+                    let _ = persist_equivocation(&e);
+                    found.push(e);
+                }
+            }
+        } else {
+            history.insert(key, (qc.block_hash.clone(), vote.signature.clone()));
+        }
+    }
+    found
+}
+fn gossip_block(block: &Block) {
+    let Ok(payload) = serde_json::to_string(block) else {
+        return;
+    };
+    let message = format!("SUBMIT_BLOCK {}", payload);
+    for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS) {
+        let message = message.clone();
+        thread::spawn(move || {
+            let _ = request(&peer, &message);
+        });
+    }
+}
+fn hash_block(block: &Block) -> [u8; 32] {
+    Sha256::digest(serde_json::to_vec(block).expect("block serialization")).into()
+}
+fn load_chain() -> Vec<Block> {
+    if !Path::new(LEDGER_PATH).exists() {
+        return Vec::new();
+    }
+    serde_json::from_slice(&fs::read(LEDGER_PATH).expect("ledger read")).expect("ledger decode")
+}
+fn save_chain(chain: &[Block]) {
+    fs::create_dir_all("data").expect("ledger directory");
+    fs::write(
+        LEDGER_PATH,
+        serde_json::to_vec_pretty(chain).expect("ledger encode"),
+    )
+    .expect("ledger write");
+}
+fn load_or_create_identity() -> SigningKey {
+    fs::create_dir_all("data").expect("identity directory");
+    if let Ok(bytes) = fs::read(IDENTITY_PATH)
+        && let Ok(seed) = <[u8; 32]>::try_from(bytes.as_slice())
+    {
+        return SigningKey::from_bytes(&seed);
+    }
+    let key = SigningKey::generate(&mut OsRng);
+    fs::write(IDENTITY_PATH, key.to_bytes()).expect("identity write");
+    key
+}
+fn validate_block(block: &Block, previous: Option<&Block>) -> Result<(), String> {
+    if block.transactions.len() > MAX_BLOCK_TXS {
+        return Err("block transaction limit exceeded".into());
+    }
+    for tx in &block.transactions {
+        if !tx.verify() {
+            return Err(format!(
+                "invalid transaction signature at height {}",
+                block.height
+            ));
+        }
+    }
+    match previous {
+        None if block.height == 0 && block.parent_hash == [0; 32] => Ok(()),
+        Some(prev) if block.height == prev.height + 1 && block.parent_hash == hash_block(prev) => {
+            Ok(())
+        }
+        _ => Err(format!("invalid block linkage at height {}", block.height)),
+    }
+}
+fn validate_chain(chain: &[Block]) -> Result<(), String> {
+    for (i, b) in chain.iter().enumerate() {
+        validate_block(b, i.checked_sub(1).map(|j| &chain[j]))?
+    }
+    Ok(())
+}
+fn replace_chain_if_valid(local: &mut Vec<Block>, candidate: Vec<Block>) -> Result<bool, String> {
+    validate_chain(&candidate)?;
+    if candidate.len() > local.len() {
+        *local = candidate;
+        return Ok(true);
+    }
+    Ok(false)
+}
+fn produce_block(chain: &mut Vec<Block>, mempool: &mut Vec<Transaction>) -> Result<(), String> {
+    let previous = chain.last();
+    let block = Block {
+        height: previous.map(|b| b.height + 1).unwrap_or(0),
+        parent_hash: previous.map(hash_block).unwrap_or([0; 32]),
+        state_root: [0; 32],
+        transactions: mempool.drain(..).take(MAX_BLOCK_TXS).collect(),
+    };
+    validate_block(&block, previous)?;
+    chain.push(block);
+    Ok(())
+}
+fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
+    if !s.len().is_multiple_of(2) {
+        return Err("invalid hex".into());
+    }
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(|_| "invalid hex".into()))
+        .collect()
+}
+fn auth_payload(nonce: &[u8; 32]) -> Vec<u8> {
+    [AUTH_DOMAIN, nonce].concat()
+}
+fn auth_message(key: &SigningKey, nonce: &[u8; 32]) -> String {
+    let public = key.verifying_key().to_bytes();
+    let sig = key.sign(&auth_payload(nonce)).to_bytes();
+    format!("AUTH {} {}", hex_encode(&public), hex_encode(&sig))
+}
+fn verify_auth_key(line: &str, nonce: &[u8; 32]) -> Option<[u8; 32]> {
+    let mut p = line.split_whitespace();
+    if p.next() != Some("AUTH") {
+        return None;
+    }
+    let (Some(pk), Some(sig)) = (p.next(), p.next()) else {
+        return None;
+    };
+    let Ok(pk) = decode_hex(pk) else { return None };
+    let Ok(sig) = decode_hex(sig) else {
+        return None;
+    };
+    let Ok(pk) = <[u8; 32]>::try_from(pk.as_slice()) else {
+        return None;
+    };
+    let Ok(key) = VerifyingKey::from_bytes(&pk) else {
+        return None;
+    };
+    let Ok(sig) = ed25519_dalek::Signature::from_slice(&sig) else {
+        return None;
+    };
+    if key.verify(&auth_payload(nonce), &sig).is_ok() {
+        Some(pk)
+    } else {
+        None
+    }
+}
+fn peer_authorized(pk: &[u8; 32]) -> bool {
+    match std::env::var("RDL_AUTHORIZED_PEERS") {
+        Ok(list) => {
+            let id = hex_encode(pk);
+            list.split(',').map(str::trim).any(|x| x == id)
+        }
+        Err(_) => true,
+    }
+}
+fn identity_rate_allowed(limits: &mut HashMap<[u8; 32], VecDeque<Instant>>, pk: [u8; 32]) -> bool {
+    let now = Instant::now();
+    let window = Duration::from_secs(RATE_WINDOW_SECS);
+    let q = limits.entry(pk).or_default();
+    while q.front().is_some_and(|t| now.duration_since(*t) >= window) {
+        q.pop_front();
+    }
+    if q.len() >= MAX_REQUESTS_PER_WINDOW {
+        return false;
+    }
+    q.push_back(now);
+    true
+}
+fn read_bounded_line(reader: &mut BufReader<TcpStream>) -> std::io::Result<String> {
+    let mut line = String::new();
+    let n = reader.read_line(&mut line)?;
+    if n == 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "peer closed connection",
+        ));
+    }
+    if line.len() > MAX_FRAME_BYTES {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "frame too large",
+        ));
+    }
+    Ok(line)
+}
+fn issue_challenge(stream: &mut TcpStream) -> std::io::Result<[u8; 32]> {
+    let mut nonce = [0u8; 32];
+    OsRng.fill_bytes(&mut nonce);
+    stream.write_all(format!("CHALLENGE {}\n", hex_encode(&nonce)).as_bytes())?;
+    Ok(nonce)
+}
+fn read_challenge(reader: &mut BufReader<TcpStream>) -> std::io::Result<[u8; 32]> {
+    let line = read_bounded_line(reader)?;
+    let mut p = line.split_whitespace();
+    if p.next() != Some("CHALLENGE") {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "missing challenge",
+        ));
+    }
+    let hex = p
+        .next()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "missing nonce"))?;
+    let bytes = decode_hex(hex).map_err(std::io::Error::other)?;
+    <[u8; 32]>::try_from(bytes.as_slice())
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid nonce"))
+}
+fn tls_material_present() -> bool {
+    Path::new(TLS_CERT_PATH).exists() && Path::new(TLS_KEY_PATH).exists()
+}
+fn load_tls_cert_chain() -> std::io::Result<Vec<rustls::pki_types::CertificateDer<'static>>> {
+    let data = fs::read(TLS_CERT_PATH)?;
+    let mut reader = Cursor::new(data);
+    rustls_pemfile::certs(&mut reader)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(std::io::Error::other)
+}
+fn load_tls_private_key() -> std::io::Result<rustls::pki_types::PrivateKeyDer<'static>> {
+    let data = fs::read(TLS_KEY_PATH)?;
+    let mut reader = Cursor::new(data);
+    rustls_pemfile::private_key(&mut reader)?
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "no private key found"))
+}
+fn validate_tls_material() -> std::io::Result<()> {
+    if !tls_material_present() {
+        return Ok(());
+    }
+    let certs = load_tls_cert_chain()?;
+    let key = load_tls_private_key()?;
+    rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)
+        .map_err(std::io::Error::other)?;
+    Ok(())
+}
+fn configure_socket(stream: &TcpStream) -> std::io::Result<()> {
+    let timeout = Some(Duration::from_secs(SOCKET_TIMEOUT_SECS));
+    stream.set_read_timeout(timeout)?;
+    stream.set_write_timeout(timeout)?;
+    stream.set_nodelay(true)?;
+    Ok(())
+}
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-fn handle_peer(mut stream:TcpStream,chain:&mut Vec<Block>,mempool:&Arc<Mutex<Vec<Transaction>>>,seen_txs:&Arc<Mutex<HashSet<[u8;32]>>>,identity_limits:&Arc<Mutex<HashMap<[u8;32],VecDeque<Instant>>>>,peer_table:&Arc<Mutex<Vec<String>>>,validators:&Arc<Mutex<HashSet<String>>>,vote_history:&Arc<Mutex<HashMap<(u64,u64,u64,String),(String,String)>>>) -> std::io::Result<()> {configure_socket(&stream)?;let nonce=issue_challenge(&mut stream)?;let mut reader=BufReader::new(stream.try_clone()?);let auth=read_bounded_line(&mut reader)?;let Some(peer_key)=verify_auth_key(auth.trim(),&nonce) else {stream.write_all(b"UNAUTHENTICATED\n")?;return Ok(())};if !peer_authorized(&peer_key){stream.write_all(b"UNAUTHORIZED\n")?;return Ok(())}let is_validator={let set=validators.lock().map_err(|_|std::io::Error::other("validator set poisoned"))?;validator_authorized(&set,&peer_key)};let mut last_request=Instant::now()-Duration::from_millis(MIN_REQUEST_INTERVAL_MS);for _ in 0..MAX_REQUESTS_PER_CONNECTION {let globally_allowed={let mut limits=identity_limits.lock().map_err(|_|std::io::Error::other("rate limiter poisoned"))?;identity_rate_allowed(&mut limits,peer_key)};if !globally_allowed{stream.write_all(b"IDENTITY_RATE_LIMITED\n")?;return Ok(())}let elapsed=last_request.elapsed();let minimum=Duration::from_millis(MIN_REQUEST_INTERVAL_MS);if elapsed<minimum{stream.write_all(b"RATE_LIMITED\n")?;return Ok(())}last_request=Instant::now();let line=read_bounded_line(&mut reader)?;match line.trim(){"PING"=>stream.write_all(b"PONG\n")?,"GET_HEIGHT"=>stream.write_all(format!("HEIGHT {}\n",chain.last().map(|b|b.height).unwrap_or(0)).as_bytes())?,"GET_TIP_HASH"=>stream.write_all(format!("TIP {}\n",hex_encode(&chain.last().map(hash_block).unwrap_or([0;32]))).as_bytes())?,"GET_CHAIN"=>{stream.write_all(serde_json::to_string(chain).map_err(std::io::Error::other)?.as_bytes())?;stream.write_all(b"\n")?},"GET_VALIDATOR_STATUS"=>{let set=validators.lock().map_err(|_|std::io::Error::other("validator set poisoned"))?;stream.write_all(format!("VALIDATOR {} QUORUM {}\n",if is_validator{"YES"}else{"NO"},validator_quorum(&set)).as_bytes())?},"GET_PEERS"=>{let peers=peer_table.lock().map_err(|_|std::io::Error::other("peer table poisoned"))?;stream.write_all(serde_json::to_string(&*peers).map_err(std::io::Error::other)?.as_bytes())?;stream.write_all(b"\n")?},message if message.starts_with("ANNOUNCE_PEER ")=>{let peer=message.trim_start_matches("ANNOUNCE_PEER ").trim().to_owned();let added={let mut peers=peer_table.lock().map_err(|_|std::io::Error::other("peer table poisoned"))?;add_discovered_peer(&mut peers,peer)};stream.write_all(if added{b"PEER_ACCEPTED\n"}else{b"PEER_REJECTED\n"})?},message if message.starts_with("SUBMIT_TX ")=>{let tx:Transaction=serde_json::from_str(message.trim_start_matches("SUBMIT_TX ")).map_err(std::io::Error::other)?;let result={let mut pool=mempool.lock().map_err(|_|std::io::Error::other("mempool lock poisoned"))?;let mut seen=seen_txs.lock().map_err(|_|std::io::Error::other("seen transaction lock poisoned"))?;admit_transaction(&mut pool,&mut seen,tx.clone())};match result{Ok(id)=>{gossip_transaction(&tx);stream.write_all(format!("TX_ACCEPTED {}\n",hex_encode(&id)).as_bytes())?},Err(reason)=>stream.write_all(format!("TX_REJECTED {}\n",reason).as_bytes())?}},message if message.starts_with("TIMEOUT_REQUEST ")=>{if !is_validator{stream.write_all(b"TIMEOUT_REJECTED validator_required\n")?;continue}let mut p=message.trim_start_matches("TIMEOUT_REQUEST ").split_whitespace();let ctx=ConsensusContext{height:p.next().ok_or_else(||std::io::Error::other("missing height"))?.parse().map_err(std::io::Error::other)?,round:p.next().ok_or_else(||std::io::Error::other("missing round"))?.parse().map_err(std::io::Error::other)?,view:p.next().ok_or_else(||std::io::Error::other("missing view"))?.parse().map_err(std::io::Error::other)?};let identity=load_or_create_identity();stream.write_all(format!("{}\n",validator_timeout(&identity,ctx)).as_bytes())?},message if message.starts_with("VOTE_REQUEST ")=>{if !is_validator{stream.write_all(b"VOTE_REJECTED validator_required\n")?;continue}let mut p=message.trim_start_matches("VOTE_REQUEST ").split_whitespace();let ctx=ConsensusContext{height:p.next().ok_or_else(||std::io::Error::other("missing height"))?.parse().map_err(std::io::Error::other)?,round:p.next().ok_or_else(||std::io::Error::other("missing round"))?.parse().map_err(std::io::Error::other)?,view:p.next().ok_or_else(||std::io::Error::other("missing view"))?.parse().map_err(std::io::Error::other)?};let hash=decode_hex(p.next().ok_or_else(||std::io::Error::other("missing block hash"))?).map_err(std::io::Error::other)?;let hash=<[u8;32]>::try_from(hash.as_slice()).map_err(|_|std::io::Error::new(std::io::ErrorKind::InvalidData,"invalid block hash"))?;let identity=load_or_create_identity();let mut lock=load_lock_state();if !can_vote_for(&lock,ctx,&hash){stream.write_all(b"VOTE_REJECTED safety_lock_conflict\n")?;continue}let proposal_lock=make_proposal_lock(&identity,ctx,&hash);let set=validators.lock().map_err(|_|std::io::Error::other("validator set poisoned"))?;if !verify_proposal_lock(&proposal_lock,&set){stream.write_all(b"VOTE_REJECTED invalid_lock\n")?;continue}lock=LockState{height:ctx.height,round:ctx.round,view:ctx.view,block_hash:hex_encode(&hash)};save_lock_state(&lock);stream.write_all(format!("{}\n",validator_vote(&identity,ctx,&hash)).as_bytes())?},message if message.starts_with("SUBMIT_BLOCK ")=>{if !is_validator{stream.write_all(b"BLOCK_REJECTED validator_required\n")?;continue}let block:Block=serde_json::from_str(message.trim_start_matches("SUBMIT_BLOCK ")).map_err(std::io::Error::other)?;match validate_block(&block,chain.last()){Ok(())=>{let hash=hash_block(&block);let validators_snapshot=validators.lock().map_err(|_|std::io::Error::other("validator set poisoned"))?.clone();let ctx=load_consensus_context(block.height);let identity=load_or_create_identity();let self_id=hex_encode(&identity.verifying_key().to_bytes());if deterministic_proposer(ctx,&validators_snapshot).as_deref()!=Some(self_id.as_str()){stream.write_all(b"BLOCK_REJECTED not_deterministic_proposer\n")?;continue}let qc=collect_verified_qc(ctx,&hash,&validators_snapshot,&identity);if !verify_qc(&qc,&validators_snapshot){let mut failed_ctx=load_consensus_context(block.height);let identity=load_or_create_identity();if coordinated_view_change(&mut failed_ctx,&validators_snapshot,&identity).is_some(){stream.write_all(format!("BLOCK_REJECTED quorum_timeout_view_advanced {} {}\n",failed_ctx.round,failed_ctx.view).as_bytes())?}else{stream.write_all(b"BLOCK_REJECTED quorum_timeout_certificate_not_reached\n")?}continue}let evidence={let mut history=vote_history.lock().map_err(|_|std::io::Error::other("vote history poisoned"))?;scan_qc_equivocation(ctx,&qc,&mut history)};if evidence.len()>MAX_EQUIVOCATION_EVIDENCE{stream.write_all(b"BLOCK_REJECTED equivocation_evidence_limit\n")?;continue}if !evidence.is_empty(){stream.write_all(b"BLOCK_REJECTED validator_equivocation_detected\n")?;continue}let qc_path=format!("data/qc-{}.json",hex_encode(&hash));fs::create_dir_all("data")?;fs::write(&qc_path,serde_json::to_vec_pretty(&qc).map_err(std::io::Error::other)?)?;chain.push(block.clone());save_chain(chain);gossip_block(&block);stream.write_all(format!("BLOCK_COMMITTED {} QC_VOTES {}\n",hex_encode(&hash),qc.votes.len()).as_bytes())?},Err(reason)=>stream.write_all(format!("BLOCK_REJECTED {}\n",reason).as_bytes())?}},_=>stream.write_all(b"ERROR unknown_message\n")?}}stream.write_all(b"CONNECTION_REQUEST_LIMIT\n")?;Ok(())}
-fn run_listener(addr:&str)->std::io::Result<()> {validate_tls_material()?;if !tls_material_present(){return Err(std::io::Error::new(std::io::ErrorKind::NotFound,"TLS certificate/key required for listener; refusing plaintext reality-mode listener"))}let listener=TcpListener::bind(addr)?;listener.set_nonblocking(true)?;let chain=Arc::new(Mutex::new(load_chain()));validate_chain(&chain.lock().map_err(|_|std::io::Error::other("chain lock poisoned"))?).map_err(std::io::Error::other)?;let active=Arc::new(std::sync::atomic::AtomicUsize::new(0));let per_ip=Arc::new(Mutex::new(HashMap::<std::net::IpAddr,usize>::new()));let identity_limits=Arc::new(Mutex::new(HashMap::<[u8;32],VecDeque<Instant>>::new()));let mempool=Arc::new(Mutex::new(Vec::<Transaction>::new()));let seen_txs=Arc::new(Mutex::new(HashSet::<[u8;32]>::new()));let peer_table=Arc::new(Mutex::new(load_peer_table()));let validators=Arc::new(Mutex::new(load_validator_set()));let vote_history=Arc::new(Mutex::new(HashMap::<(u64,u64,u64,String),(String,String)>::new()));println!("RDL secure-transport-gated node listening on {}; TLS material validated",addr);loop{match listener.accept(){Ok((stream,peer_addr))=>{if active.load(std::sync::atomic::Ordering::Relaxed)>=MAX_CONNECTIONS{drop(stream);continue}let ip=peer_addr.ip();let allowed={let mut counts=per_ip.lock().map_err(|_|std::io::Error::other("peer map poisoned"))?;let count=counts.entry(ip).or_insert(0);if *count>=MAX_CONNECTIONS_PER_IP{false}else{*count+=1;true}};if !allowed{drop(stream);continue}let chain=Arc::clone(&chain);let active=Arc::clone(&active);let per_ip=Arc::clone(&per_ip);let identity_limits=Arc::clone(&identity_limits);let mempool=Arc::clone(&mempool);let seen_txs=Arc::clone(&seen_txs);let peer_table=Arc::clone(&peer_table);let validators=Arc::clone(&validators);let vote_history=Arc::clone(&vote_history);active.fetch_add(1,std::sync::atomic::Ordering::Relaxed);thread::spawn(move||{if let Ok(mut guard)=chain.lock(){let _=handle_peer(stream,&mut guard,&mempool,&seen_txs,&identity_limits,&peer_table,&validators,&vote_history);}if let Ok(mut counts) = per_ip.lock() && let Some(count) = counts.get_mut(&ip) { *count = count.saturating_sub(1); if *count == 0 { counts.remove(&ip); } } active.fetch_sub(1,std::sync::atomic::Ordering::Relaxed);});},Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>thread::sleep(Duration::from_millis(10)),Err(e)=>return Err(e)}}}
-fn request(addr:&str,message:&str)->std::io::Result<String>{if !tls_material_present(){return Err(std::io::Error::new(std::io::ErrorKind::NotFound,"TLS certificate/key required by reality-mode client"))}validate_tls_material()?;let mut stream=TcpStream::connect_timeout(&addr.parse().map_err(|_|std::io::Error::new(std::io::ErrorKind::InvalidInput,"invalid peer address"))?,Duration::from_secs(SOCKET_TIMEOUT_SECS))?;configure_socket(&stream)?;let mut reader=BufReader::new(stream.try_clone()?);let nonce=read_challenge(&mut reader)?;let identity=load_or_create_identity();stream.write_all(format!("{}\n{}\n",auth_message(&identity,&nonce),message).as_bytes())?;let response=read_bounded_line(&mut reader)?;Ok(response.trim().to_string())}
-fn sync_from_peer(addr:&str)->Result<(),String>{let payload=request(addr,"GET_CHAIN").map_err(|e|e.to_string())?;let candidate:Vec<Block>=serde_json::from_str(&payload).map_err(|e|e.to_string())?;let mut local=load_chain();validate_chain(&local)?;if replace_chain_if_valid(&mut local,candidate)?{save_chain(&local);println!("SYNCED blocks={}",local.len())}else{println!("SYNC_NOT_NEEDED")}Ok(())}
-fn main(){let args:Vec<String>=std::env::args().collect();if args.len()==3&&args[1]=="--listen"{run_listener(&args[2]).expect("listener");return}if args.len()==3&&args[1]=="--sync"{sync_from_peer(&args[2]).expect("peer sync");return}if args.len()==3&&(args[1]=="--ping"||args[1]=="--height"||args[1]=="--tip"){let command=match args[1].as_str(){"--ping"=>"PING","--height"=>"GET_HEIGHT",_=>"GET_TIP_HASH"};println!("{}",request(&args[2],command).expect("peer request"));return}let mut chain=load_chain();validate_chain(&chain).expect("existing ledger validation");if chain.is_empty(){chain.push(Block{height:0,parent_hash:[0;32],state_root:[0;32],transactions:vec![]})}let key=SigningKey::generate(&mut OsRng);let mut tx=Transaction{from:String::new(),to:"rdl_demo_recipient".into(),nonce:0,payload:b"RDL signed transaction".to_vec(),public_key:vec![],signature:vec![]};tx.sign(&key);let mut mempool=vec![tx];produce_block(&mut chain,&mut mempool).expect("block production");validate_chain(&chain).expect("chain validation");save_chain(&chain);println!("RDL Node v0.1.0 — challenge-authenticated development peer foundation");println!("STATUS: challenge-response authentication, optional peer allowlist, bounded frames, socket timeouts, connection concurrency limits, per-IP caps, per-connection request limits, request pacing and shared identity-aware rate limiting, TLS material gating, bounded transaction admission, and bootstrap-peer propagation, validator authorization, and identity-bound quorum certificates, height/round/view-bound votes, deterministic proposer selection, signed timeout certificates, quorum-gated view changes, and persistent proposal safety locks implemented; encrypted rustls streams and adversarial Byzantine testing remain pending; signed vote equivocation evidence detection is implemented.");}
+fn handle_peer(
+    mut stream: TcpStream,
+    chain: &mut Vec<Block>,
+    mempool: &Arc<Mutex<Vec<Transaction>>>,
+    seen_txs: &Arc<Mutex<HashSet<[u8; 32]>>>,
+    identity_limits: &Arc<Mutex<HashMap<[u8; 32], VecDeque<Instant>>>>,
+    peer_table: &Arc<Mutex<Vec<String>>>,
+    validators: &Arc<Mutex<HashSet<String>>>,
+    vote_history: &Arc<Mutex<HashMap<(u64, u64, u64, String), (String, String)>>>,
+) -> std::io::Result<()> {
+    configure_socket(&stream)?;
+    let nonce = issue_challenge(&mut stream)?;
+    let mut reader = BufReader::new(stream.try_clone()?);
+    let auth = read_bounded_line(&mut reader)?;
+    let Some(peer_key) = verify_auth_key(auth.trim(), &nonce) else {
+        stream.write_all(b"UNAUTHENTICATED\n")?;
+        return Ok(());
+    };
+    if !peer_authorized(&peer_key) {
+        stream.write_all(b"UNAUTHORIZED\n")?;
+        return Ok(());
+    }
+    let is_validator = {
+        let set = validators
+            .lock()
+            .map_err(|_| std::io::Error::other("validator set poisoned"))?;
+        validator_authorized(&set, &peer_key)
+    };
+    let mut last_request = Instant::now() - Duration::from_millis(MIN_REQUEST_INTERVAL_MS);
+    for _ in 0..MAX_REQUESTS_PER_CONNECTION {
+        let globally_allowed = {
+            let mut limits = identity_limits
+                .lock()
+                .map_err(|_| std::io::Error::other("rate limiter poisoned"))?;
+            identity_rate_allowed(&mut limits, peer_key)
+        };
+        if !globally_allowed {
+            stream.write_all(b"IDENTITY_RATE_LIMITED\n")?;
+            return Ok(());
+        }
+        let elapsed = last_request.elapsed();
+        let minimum = Duration::from_millis(MIN_REQUEST_INTERVAL_MS);
+        if elapsed < minimum {
+            stream.write_all(b"RATE_LIMITED\n")?;
+            return Ok(());
+        }
+        last_request = Instant::now();
+        let line = read_bounded_line(&mut reader)?;
+        match line.trim() {
+            "PING" => stream.write_all(b"PONG\n")?,
+            "GET_HEIGHT" => stream.write_all(
+                format!("HEIGHT {}\n", chain.last().map(|b| b.height).unwrap_or(0)).as_bytes(),
+            )?,
+            "GET_TIP_HASH" => stream.write_all(
+                format!(
+                    "TIP {}\n",
+                    hex_encode(&chain.last().map(hash_block).unwrap_or([0; 32]))
+                )
+                .as_bytes(),
+            )?,
+            "GET_CHAIN" => {
+                stream.write_all(
+                    serde_json::to_string(chain)
+                        .map_err(std::io::Error::other)?
+                        .as_bytes(),
+                )?;
+                stream.write_all(b"\n")?
+            }
+            "GET_VALIDATOR_STATUS" => {
+                let set = validators
+                    .lock()
+                    .map_err(|_| std::io::Error::other("validator set poisoned"))?;
+                stream.write_all(
+                    format!(
+                        "VALIDATOR {} QUORUM {}\n",
+                        if is_validator { "YES" } else { "NO" },
+                        validator_quorum(&set)
+                    )
+                    .as_bytes(),
+                )?
+            }
+            "GET_PEERS" => {
+                let peers = peer_table
+                    .lock()
+                    .map_err(|_| std::io::Error::other("peer table poisoned"))?;
+                stream.write_all(
+                    serde_json::to_string(&*peers)
+                        .map_err(std::io::Error::other)?
+                        .as_bytes(),
+                )?;
+                stream.write_all(b"\n")?
+            }
+            message if message.starts_with("ANNOUNCE_PEER ") => {
+                let peer = message
+                    .trim_start_matches("ANNOUNCE_PEER ")
+                    .trim()
+                    .to_owned();
+                let added = {
+                    let mut peers = peer_table
+                        .lock()
+                        .map_err(|_| std::io::Error::other("peer table poisoned"))?;
+                    add_discovered_peer(&mut peers, peer)
+                };
+                stream.write_all(if added {
+                    b"PEER_ACCEPTED\n"
+                } else {
+                    b"PEER_REJECTED\n"
+                })?
+            }
+            message if message.starts_with("SUBMIT_TX ") => {
+                let tx: Transaction =
+                    serde_json::from_str(message.trim_start_matches("SUBMIT_TX "))
+                        .map_err(std::io::Error::other)?;
+                let result = {
+                    let mut pool = mempool
+                        .lock()
+                        .map_err(|_| std::io::Error::other("mempool lock poisoned"))?;
+                    let mut seen = seen_txs
+                        .lock()
+                        .map_err(|_| std::io::Error::other("seen transaction lock poisoned"))?;
+                    admit_transaction(&mut pool, &mut seen, tx.clone())
+                };
+                match result {
+                    Ok(id) => {
+                        gossip_transaction(&tx);
+                        stream.write_all(format!("TX_ACCEPTED {}\n", hex_encode(&id)).as_bytes())?
+                    }
+                    Err(reason) => {
+                        stream.write_all(format!("TX_REJECTED {}\n", reason).as_bytes())?
+                    }
+                }
+            }
+            message if message.starts_with("TIMEOUT_REQUEST ") => {
+                if !is_validator {
+                    stream.write_all(b"TIMEOUT_REJECTED validator_required\n")?;
+                    continue;
+                }
+                let mut p = message
+                    .trim_start_matches("TIMEOUT_REQUEST ")
+                    .split_whitespace();
+                let ctx = ConsensusContext {
+                    height: p
+                        .next()
+                        .ok_or_else(|| std::io::Error::other("missing height"))?
+                        .parse()
+                        .map_err(std::io::Error::other)?,
+                    round: p
+                        .next()
+                        .ok_or_else(|| std::io::Error::other("missing round"))?
+                        .parse()
+                        .map_err(std::io::Error::other)?,
+                    view: p
+                        .next()
+                        .ok_or_else(|| std::io::Error::other("missing view"))?
+                        .parse()
+                        .map_err(std::io::Error::other)?,
+                };
+                let identity = load_or_create_identity();
+                stream.write_all(format!("{}\n", validator_timeout(&identity, ctx)).as_bytes())?
+            }
+            message if message.starts_with("VOTE_REQUEST ") => {
+                if !is_validator {
+                    stream.write_all(b"VOTE_REJECTED validator_required\n")?;
+                    continue;
+                }
+                let mut p = message
+                    .trim_start_matches("VOTE_REQUEST ")
+                    .split_whitespace();
+                let ctx = ConsensusContext {
+                    height: p
+                        .next()
+                        .ok_or_else(|| std::io::Error::other("missing height"))?
+                        .parse()
+                        .map_err(std::io::Error::other)?,
+                    round: p
+                        .next()
+                        .ok_or_else(|| std::io::Error::other("missing round"))?
+                        .parse()
+                        .map_err(std::io::Error::other)?,
+                    view: p
+                        .next()
+                        .ok_or_else(|| std::io::Error::other("missing view"))?
+                        .parse()
+                        .map_err(std::io::Error::other)?,
+                };
+                let hash = decode_hex(
+                    p.next()
+                        .ok_or_else(|| std::io::Error::other("missing block hash"))?,
+                )
+                .map_err(std::io::Error::other)?;
+                let hash = <[u8; 32]>::try_from(hash.as_slice()).map_err(|_| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid block hash")
+                })?;
+                let identity = load_or_create_identity();
+                let mut lock = load_lock_state();
+                if !can_vote_for(&lock, ctx, &hash) {
+                    stream.write_all(b"VOTE_REJECTED safety_lock_conflict\n")?;
+                    continue;
+                }
+                let proposal_lock = make_proposal_lock(&identity, ctx, &hash);
+                let set = validators
+                    .lock()
+                    .map_err(|_| std::io::Error::other("validator set poisoned"))?;
+                if !verify_proposal_lock(&proposal_lock, &set) {
+                    stream.write_all(b"VOTE_REJECTED invalid_lock\n")?;
+                    continue;
+                }
+                lock = LockState {
+                    height: ctx.height,
+                    round: ctx.round,
+                    view: ctx.view,
+                    block_hash: hex_encode(&hash),
+                };
+                save_lock_state(&lock);
+                stream
+                    .write_all(format!("{}\n", validator_vote(&identity, ctx, &hash)).as_bytes())?
+            }
+            message if message.starts_with("SUBMIT_BLOCK ") => {
+                if !is_validator {
+                    stream.write_all(b"BLOCK_REJECTED validator_required\n")?;
+                    continue;
+                }
+                let block: Block =
+                    serde_json::from_str(message.trim_start_matches("SUBMIT_BLOCK "))
+                        .map_err(std::io::Error::other)?;
+                match validate_block(&block, chain.last()) {
+                    Ok(()) => {
+                        let hash = hash_block(&block);
+                        let validators_snapshot = validators
+                            .lock()
+                            .map_err(|_| std::io::Error::other("validator set poisoned"))?
+                            .clone();
+                        let ctx = load_consensus_context(block.height);
+                        let identity = load_or_create_identity();
+                        let self_id = hex_encode(&identity.verifying_key().to_bytes());
+                        if deterministic_proposer(ctx, &validators_snapshot).as_deref()
+                            != Some(self_id.as_str())
+                        {
+                            stream.write_all(b"BLOCK_REJECTED not_deterministic_proposer\n")?;
+                            continue;
+                        }
+                        let qc = collect_verified_qc(ctx, &hash, &validators_snapshot, &identity);
+                        if !verify_qc(&qc, &validators_snapshot) {
+                            let mut failed_ctx = load_consensus_context(block.height);
+                            let identity = load_or_create_identity();
+                            if coordinated_view_change(
+                                &mut failed_ctx,
+                                &validators_snapshot,
+                                &identity,
+                            )
+                            .is_some()
+                            {
+                                stream.write_all(
+                                    format!(
+                                        "BLOCK_REJECTED quorum_timeout_view_advanced {} {}\n",
+                                        failed_ctx.round, failed_ctx.view
+                                    )
+                                    .as_bytes(),
+                                )?
+                            } else {
+                                stream.write_all(
+                                    b"BLOCK_REJECTED quorum_timeout_certificate_not_reached\n",
+                                )?
+                            }
+                            continue;
+                        }
+                        let evidence = {
+                            let mut history = vote_history
+                                .lock()
+                                .map_err(|_| std::io::Error::other("vote history poisoned"))?;
+                            scan_qc_equivocation(ctx, &qc, &mut history)
+                        };
+                        if evidence.len() > MAX_EQUIVOCATION_EVIDENCE {
+                            stream.write_all(b"BLOCK_REJECTED equivocation_evidence_limit\n")?;
+                            continue;
+                        }
+                        if !evidence.is_empty() {
+                            stream
+                                .write_all(b"BLOCK_REJECTED validator_equivocation_detected\n")?;
+                            continue;
+                        }
+                        let qc_path = format!("data/qc-{}.json", hex_encode(&hash));
+                        fs::create_dir_all("data")?;
+                        fs::write(
+                            &qc_path,
+                            serde_json::to_vec_pretty(&qc).map_err(std::io::Error::other)?,
+                        )?;
+                        chain.push(block.clone());
+                        save_chain(chain);
+                        gossip_block(&block);
+                        stream.write_all(
+                            format!(
+                                "BLOCK_COMMITTED {} QC_VOTES {}\n",
+                                hex_encode(&hash),
+                                qc.votes.len()
+                            )
+                            .as_bytes(),
+                        )?
+                    }
+                    Err(reason) => {
+                        stream.write_all(format!("BLOCK_REJECTED {}\n", reason).as_bytes())?
+                    }
+                }
+            }
+            _ => stream.write_all(b"ERROR unknown_message\n")?,
+        }
+    }
+    stream.write_all(b"CONNECTION_REQUEST_LIMIT\n")?;
+    Ok(())
+}
+fn run_listener(addr: &str) -> std::io::Result<()> {
+    validate_tls_material()?;
+    if !tls_material_present() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "TLS certificate/key required for listener; refusing plaintext reality-mode listener",
+        ));
+    }
+    let listener = TcpListener::bind(addr)?;
+    listener.set_nonblocking(true)?;
+    let chain = Arc::new(Mutex::new(load_chain()));
+    validate_chain(
+        &chain
+            .lock()
+            .map_err(|_| std::io::Error::other("chain lock poisoned"))?,
+    )
+    .map_err(std::io::Error::other)?;
+    let active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let per_ip = Arc::new(Mutex::new(HashMap::<std::net::IpAddr, usize>::new()));
+    let identity_limits = Arc::new(Mutex::new(HashMap::<[u8; 32], VecDeque<Instant>>::new()));
+    let mempool = Arc::new(Mutex::new(Vec::<Transaction>::new()));
+    let seen_txs = Arc::new(Mutex::new(HashSet::<[u8; 32]>::new()));
+    let peer_table = Arc::new(Mutex::new(load_peer_table()));
+    let validators = Arc::new(Mutex::new(load_validator_set()));
+    let vote_history = Arc::new(Mutex::new(HashMap::<
+        (u64, u64, u64, String),
+        (String, String),
+    >::new()));
+    println!(
+        "RDL secure-transport-gated node listening on {}; TLS material validated",
+        addr
+    );
+    loop {
+        match listener.accept() {
+            Ok((stream, peer_addr)) => {
+                if active.load(std::sync::atomic::Ordering::Relaxed) >= MAX_CONNECTIONS {
+                    drop(stream);
+                    continue;
+                }
+                let ip = peer_addr.ip();
+                let allowed = {
+                    let mut counts = per_ip
+                        .lock()
+                        .map_err(|_| std::io::Error::other("peer map poisoned"))?;
+                    let count = counts.entry(ip).or_insert(0);
+                    if *count >= MAX_CONNECTIONS_PER_IP {
+                        false
+                    } else {
+                        *count += 1;
+                        true
+                    }
+                };
+                if !allowed {
+                    drop(stream);
+                    continue;
+                }
+                let chain = Arc::clone(&chain);
+                let active = Arc::clone(&active);
+                let per_ip = Arc::clone(&per_ip);
+                let identity_limits = Arc::clone(&identity_limits);
+                let mempool = Arc::clone(&mempool);
+                let seen_txs = Arc::clone(&seen_txs);
+                let peer_table = Arc::clone(&peer_table);
+                let validators = Arc::clone(&validators);
+                let vote_history = Arc::clone(&vote_history);
+                active.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                thread::spawn(move || {
+                    if let Ok(mut guard) = chain.lock() {
+                        let _ = handle_peer(
+                            stream,
+                            &mut guard,
+                            &mempool,
+                            &seen_txs,
+                            &identity_limits,
+                            &peer_table,
+                            &validators,
+                            &vote_history,
+                        );
+                    }
+                    if let Ok(mut counts) = per_ip.lock()
+                        && let Some(count) = counts.get_mut(&ip)
+                    {
+                        *count = count.saturating_sub(1);
+                        if *count == 0 {
+                            counts.remove(&ip);
+                        }
+                    }
+                    active.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                });
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(10))
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+fn request(addr: &str, message: &str) -> std::io::Result<String> {
+    if !tls_material_present() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "TLS certificate/key required by reality-mode client",
+        ));
+    }
+    validate_tls_material()?;
+    let mut stream = TcpStream::connect_timeout(
+        &addr.parse().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid peer address")
+        })?,
+        Duration::from_secs(SOCKET_TIMEOUT_SECS),
+    )?;
+    configure_socket(&stream)?;
+    let mut reader = BufReader::new(stream.try_clone()?);
+    let nonce = read_challenge(&mut reader)?;
+    let identity = load_or_create_identity();
+    stream.write_all(format!("{}\n{}\n", auth_message(&identity, &nonce), message).as_bytes())?;
+    let response = read_bounded_line(&mut reader)?;
+    Ok(response.trim().to_string())
+}
+fn sync_from_peer(addr: &str) -> Result<(), String> {
+    let payload = request(addr, "GET_CHAIN").map_err(|e| e.to_string())?;
+    let candidate: Vec<Block> = serde_json::from_str(&payload).map_err(|e| e.to_string())?;
+    let mut local = load_chain();
+    validate_chain(&local)?;
+    if replace_chain_if_valid(&mut local, candidate)? {
+        save_chain(&local);
+        println!("SYNCED blocks={}", local.len())
+    } else {
+        println!("SYNC_NOT_NEEDED")
+    }
+    Ok(())
+}
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 3 && args[1] == "--listen" {
+        run_listener(&args[2]).expect("listener");
+        return;
+    }
+    if args.len() == 3 && args[1] == "--sync" {
+        sync_from_peer(&args[2]).expect("peer sync");
+        return;
+    }
+    if args.len() == 3 && (args[1] == "--ping" || args[1] == "--height" || args[1] == "--tip") {
+        let command = match args[1].as_str() {
+            "--ping" => "PING",
+            "--height" => "GET_HEIGHT",
+            _ => "GET_TIP_HASH",
+        };
+        println!("{}", request(&args[2], command).expect("peer request"));
+        return;
+    }
+    let mut chain = load_chain();
+    validate_chain(&chain).expect("existing ledger validation");
+    if chain.is_empty() {
+        chain.push(Block {
+            height: 0,
+            parent_hash: [0; 32],
+            state_root: [0; 32],
+            transactions: vec![],
+        })
+    }
+    let key = SigningKey::generate(&mut OsRng);
+    let mut tx = Transaction {
+        from: String::new(),
+        to: "rdl_demo_recipient".into(),
+        nonce: 0,
+        payload: b"RDL signed transaction".to_vec(),
+        public_key: vec![],
+        signature: vec![],
+    };
+    tx.sign(&key);
+    let mut mempool = vec![tx];
+    produce_block(&mut chain, &mut mempool).expect("block production");
+    validate_chain(&chain).expect("chain validation");
+    save_chain(&chain);
+    println!("RDL Node v0.1.0 — challenge-authenticated development peer foundation");
+    println!(
+        "STATUS: challenge-response authentication, optional peer allowlist, bounded frames, socket timeouts, connection concurrency limits, per-IP caps, per-connection request limits, request pacing and shared identity-aware rate limiting, TLS material gating, bounded transaction admission, and bootstrap-peer propagation, validator authorization, and identity-bound quorum certificates, height/round/view-bound votes, deterministic proposer selection, signed timeout certificates, quorum-gated view changes, and persistent proposal safety locks implemented; encrypted rustls streams and adversarial Byzantine testing remain pending; signed vote equivocation evidence detection is implemented."
+    );
+}
 
 #[cfg(test)]
 mod reality_tests {
     use super::*;
 
-    fn ctx() -> ConsensusContext { ConsensusContext { height: 7, round: 2, view: 1 } }
+    fn ctx() -> ConsensusContext {
+        ConsensusContext {
+            height: 7,
+            round: 2,
+            view: 1,
+        }
+    }
 
     #[test]
     fn vote_signature_is_context_bound() {
         let key = SigningKey::generate(&mut OsRng);
         let hash = [9u8; 32];
         let signature = hex_encode(&key.sign(&vote_payload(ctx(), &hash)).to_bytes());
-        assert!(verify_vote(&key.verifying_key().to_bytes(), ctx(), &hash, &signature));
-        assert!(!verify_vote(&key.verifying_key().to_bytes(), ConsensusContext { height: 8, round: 2, view: 1 }, &hash, &signature));
+        assert!(verify_vote(
+            &key.verifying_key().to_bytes(),
+            ctx(),
+            &hash,
+            &signature
+        ));
+        assert!(!verify_vote(
+            &key.verifying_key().to_bytes(),
+            ConsensusContext {
+                height: 8,
+                round: 2,
+                view: 1
+            },
+            &hash,
+            &signature
+        ));
     }
 
     #[test]
@@ -154,11 +1459,20 @@ mod reality_tests {
         let mut validators = HashSet::new();
         validators.insert(validator.clone());
         let qc = QuorumCertificate {
-            height: c.height, round: c.round, view: c.view, block_hash: hex_encode(&hash),
+            height: c.height,
+            round: c.round,
+            view: c.view,
+            block_hash: hex_encode(&hash),
             votes: vec![
-                QuorumVote { validator: validator.clone(), signature: sig.clone() },
-                QuorumVote { validator, signature: sig }
-            ]
+                QuorumVote {
+                    validator: validator.clone(),
+                    signature: sig.clone(),
+                },
+                QuorumVote {
+                    validator,
+                    signature: sig,
+                },
+            ],
         };
         assert!(!verify_qc(&qc, &validators));
     }
@@ -178,10 +1492,31 @@ mod reality_tests {
 
     #[test]
     fn safety_lock_rejects_conflicting_block_after_view_change_without_unlock_certificate() {
-        let lock = LockState { height: 7, round: 2, view: 1, block_hash: hex_encode(&[1u8; 32]) };
+        let lock = LockState {
+            height: 7,
+            round: 2,
+            view: 1,
+            block_hash: hex_encode(&[1u8; 32]),
+        };
         assert!(can_vote_for(&lock, ctx(), &[1u8; 32]));
-        assert!(!can_vote_for(&lock, ConsensusContext { height: 7, round: 3, view: 2 }, &[2u8; 32]));
-        assert!(can_vote_for(&lock, ConsensusContext { height: 8, round: 0, view: 0 }, &[2u8; 32]));
+        assert!(!can_vote_for(
+            &lock,
+            ConsensusContext {
+                height: 7,
+                round: 3,
+                view: 2
+            },
+            &[2u8; 32]
+        ));
+        assert!(can_vote_for(
+            &lock,
+            ConsensusContext {
+                height: 8,
+                round: 0,
+                view: 0
+            },
+            &[2u8; 32]
+        ));
     }
 
     #[test]
@@ -193,11 +1528,19 @@ mod reality_tests {
         let mut validators = HashSet::new();
         validators.insert(validator.clone());
         let tc = TimeoutCertificate {
-            height: c.height, round: c.round, view: c.view,
+            height: c.height,
+            round: c.round,
+            view: c.view,
             timeouts: vec![
-                TimeoutVote { validator: validator.clone(), signature: sig.clone() },
-                TimeoutVote { validator, signature: sig }
-            ]
+                TimeoutVote {
+                    validator: validator.clone(),
+                    signature: sig.clone(),
+                },
+                TimeoutVote {
+                    validator,
+                    signature: sig,
+                },
+            ],
         };
         assert!(!verify_timeout_certificate(&tc, &validators));
     }
