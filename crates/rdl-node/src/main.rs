@@ -1338,10 +1338,14 @@ fn request(addr: &str, message: &str) -> std::io::Result<String> {
         ));
     }
     validate_tls_material()?;
+    let mut resolved = addr
+        .to_socket_addrs()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("invalid peer address {addr}: {e}")))?;
+    let peer_addr = resolved.next().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("peer address resolved to no socket addresses: {addr}"))
+    })?;
     let mut stream = TcpStream::connect_timeout(
-        &addr.parse().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid peer address")
-        })?,
+        &peer_addr,
         Duration::from_secs(SOCKET_TIMEOUT_SECS),
     )?;
     configure_socket(&stream)?;
