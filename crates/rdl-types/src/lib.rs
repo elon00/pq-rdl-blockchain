@@ -1,4 +1,4 @@
-use ed25519_dalek::{Signature, SigningKey, VerifyingKey, Signer, Verifier};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -26,9 +26,15 @@ impl Transaction {
     }
 
     pub fn verify(&self) -> bool {
-        let Ok(pk) = <[u8; 32]>::try_from(self.public_key.as_slice()) else { return false };
-        let Ok(sig) = Signature::from_slice(&self.signature) else { return false };
-        let Ok(key) = VerifyingKey::from_bytes(&pk) else { return false };
+        let Ok(pk) = <[u8; 32]>::try_from(self.public_key.as_slice()) else {
+            return false;
+        };
+        let Ok(sig) = Signature::from_slice(&self.signature) else {
+            return false;
+        };
+        let Ok(key) = VerifyingKey::from_bytes(&pk) else {
+            return false;
+        };
         key.verify(&self.signing_bytes(), &sig).is_ok()
     }
 }
