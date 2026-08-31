@@ -1,4 +1,4 @@
-name: RDL CI
+name: QMoosa Reality Mode CI
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  reality-finish:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -21,5 +21,10 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Run full verification pipeline
-        run: npm test
+      - name: Start and Finish Everything — Reality Mode
+        run: npm run qmoosa:finish
+      - name: Upload reality evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: qmoosa-reality-report
+          path: qmoosa-reality-report.json
