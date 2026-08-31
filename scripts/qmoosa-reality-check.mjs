@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 
 const checks = [];
@@ -21,6 +22,22 @@ add("testnet/mainnet readiness plan", existsSync("TESTNET_MAINNET_READINESS.md")
 add("testnet genesis artifact", existsSync("testnet/genesis.json") ? "PASS" : "FAIL", existsSync("testnet/genesis.json") ? "present" : "missing");
 add("testnet network manifest", existsSync("testnet/network-manifest.example.json") ? "PASS" : "FAIL", existsSync("testnet/network-manifest.example.json") ? "present" : "missing");
 add("testnet promotion checklist", existsSync("TESTNET_PROMOTION_CHECKLIST.md") ? "PASS" : "FAIL", existsSync("TESTNET_PROMOTION_CHECKLIST.md") ? "present" : "missing");
+
+if (existsSync("testnet/genesis.json") && existsSync("testnet/network-manifest.example.json")) {
+  const manifest = JSON.parse(readFileSync("testnet/network-manifest.example.json", "utf8"));
+  const genesisHash = createHash("sha256").update(readFileSync("testnet/genesis.json")).digest("hex");
+  const hashFieldIsPlaceholder = /^GENERATE_WITH_/.test(String(manifest.genesis_sha256 || ""));
+  const hashMatches = manifest.genesis_sha256 === genesisHash;
+  add(
+    "testnet genesis hash integrity",
+    hashMatches ? "PASS" : "FAIL",
+    hashMatches
+      ? genesisHash
+      : hashFieldIsPlaceholder
+        ? `manifest still contains generator placeholder; actual SHA-256 is ${genesisHash}`
+        : `manifest SHA-256 mismatch; actual SHA-256 is ${genesisHash}`,
+  );
+}
 
 if (existsSync("README.md")) {
   const readme = readFileSync("README.md", "utf8");
