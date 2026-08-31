@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
   rdl-node-3:
     build: .
-    command: ["./target/release/rdl-node","--listen","7000"]
+    command: ["./target/release/rdl-node","--listen","0.0.0.0:7000"]
     environment:
       RDL_NODE_ID: node-3
       RDL_DATA_DIR: /var/lib/rdl
