@@ -24,11 +24,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Format check
-        run: cargo fmt --all -- --check
       - name: Compile
         run: cargo check --workspace --all-targets --locked
       - name: Unit tests
         run: cargo test --workspace --all-targets --locked
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Format check
+        run: cargo fmt --all -- --check
