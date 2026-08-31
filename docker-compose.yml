@@ -1,0 +1,24 @@
+services:
+  rdl-node-1:
+    build: .
+    command: ["cargo","run","-p","rdl-node"]
+    restart: unless-stopped
+    volumes:
+      - rdl-node-1:/var/lib/rdl
+  rdl-node-2:
+    build: .
+    command: ["cargo","run","-p","rdl-node"]
+    restart: unless-stopped
+    volumes:
+      - rdl-node-2:/var/lib/rdl
+  rdl-node-3:
+    build: .
+    command: ["cargo","run","-p","rdl-node"]
+    restart: unless-stopped
+    volumes:
+      - rdl-node-3:/var/lib/rdl
+
+volumes:
+  rdl-node-1:
+  rdl-node-2:
+  rdl-node-3:
