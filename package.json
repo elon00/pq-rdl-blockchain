@@ -13,7 +13,8 @@
     "check:truth": "node check-truth.mjs",
     "test": "npm run check:truth && npm run lint && npm run build",
     "qmoosa:finish": "node scripts/qmoosa-reality-finisher.mjs",
-    "rdl:finish": "node scripts/rdl-network-finisher.mjs"
+    "rdl:finish": "node scripts/rdl-network-finisher.mjs",
+    "testnet:genesis-hash": "node scripts/testnet-genesis-hash.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
