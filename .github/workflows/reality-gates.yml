@@ -22,5 +22,7 @@ jobs:
         run: cargo test --workspace --all-targets
       - name: Multi-node smoke
         run: bash scripts/multi-node-smoke.sh
+      - name: Operational Devnet network smoke
+        run: bash scripts/devnet-operational-smoke.sh
       - name: Format check
         run: cargo fmt --all -- --check
