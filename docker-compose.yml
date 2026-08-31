@@ -1,7 +1,7 @@
 services:
   rdl-node-1:
     build: .
-    command: ["./target/release/rdl-node","--listen","7000"]
+    command: ["./target/release/rdl-node","--listen","0.0.0.0:7000"]
     environment:
       RDL_NODE_ID: node-1
       RDL_DATA_DIR: /var/lib/rdl
