@@ -9,6 +9,7 @@ trap cleanup EXIT
 
 sleep 5
 docker compose ps
+for i in 1 2 3; do docker compose logs --no-color rdl-node-$i || true; done
 
 for i in 1 2 3; do
   docker compose exec -T rdl-node-$i test -f /app/target/release/rdl-node
