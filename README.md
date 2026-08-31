@@ -10,9 +10,9 @@ The companion repository `Republic-of-Divine-Light` serves as the ecosystem iden
 
 ## Current status
 
-**Status: PROTOTYPE / IN-MEMORY DEMONSTRATION**
+**Status: OPERATIONAL DEVNET VERIFIED (CI) / PROTOTYPE — NOT PUBLIC TESTNET OR MAINNET**
 
-The current server demonstrates local state transitions, Conway-inspired automation, AI-assisted workflows, and research interfaces. It is **not currently evidence of**:
+The repository has CI-verified a three-node Docker Operational Devnet smoke environment. It remains a prototype and this is **not evidence of**:
 
 - a live distributed blockchain or validator network,
 - externally measured TPS, hashrate, or active-node telemetry,
