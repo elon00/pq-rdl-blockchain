@@ -18,6 +18,9 @@ function run(name, command, args) {
 add("package.json", existsSync("package.json") ? "PASS" : "FAIL", existsSync("package.json") ? "present" : "missing");
 add("README reality status", existsSync("README.md") ? "PASS" : "FAIL", existsSync("README.md") ? "present" : "missing");
 add("testnet/mainnet readiness plan", existsSync("TESTNET_MAINNET_READINESS.md") ? "PASS" : "FAIL", existsSync("TESTNET_MAINNET_READINESS.md") ? "present" : "missing");
+add("testnet genesis artifact", existsSync("testnet/genesis.json") ? "PASS" : "FAIL", existsSync("testnet/genesis.json") ? "present" : "missing");
+add("testnet network manifest", existsSync("testnet/network-manifest.example.json") ? "PASS" : "FAIL", existsSync("testnet/network-manifest.example.json") ? "present" : "missing");
+add("testnet promotion checklist", existsSync("TESTNET_PROMOTION_CHECKLIST.md") ? "PASS" : "FAIL", existsSync("TESTNET_PROMOTION_CHECKLIST.md") ? "present" : "missing");
 
 if (existsSync("README.md")) {
   const readme = readFileSync("README.md", "utf8");
@@ -25,6 +28,7 @@ if (existsSync("README.md")) {
   add("deployment claim boundary", honest ? "PASS" : "FAIL", honest ? "README distinguishes devnet from public Testnet/Mainnet" : "README status boundary missing");
 }
 
+run("testnet genesis hash", "npm", ["run", "testnet:genesis-hash"]);
 run("truth", "npm", ["run", "check:truth"]);
 run("lint", "npm", ["run", "lint"]);
 run("test", "npm", ["test"]);
