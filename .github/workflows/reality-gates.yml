@@ -22,15 +22,14 @@ jobs:
         run: cargo test --workspace --all-targets
       - name: Multi-node smoke
         run: bash scripts/multi-node-smoke.sh
-      - name: Rustfmt normalize and commit
+      - name: Rustfmt diff artifact
         run: |
           cargo fmt --all
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "style: normalize Rust formatting"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
-          fi
+          git diff -- crates/rdl-node/src/main.rs crates/rdl-types/src/lib.rs > rustfmt.patch || true
+      - name: Upload Rustfmt patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustfmt-patch
+          path: rustfmt.patch
       - name: Format check
         run: cargo fmt --all -- --check
