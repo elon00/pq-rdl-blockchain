@@ -6,3 +6,5 @@ license.workspace = true
 
 [dependencies]
 rdl-types = { path = "../rdl-types" }
+serde_json = "1"
+sha2 = "0.10"
