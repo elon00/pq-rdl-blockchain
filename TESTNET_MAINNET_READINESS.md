@@ -13,6 +13,7 @@ This is not a public Testnet or Mainnet.
 Before any public Testnet claim:
 
 - deterministic genesis/configuration
+- versioned Testnet network manifest (chain ID, protocol version, seed/bootstrap endpoints)
 - persistent chain/state storage and recovery tests
 - explicit peer discovery/bootstrap design
 - externally reachable node endpoints
@@ -21,6 +22,7 @@ Before any public Testnet claim:
 - rate limits and abuse controls
 - reproducible release artifacts and versioning
 - Testnet operator documentation
+- explicit Testnet promotion checklist with reproducible evidence commands
 
 ## Stage 2 — Public Testnet
 
@@ -63,3 +65,12 @@ Mainnet requires more than a passing CI pipeline. It requires:
 **PASS means only what the evidence proves.**
 
 Operational Devnet PASS does not equal Public Testnet PASS, and Public Testnet PASS does not equal Mainnet readiness.
+
+
+## Reusable promotion command
+
+Use the repository's unified command:
+
+`node scripts/start-and-finish-everything.mjs`
+
+A successful local/CI result proves only the checks configured in the pipeline. Public Testnet promotion additionally requires independently reproducible infrastructure and network evidence.
