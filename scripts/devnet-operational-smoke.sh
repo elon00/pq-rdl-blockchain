@@ -15,9 +15,9 @@ for i in 1 2 3; do
   docker compose exec -T rdl-node-$i test -f /app/target/release/rdl-node
 done
 
-docker compose exec -T rdl-node-1 ./target/release/rdl-node --ping rdl-node-2:7002 | grep -q PONG
-docker compose exec -T rdl-node-2 ./target/release/rdl-node --ping rdl-node-3:7003 | grep -q PONG
-docker compose exec -T rdl-node-3 ./target/release/rdl-node --ping rdl-node-1:7001 | grep -q PONG
+docker compose exec -T rdl-node-1 ./target/release/rdl-node --ping rdl-node-2:7000 | grep -q PONG
+docker compose exec -T rdl-node-2 ./target/release/rdl-node --ping rdl-node-3:7000 | grep -q PONG
+docker compose exec -T rdl-node-3 ./target/release/rdl-node --ping rdl-node-1:7000 | grep -q PONG
 
 echo "LISTENER_REACHABILITY=PASS"
 echo "THREE_NODE_PING_RING=PASS"
