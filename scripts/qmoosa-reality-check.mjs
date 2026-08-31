@@ -22,9 +22,12 @@ add("testnet/mainnet readiness plan", existsSync("TESTNET_MAINNET_READINESS.md")
 add("testnet genesis artifact", existsSync("testnet/genesis.json") ? "PASS" : "FAIL", existsSync("testnet/genesis.json") ? "present" : "missing");
 add("testnet network manifest", existsSync("testnet/network-manifest.example.json") ? "PASS" : "FAIL", existsSync("testnet/network-manifest.example.json") ? "present" : "missing");
 add("testnet promotion checklist", existsSync("TESTNET_PROMOTION_CHECKLIST.md") ? "PASS" : "FAIL", existsSync("TESTNET_PROMOTION_CHECKLIST.md") ? "present" : "missing");
+add("testnet status boundary", existsSync("testnet/network-manifest.example.json") ? "PASS" : "FAIL", existsSync("testnet/network-manifest.example.json") ? "manifest present for status validation" : "manifest missing");
 
 if (existsSync("testnet/genesis.json") && existsSync("testnet/network-manifest.example.json")) {
   const manifest = JSON.parse(readFileSync("testnet/network-manifest.example.json", "utf8"));
+  const validDraftStatus = manifest.status === "DRAFT_NOT_LAUNCHED";
+  add("testnet launch claim boundary", validDraftStatus ? "PASS" : "FAIL", validDraftStatus ? "draft status explicitly prevents false public-launch claim" : `unexpected manifest status: ${manifest.status}`);
   const genesisHash = createHash("sha256").update(readFileSync("testnet/genesis.json")).digest("hex");
   const hashFieldIsPlaceholder = /^GENERATE_WITH_/.test(String(manifest.genesis_sha256 || ""));
   const hashMatches = manifest.genesis_sha256 === genesisHash;
