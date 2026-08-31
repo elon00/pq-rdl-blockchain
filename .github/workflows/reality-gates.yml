@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   rust:
@@ -22,16 +22,5 @@ jobs:
         run: cargo test --workspace --all-targets
       - name: Multi-node smoke
         run: bash scripts/multi-node-smoke.sh
-      - name: Rustfmt normalize and commit on branch pushes
-        if: github.event_name == 'push'
-        run: |
-          cargo fmt --all
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add crates/rdl-node/src/main.rs crates/rdl-types/src/lib.rs
-            git commit -m "style: normalize Rust formatting"
-            git push origin HEAD:qmoosa/reality-chain-v1
-          fi
       - name: Format check
         run: cargo fmt --all -- --check
