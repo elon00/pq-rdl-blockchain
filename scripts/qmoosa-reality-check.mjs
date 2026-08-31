@@ -25,6 +25,7 @@ add("testnet promotion checklist", existsSync("TESTNET_PROMOTION_CHECKLIST.md") 
 add("testnet operator runbook", existsSync("TESTNET_OPERATOR_RUNBOOK.md") ? "PASS" : "FAIL", existsSync("TESTNET_OPERATOR_RUNBOOK.md") ? "present" : "missing");
 add("testnet deployment evidence template", existsSync("testnet/DEPLOYMENT_EVIDENCE_TEMPLATE.md") ? "PASS" : "FAIL", existsSync("testnet/DEPLOYMENT_EVIDENCE_TEMPLATE.md") ? "present" : "missing");
 add("testnet infrastructure specification", existsSync("testnet/INFRASTRUCTURE_SPEC.md") ? "PASS" : "FAIL", existsSync("testnet/INFRASTRUCTURE_SPEC.md") ? "present" : "missing");
+add("testnet launch boundary", existsSync("testnet/LAUNCH_BOUNDARY.md") ? "PASS" : "FAIL", existsSync("testnet/LAUNCH_BOUNDARY.md") ? "present" : "missing");
 add("testnet status boundary", existsSync("testnet/network-manifest.example.json") ? "PASS" : "FAIL", existsSync("testnet/network-manifest.example.json") ? "manifest present for status validation" : "manifest missing");
 
 if (existsSync("testnet/genesis.json") && existsSync("testnet/network-manifest.example.json")) {
