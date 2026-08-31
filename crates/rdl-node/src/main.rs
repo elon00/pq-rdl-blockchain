@@ -4,6 +4,8 @@ use rdl_types::{Block, Transaction};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
+use std::io::{BufRead, BufReader, Write};
+use std::net::{TcpListener, TcpStream};
 
 const LEDGER_PATH: &str = "data/rdl-ledger.json";
 const MAX_BLOCK_TXS: usize = 1_000;
@@ -56,7 +58,42 @@ fn produce_block(chain: &mut Vec<Block>, mempool: &mut Vec<Transaction>) -> Resu
     Ok(())
 }
 
+fn run_listener(addr: &str) -> std::io::Result<()> {
+    let listener = TcpListener::bind(addr)?;
+    println!("RDL development node listening on {}", addr);
+    for stream in listener.incoming() {
+        let mut stream = stream?;
+        let mut line = String::new();
+        BufReader::new(stream.try_clone()?).read_line(&mut line)?;
+        if line.trim() == "PING" {
+            stream.write_all(b"PONG\n")?;
+        }
+    }
+    Ok(())
+}
+
+fn ping(addr: &str) -> std::io::Result<()> {
+    let mut stream = TcpStream::connect(addr)?;
+    stream.write_all(b"PING\n")?;
+    let mut response = String::new();
+    BufReader::new(stream).read_line(&mut response)?;
+    if response.trim() != "PONG" {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "unexpected peer response"));
+    }
+    println!("peer {} responded PONG", addr);
+    Ok(())
+}
+
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 3 && args[1] == "--listen" {
+        run_listener(&args[2]).expect("listener");
+        return;
+    }
+    if args.len() == 3 && args[1] == "--ping" {
+        ping(&args[2]).expect("peer ping");
+        return;
+    }
     let mut chain = load_chain();
     validate_chain(&chain).expect("existing ledger validation");
 
@@ -80,5 +117,5 @@ fn main() {
 
     println!("RDL Node v0.1.0 — deterministic block validation foundation");
     println!("ledger blocks: {}", chain.len());
-    println!("STATUS: local block production implemented; no P2P consensus/testnet.");
+    println!("STATUS: local block production + minimal development TCP peer probe; no authenticated P2P/consensus/testnet.");
 }
