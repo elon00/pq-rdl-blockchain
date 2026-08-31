@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - name: Compile
         run: cargo check --workspace --all-targets
@@ -28,7 +31,7 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -A
             git commit -m "style: normalize Rust formatting"
-            git push
+            git push origin HEAD:${{ github.ref_name }}
           fi
       - name: Format check
         run: cargo fmt --all -- --check
