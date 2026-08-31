@@ -1,0 +1,38 @@
+name: QMoosa Master Finisher
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  qmoosa-finish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: QMoosa one-click reusable finisher
+        run: node scripts/start-and-finish-everything.mjs
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qmoosa-verification-${{ github.run_number }}
+          path: |
+            README.md
+            QMOOSA_MASTER_FINISHER.md
+            check-truth.mjs
+            scripts/qmoosa-reality-check.mjs
+            scripts/start-and-finish-everything.mjs
+          if-no-files-found: ignore
