@@ -1,23 +1,37 @@
 services:
   rdl-node-1:
     build: .
-    command: ["cargo","run","-p","rdl-node"]
+    command: ["./target/release/rdl-node"]
+    environment:
+      RDL_NODE_ID: node-1
+      RDL_DATA_DIR: /var/lib/rdl
+      RDL_LISTEN_ADDR: 0.0.0.0:7001
+      RDL_BOOTSTRAP_PEERS: rdl-node-2:7002,rdl-node-3:7003
+    ports: ["7001:7001"]
+    volumes: [rdl-node-1:/app/data]
     restart: unless-stopped
-    volumes:
-      - rdl-node-1:/var/lib/rdl
   rdl-node-2:
     build: .
-    command: ["cargo","run","-p","rdl-node"]
+    command: ["./target/release/rdl-node"]
+    environment:
+      RDL_NODE_ID: node-2
+      RDL_DATA_DIR: /var/lib/rdl
+      RDL_LISTEN_ADDR: 0.0.0.0:7002
+      RDL_BOOTSTRAP_PEERS: rdl-node-1:7001,rdl-node-3:7003
+    ports: ["7002:7002"]
+    volumes: [rdl-node-2:/app/data]
     restart: unless-stopped
-    volumes:
-      - rdl-node-2:/var/lib/rdl
   rdl-node-3:
     build: .
-    command: ["cargo","run","-p","rdl-node"]
+    command: ["./target/release/rdl-node"]
+    environment:
+      RDL_NODE_ID: node-3
+      RDL_DATA_DIR: /var/lib/rdl
+      RDL_LISTEN_ADDR: 0.0.0.0:7003
+      RDL_BOOTSTRAP_PEERS: rdl-node-1:7001,rdl-node-2:7002
+    ports: ["7003:7003"]
+    volumes: [rdl-node-3:/app/data]
     restart: unless-stopped
-    volumes:
-      - rdl-node-3:/var/lib/rdl
-
 volumes:
   rdl-node-1:
   rdl-node-2:
