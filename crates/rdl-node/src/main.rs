@@ -77,18 +77,13 @@ fn add_discovered_peer(peers:&mut Vec<String>,peer:String)->bool{if !valid_peer_
 fn gossip_transaction(tx:&Transaction){let Ok(payload)=serde_json::to_string(tx)else{return};let message=format!("SUBMIT_TX {}",payload);for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS){let message=message.clone();thread::spawn(move||{let _=request(&peer,&message);});}}
 fn request_vote(addr:&str,ctx:ConsensusContext,block_hash:&[u8;32])->std::io::Result<String>{request(addr,&format!("VOTE_REQUEST {} {} {} {}",ctx.height,ctx.round,ctx.view,hex_encode(block_hash)))}
 #[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
 struct QuorumVote{validator:String,signature:String}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
 #[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
 struct QuorumCertificate{height:u64,round:u64,view:u64,block_hash:String,votes:Vec<QuorumVote>}
 #[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
 struct TimeoutVote{validator:String,signature:String}
 #[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
 struct TimeoutCertificate{height:u64,round:u64,view:u64,timeouts:Vec<TimeoutVote>}
-#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
 #[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
 struct EquivocationEvidence{height:u64,round:u64,view:u64,validator:String,first_block_hash:String,first_signature:String,second_block_hash:String,second_signature:String}
 fn parse_verified_vote(response:&str,ctx:ConsensusContext,block_hash:&[u8;32],validators:&HashSet<String>)->Option<QuorumVote>{let mut p=response.split_whitespace();if p.next()!=Some("VOTE"){return None}let h=p.next()?.parse::<u64>().ok()?;let r=p.next()?.parse::<u64>().ok()?;let v=p.next()?.parse::<u64>().ok()?;let(hash,pk,sig)=(p.next()?,p.next()?,p.next()?);if h!=ctx.height||r!=ctx.round||v!=ctx.view||hash!=hex_encode(block_hash)||!validators.contains(pk){return None}let bytes=decode_hex(pk).ok()?;let key=<[u8;32]>::try_from(bytes.as_slice()).ok()?;if !verify_vote(&key,ctx,block_hash,sig){return None}Some(QuorumVote{validator:pk.to_owned(),signature:sig.to_owned()})}
