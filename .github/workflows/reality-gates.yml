@@ -20,5 +20,15 @@ jobs:
         run: cargo test --workspace --all-targets
       - name: Multi-node smoke
         run: bash scripts/multi-node-smoke.sh
+      - name: Rustfmt normalize and commit
+        run: |
+          cargo fmt --all
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: normalize Rust formatting"
+            git push
+          fi
       - name: Format check
         run: cargo fmt --all -- --check
