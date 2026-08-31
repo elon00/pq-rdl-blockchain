@@ -30,7 +30,6 @@ const TLS_KEY_PATH: &str = "data/rdl-tls-key.pem";
 const MAX_GOSSIP_PEERS: usize = 16;
 const MAX_DISCOVERED_PEERS: usize = 64;
 const MAX_VALIDATORS: usize = 64;
-const CONSENSUS_TIMEOUT_SECS: u64 = 8;
 const MAX_TIMEOUT_CERTIFICATES: usize = 64;
 const MAX_EQUIVOCATION_EVIDENCE: usize = 256;
 
@@ -46,12 +45,14 @@ fn admit_transaction(mempool:&mut Vec<Transaction>,seen:&mut HashSet<[u8;32]>,tx
 fn configured_peers()->Vec<String>{std::env::var("RDL_BOOTSTRAP_PEERS").ok().map(|v|v.split(',').map(str::trim).filter(|p|!p.is_empty()).take(MAX_GOSSIP_PEERS).map(str::to_owned).collect()).unwrap_or_default()}
 fn valid_peer_address(addr:&str)->bool{addr.parse::<std::net::SocketAddr>().is_ok()}
 fn validator_set_path()->&'static str{"data/rdl-validators.json"}
-fn load_validator_set()->HashSet<String>{if let Ok(bytes)=fs::read(validator_set_path()){if let Ok(values)=serde_json::from_slice::<Vec<String>>(&bytes){return values.into_iter().filter(|v|v.len()==64&&v.bytes().all(|b|b.is_ascii_hexdigit())).take(MAX_VALIDATORS).collect()}}HashSet::new()}
+fn load_validator_set()->HashSet<String>{if let Ok(bytes)=fs::read(validator_set_path()) && let Ok(values)=serde_json::from_slice::<Vec<String>>(&bytes){return values.into_iter().filter(|v|v.len()==64&&v.bytes().all(|b|b.is_ascii_hexdigit())).take(MAX_VALIDATORS).collect()}HashSet::new()}
+#[allow(dead_code)]
 fn save_validator_set(validators:&HashSet<String>){let mut values:Vec<String>=validators.iter().cloned().collect();values.sort();let _=fs::create_dir_all("data");let _=fs::write(validator_set_path(),serde_json::to_vec_pretty(&values).unwrap_or_default());}
 fn validator_authorized(validators:&HashSet<String>,pk:&[u8;32])->bool{!validators.is_empty()&&validators.contains(&hex_encode(pk))}
 fn validator_quorum(validators:&HashSet<String>)->usize{let n=validators.len();if n==0{0}else{(2*n)/3+1}}
 fn consensus_payload(domain:&[u8],ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{let mut out=Vec::with_capacity(domain.len()+24+32);out.extend_from_slice(domain);out.extend_from_slice(&ctx.height.to_be_bytes());out.extend_from_slice(&ctx.round.to_be_bytes());out.extend_from_slice(&ctx.view.to_be_bytes());out.extend_from_slice(block_hash);out}
 fn vote_payload(ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{consensus_payload(b"RDL-VOTE-v2",ctx,block_hash)}
+#[allow(dead_code)]
 fn proposal_payload(ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{consensus_payload(b"RDL-PROPOSAL-v2",ctx,block_hash)}
 fn deterministic_proposer(ctx:ConsensusContext,validators:&HashSet<String>)->Option<String>{let mut ids:Vec<String>=validators.iter().cloned().collect();ids.sort();if ids.is_empty(){None}else{Some(ids[((ctx.height+ctx.round+ctx.view)as usize)%ids.len()].clone())}}
 fn consensus_state_path()->&'static str{"data/rdl-consensus.json"}
@@ -62,7 +63,7 @@ fn lock_payload(ctx:ConsensusContext,block_hash:&[u8;32])->Vec<u8>{consensus_pay
 fn can_vote_for(lock:&LockState,ctx:ConsensusContext,hash:&[u8;32])->bool{if lock.block_hash.is_empty()||lock.height!=ctx.height{return true}lock.block_hash==hex_encode(hash)}
 fn make_proposal_lock(key:&SigningKey,ctx:ConsensusContext,hash:&[u8;32])->ProposalLock{let validator=hex_encode(&key.verifying_key().to_bytes());ProposalLock{height:ctx.height,round:ctx.round,view:ctx.view,block_hash:hex_encode(hash),validator,signature:hex_encode(&key.sign(&lock_payload(ctx,hash)).to_bytes())}}
 fn verify_proposal_lock(lock:&ProposalLock,validators:&HashSet<String>)->bool{if !validators.contains(&lock.validator){return false}let Ok(bytes)=decode_hex(&lock.validator)else{return false};let Ok(pk)=<[u8;32]>::try_from(bytes.as_slice())else{return false};let Ok(hash)=decode_hex(&lock.block_hash)else{return false};let Ok(hash)=<[u8;32]>::try_from(hash.as_slice())else{return false};let Ok(sig)=decode_hex(&lock.signature)else{return false};let Ok(sig)=ed25519_dalek::Signature::from_slice(&sig)else{return false};let Ok(key)=VerifyingKey::from_bytes(&pk)else{return false};key.verify(&lock_payload(ConsensusContext{height:lock.height,round:lock.round,view:lock.view},&hash),&sig).is_ok()}
-fn load_consensus_context(height:u64)->ConsensusContext{if let Ok(bytes)=fs::read(consensus_state_path()){if let Ok(ctx)=serde_json::from_slice::<ConsensusContext>(&bytes){if ctx.height==height{return ctx}}}ConsensusContext{height,round:0,view:0}}
+fn load_consensus_context(height:u64)->ConsensusContext{if let Ok(bytes)=fs::read(consensus_state_path()) && let Ok(ctx)=serde_json::from_slice::<ConsensusContext>(&bytes) && ctx.height==height{return ctx}ConsensusContext{height,round:0,view:0}}
 fn save_consensus_context(ctx:ConsensusContext){let _=fs::create_dir_all("data");let _=fs::write(consensus_state_path(),serde_json::to_vec_pretty(&ctx).unwrap_or_default());}
 fn advance_view(ctx:&mut ConsensusContext){ctx.view=ctx.view.saturating_add(1);ctx.round=ctx.round.saturating_add(1);save_consensus_context(*ctx)}
 fn timeout_payload(ctx:ConsensusContext)->Vec<u8>{let mut out=b"RDL-TIMEOUT-v1".to_vec();out.extend_from_slice(&ctx.height.to_be_bytes());out.extend_from_slice(&ctx.round.to_be_bytes());out.extend_from_slice(&ctx.view.to_be_bytes());out}
@@ -71,7 +72,7 @@ fn verify_timeout(pk:&[u8;32],ctx:ConsensusContext,sig_hex:&str)->bool{let Ok(ke
 fn request_timeout(addr:&str,ctx:ConsensusContext)->std::io::Result<String>{request(addr,&format!("TIMEOUT_REQUEST {} {} {}",ctx.height,ctx.round,ctx.view))}
 fn validator_vote(key:&SigningKey,ctx:ConsensusContext,block_hash:&[u8;32])->String{let pk=key.verifying_key().to_bytes();format!("VOTE {} {} {} {} {} {}",ctx.height,ctx.round,ctx.view,hex_encode(block_hash),hex_encode(&pk),hex_encode(&key.sign(&vote_payload(ctx,block_hash)).to_bytes()))}
 fn verify_vote(pk:&[u8;32],ctx:ConsensusContext,block_hash:&[u8;32],signature_hex:&str)->bool{let Ok(key)=VerifyingKey::from_bytes(pk)else{return false};let Ok(bytes)=decode_hex(signature_hex)else{return false};let Ok(sig)=ed25519_dalek::Signature::from_slice(&bytes)else{return false};key.verify(&vote_payload(ctx,block_hash),&sig).is_ok()}
-fn load_peer_table()->Vec<String>{let path="data/rdl-peers.json";let mut peers=configured_peers();if let Ok(bytes)=fs::read(path){if let Ok(saved)=serde_json::from_slice::<Vec<String>>(&bytes){for peer in saved{if valid_peer_address(&peer)&&!peers.contains(&peer)&&peers.len()<MAX_DISCOVERED_PEERS{peers.push(peer)}}}}peers}
+fn load_peer_table()->Vec<String>{let path="data/rdl-peers.json";let mut peers=configured_peers();if let Ok(bytes)=fs::read(path) && let Ok(saved)=serde_json::from_slice::<Vec<String>>(&bytes){for peer in saved{if valid_peer_address(&peer)&&!peers.contains(&peer)&&peers.len()<MAX_DISCOVERED_PEERS{peers.push(peer)}}}peers}
 fn save_peer_table(peers:&[String]){let _=fs::create_dir_all("data");let _=fs::write("data/rdl-peers.json",serde_json::to_vec_pretty(peers).unwrap_or_default());}
 fn add_discovered_peer(peers:&mut Vec<String>,peer:String)->bool{if !valid_peer_address(&peer)||peers.contains(&peer)||peers.len()>=MAX_DISCOVERED_PEERS{return false}peers.push(peer);save_peer_table(peers);true}
 fn gossip_transaction(tx:&Transaction){let Ok(payload)=serde_json::to_string(tx)else{return};let message=format!("SUBMIT_TX {}",payload);for peer in load_peer_table().into_iter().take(MAX_GOSSIP_PEERS){let message=message.clone();thread::spawn(move||{let _=request(&peer,&message);});}}
