@@ -43,6 +43,15 @@ fn validate_chain(chain: &[Block]) -> Result<(), String> {
     Ok(())
 }
 
+fn replace_chain_if_valid(local: &mut Vec<Block>, candidate: Vec<Block>) -> Result<bool, String> {
+    validate_chain(&candidate)?;
+    if candidate.len() > local.len() {
+        *local = candidate;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 fn produce_block(chain: &mut Vec<Block>, mempool: &mut Vec<Transaction>) -> Result<(), String> {
     let previous = chain.last();
     let block = Block {
@@ -56,7 +65,7 @@ fn produce_block(chain: &mut Vec<Block>, mempool: &mut Vec<Transaction>) -> Resu
     Ok(())
 }
 
-fn handle_peer(mut stream: TcpStream, chain: &Vec<Block>) -> std::io::Result<()> {
+fn handle_peer(mut stream: TcpStream, chain: &mut Vec<Block>) -> std::io::Result<()> {
     let mut line = String::new();
     BufReader::new(stream.try_clone()?).read_line(&mut line)?;
     match line.trim() {
@@ -66,6 +75,24 @@ fn handle_peer(mut stream: TcpStream, chain: &Vec<Block>) -> std::io::Result<()>
             let tip = chain.last().map(hash_block).unwrap_or([0; 32]);
             stream.write_all(format!("TIP {}\n", hex_encode(&tip)).as_bytes())?
         }
+        "GET_CHAIN" => {
+            let payload = serde_json::to_string(chain).map_err(std::io::Error::other)?;
+            stream.write_all(payload.as_bytes())?;
+            stream.write_all(b"\n")?;
+        }
+        message if message.starts_with("SUBMIT_BLOCK ") => {
+            let json = message.trim_start_matches("SUBMIT_BLOCK ");
+            let block: Block = serde_json::from_str(json).map_err(std::io::Error::other)?;
+            let previous = chain.last();
+            match validate_block(&block, previous) {
+                Ok(()) => {
+                    chain.push(block);
+                    save_chain(chain);
+                    stream.write_all(b"ACCEPTED\n")?;
+                }
+                Err(_) => stream.write_all(b"REJECTED\n")?,
+            }
+        }
         _ => stream.write_all(b"ERROR unknown_message\n")?,
     }
     Ok(())
@@ -73,21 +100,36 @@ fn handle_peer(mut stream: TcpStream, chain: &Vec<Block>) -> std::io::Result<()>
 
 fn run_listener(addr: &str) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr)?;
-    let chain = load_chain();
-    validate_chain(&chain).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    let mut chain = load_chain();
+    validate_chain(&chain).map_err(std::io::Error::other)?;
     println!("RDL development node listening on {}", addr);
     for stream in listener.incoming() {
-        handle_peer(stream?, &chain)?;
+        handle_peer(stream?, &mut chain)?;
     }
     Ok(())
 }
 
 fn request(addr: &str, message: &str) -> std::io::Result<String> {
     let mut stream = TcpStream::connect(addr)?;
-    stream.write_all(format!("{}\n", message).as_bytes())?;
+    stream.write_all(message.as_bytes())?;
+    stream.write_all(b"\n")?;
     let mut response = String::new();
     BufReader::new(stream).read_line(&mut response)?;
     Ok(response.trim().to_string())
+}
+
+fn sync_from_peer(addr: &str) -> Result<(), String> {
+    let payload = request(addr, "GET_CHAIN").map_err(|e| e.to_string())?;
+    let candidate: Vec<Block> = serde_json::from_str(&payload).map_err(|e| e.to_string())?;
+    let mut local = load_chain();
+    validate_chain(&local)?;
+    if replace_chain_if_valid(&mut local, candidate)? {
+        save_chain(&local);
+        println!("SYNCED blocks={}", local.len());
+    } else {
+        println!("SYNC_NOT_NEEDED");
+    }
+    Ok(())
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
@@ -98,6 +140,10 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() == 3 && args[1] == "--listen" {
         run_listener(&args[2]).expect("listener");
+        return;
+    }
+    if args.len() == 3 && args[1] == "--sync" {
+        sync_from_peer(&args[2]).expect("peer sync");
         return;
     }
     if args.len() == 3 && (args[1] == "--ping" || args[1] == "--height" || args[1] == "--tip") {
@@ -125,7 +171,7 @@ fn main() {
     validate_chain(&chain).expect("chain validation");
     save_chain(&chain);
 
-    println!("RDL Node v0.1.0 — peer state query foundation");
+    println!("RDL Node v0.1.0 — development chain sync foundation");
     println!("ledger blocks: {}", chain.len());
-    println!("STATUS: local ledger + signed blocks + development peer state queries; no authenticated gossip/sync/consensus/testnet.");
+    println!("STATUS: validated development chain transfer/sync implemented; no authenticated gossip/fork-choice/Byzantine consensus/testnet.");
 }
