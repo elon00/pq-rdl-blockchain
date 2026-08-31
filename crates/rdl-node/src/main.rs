@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::Cursor;
 use std::io::{BufRead, BufReader, Write};
-use std::net::{ToSocketAddrs, TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -1338,16 +1338,20 @@ fn request(addr: &str, message: &str) -> std::io::Result<String> {
         ));
     }
     validate_tls_material()?;
-    let mut resolved = addr
-        .to_socket_addrs()
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("invalid peer address {addr}: {e}")))?;
-    let peer_addr = resolved.next().ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("peer address resolved to no socket addresses: {addr}"))
+    let mut resolved = addr.to_socket_addrs().map_err(|e| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("invalid peer address {addr}: {e}"),
+        )
     })?;
-    let mut stream = TcpStream::connect_timeout(
-        &peer_addr,
-        Duration::from_secs(SOCKET_TIMEOUT_SECS),
-    )?;
+    let peer_addr = resolved.next().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("peer address resolved to no socket addresses: {addr}"),
+        )
+    })?;
+    let mut stream =
+        TcpStream::connect_timeout(&peer_addr, Duration::from_secs(SOCKET_TIMEOUT_SECS))?;
     configure_socket(&stream)?;
     let mut reader = BufReader::new(stream.try_clone()?);
     let nonce = read_challenge(&mut reader)?;
