@@ -1,5 +1,5 @@
 use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey};
-use rand_core::OsRng;
+use rand_core::{OsRng, RngCore};
 use rdl_types::{Block, Transaction};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -10,142 +10,25 @@ use std::path::Path;
 const LEDGER_PATH: &str = "data/rdl-ledger.json";
 const IDENTITY_PATH: &str = "data/rdl-node-ed25519.key";
 const MAX_BLOCK_TXS: usize = 1_000;
+const AUTH_DOMAIN: &[u8] = b"RDL-AUTH-v1";
 
-fn hash_block(block: &Block) -> [u8; 32] {
-    Sha256::digest(serde_json::to_vec(block).expect("block serialization")).into()
-}
-fn load_chain() -> Vec<Block> {
-    if !Path::new(LEDGER_PATH).exists() { return Vec::new(); }
-    serde_json::from_slice(&fs::read(LEDGER_PATH).expect("ledger read")).expect("ledger decode")
-}
-fn save_chain(chain: &[Block]) {
-    fs::create_dir_all("data").expect("ledger directory");
-    fs::write(LEDGER_PATH, serde_json::to_vec_pretty(chain).expect("ledger encode")).expect("ledger write");
-}
-fn load_or_create_identity() -> SigningKey {
-    fs::create_dir_all("data").expect("identity directory");
-    if let Ok(bytes) = fs::read(IDENTITY_PATH) {
-        if let Ok(seed) = <[u8; 32]>::try_from(bytes.as_slice()) { return SigningKey::from_bytes(&seed); }
-    }
-    let key = SigningKey::generate(&mut OsRng);
-    fs::write(IDENTITY_PATH, key.to_bytes()).expect("identity write");
-    key
-}
-fn validate_block(block: &Block, previous: Option<&Block>) -> Result<(), String> {
-    if block.transactions.len() > MAX_BLOCK_TXS { return Err("block transaction limit exceeded".into()); }
-    for tx in &block.transactions {
-        if !tx.verify() { return Err(format!("invalid transaction signature at height {}", block.height)); }
-    }
-    match previous {
-        None if block.height == 0 && block.parent_hash == [0; 32] => Ok(()),
-        Some(prev) if block.height == prev.height + 1 && block.parent_hash == hash_block(prev) => Ok(()),
-        _ => Err(format!("invalid block linkage at height {}", block.height)),
-    }
-}
-fn validate_chain(chain: &[Block]) -> Result<(), String> {
-    for (i, block) in chain.iter().enumerate() {
-        validate_block(block, i.checked_sub(1).map(|j| &chain[j]))?;
-    }
-    Ok(())
-}
-fn replace_chain_if_valid(local: &mut Vec<Block>, candidate: Vec<Block>) -> Result<bool, String> {
-    validate_chain(&candidate)?;
-    if candidate.len() > local.len() { *local = candidate; return Ok(true); }
-    Ok(false)
-}
-fn produce_block(chain: &mut Vec<Block>, mempool: &mut Vec<Transaction>) -> Result<(), String> {
-    let previous = chain.last();
-    let block = Block {
-        height: previous.map(|b| b.height + 1).unwrap_or(0),
-        parent_hash: previous.map(hash_block).unwrap_or([0; 32]),
-        state_root: [0; 32],
-        transactions: mempool.drain(..).take(MAX_BLOCK_TXS).collect(),
-    };
-    validate_block(&block, previous)?;
-    chain.push(block);
-    Ok(())
-}
-fn hex_encode(bytes: &[u8]) -> String { bytes.iter().map(|b| format!("{b:02x}")).collect() }
-
-fn auth_message(key: &SigningKey) -> String {
-    let public = key.verifying_key().to_bytes();
-    let sig = key.sign(&public).to_bytes();
-    format!("AUTH {} {}", hex_encode(&public), hex_encode(&sig))
-}
-fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
-    if s.len() % 2 != 0 { return Err("invalid hex".into()); }
-    (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i+2],16).map_err(|_| "invalid hex".into())).collect()
-}
-fn verify_auth(line: &str) -> bool {
-    let mut p = line.split_whitespace();
-    if p.next() != Some("AUTH") { return false; }
-    let (Some(pk), Some(sig)) = (p.next(), p.next()) else { return false; };
-    let Ok(pk) = decode_hex(pk) else { return false; };
-    let Ok(sig) = decode_hex(sig) else { return false; };
-    let Ok(pk) = <[u8;32]>::try_from(pk.as_slice()) else { return false; };
-    let Ok(key) = VerifyingKey::from_bytes(&pk) else { return false; };
-    let Ok(sig) = ed25519_dalek::Signature::from_slice(&sig) else { return false; };
-    key.verify(&pk, &sig).is_ok()
-}
-fn handle_peer(mut stream: TcpStream, chain: &mut Vec<Block>) -> std::io::Result<()> {
-    let mut reader = BufReader::new(stream.try_clone()?);
-    let mut auth = String::new();
-    reader.read_line(&mut auth)?;
-    if !verify_auth(auth.trim()) { stream.write_all(b"UNAUTHENTICATED\n")?; return Ok(()); }
-    let mut line = String::new();
-    reader.read_line(&mut line)?;
-    match line.trim() {
-        "PING" => stream.write_all(b"PONG\n")?,
-        "GET_HEIGHT" => stream.write_all(format!("HEIGHT {}\n", chain.last().map(|b| b.height).unwrap_or(0)).as_bytes())?,
-        "GET_TIP_HASH" => stream.write_all(format!("TIP {}\n", hex_encode(&chain.last().map(hash_block).unwrap_or([0;32]))).as_bytes())?,
-        "GET_CHAIN" => { stream.write_all(serde_json::to_string(chain).map_err(std::io::Error::other)?.as_bytes())?; stream.write_all(b"\n")?; }
-        message if message.starts_with("SUBMIT_BLOCK ") => {
-            let block: Block = serde_json::from_str(message.trim_start_matches("SUBMIT_BLOCK ")).map_err(std::io::Error::other)?;
-            match validate_block(&block, chain.last()) {
-                Ok(()) => { chain.push(block); save_chain(chain); stream.write_all(b"ACCEPTED\n")?; }
-                Err(_) => stream.write_all(b"REJECTED\n")?,
-            }
-        }
-        _ => stream.write_all(b"ERROR unknown_message\n")?,
-    }
-    Ok(())
-}
-fn run_listener(addr: &str) -> std::io::Result<()> {
-    let listener = TcpListener::bind(addr)?;
-    let mut chain = load_chain();
-    validate_chain(&chain).map_err(std::io::Error::other)?;
-    println!("RDL authenticated development node listening on {}", addr);
-    for stream in listener.incoming() { handle_peer(stream?, &mut chain)?; }
-    Ok(())
-}
-fn request(addr: &str, message: &str) -> std::io::Result<String> {
-    let mut stream = TcpStream::connect(addr)?;
-    let identity = load_or_create_identity();
-    stream.write_all(format!("{}\n{}\n", auth_message(&identity), message).as_bytes())?;
-    let mut response = String::new();
-    BufReader::new(stream).read_line(&mut response)?;
-    Ok(response.trim().to_string())
-}
-fn sync_from_peer(addr: &str) -> Result<(), String> {
-    let payload = request(addr, "GET_CHAIN").map_err(|e| e.to_string())?;
-    let candidate: Vec<Block> = serde_json::from_str(&payload).map_err(|e| e.to_string())?;
-    let mut local = load_chain(); validate_chain(&local)?;
-    if replace_chain_if_valid(&mut local, candidate)? { save_chain(&local); println!("SYNCED blocks={}", local.len()); } else { println!("SYNC_NOT_NEEDED"); }
-    Ok(())
-}
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len()==3 && args[1]=="--listen" { run_listener(&args[2]).expect("listener"); return; }
-    if args.len()==3 && args[1]=="--sync" { sync_from_peer(&args[2]).expect("peer sync"); return; }
-    if args.len()==3 && (args[1]=="--ping"||args[1]=="--height"||args[1]=="--tip") {
-        let command = match args[1].as_str() {"--ping"=>"PING","--height"=>"GET_HEIGHT",_=>"GET_TIP_HASH"};
-        println!("{}", request(&args[2],command).expect("peer request")); return;
-    }
-    let mut chain=load_chain(); validate_chain(&chain).expect("existing ledger validation");
-    if chain.is_empty(){chain.push(Block{height:0,parent_hash:[0;32],state_root:[0;32],transactions:vec![]});}
-    let key=SigningKey::generate(&mut OsRng);
-    let mut tx=Transaction{from:String::new(),to:"rdl_demo_recipient".into(),nonce:0,payload:b"RDL signed transaction".to_vec(),public_key:vec![],signature:vec![]};
-    tx.sign(&key); let mut mempool=vec![tx]; produce_block(&mut chain,&mut mempool).expect("block production"); validate_chain(&chain).expect("chain validation"); save_chain(&chain);
-    println!("RDL Node v0.1.0 — authenticated development peer foundation");
-    println!("STATUS: signed peer authentication implemented; transport encryption, authorization, gossip, production consensus and testnet remain pending.");
-}
+fn hash_block(block: &Block) -> [u8; 32] { Sha256::digest(serde_json::to_vec(block).expect("block serialization")).into() }
+fn load_chain() -> Vec<Block> { if !Path::new(LEDGER_PATH).exists(){return Vec::new()} serde_json::from_slice(&fs::read(LEDGER_PATH).expect("ledger read")).expect("ledger decode") }
+fn save_chain(chain:&[Block]) { fs::create_dir_all("data").expect("ledger directory"); fs::write(LEDGER_PATH,serde_json::to_vec_pretty(chain).expect("ledger encode")).expect("ledger write"); }
+fn load_or_create_identity()->SigningKey { fs::create_dir_all("data").expect("identity directory"); if let Ok(bytes)=fs::read(IDENTITY_PATH){if let Ok(seed)=<[u8;32]>::try_from(bytes.as_slice()){return SigningKey::from_bytes(&seed)}} let key=SigningKey::generate(&mut OsRng); fs::write(IDENTITY_PATH,key.to_bytes()).expect("identity write"); key }
+fn validate_block(block:&Block,previous:Option<&Block>)->Result<(),String>{ if block.transactions.len()>MAX_BLOCK_TXS{return Err("block transaction limit exceeded".into())} for tx in &block.transactions{if !tx.verify(){return Err(format!("invalid transaction signature at height {}",block.height))}} match previous{None if block.height==0&&block.parent_hash==[0;32]=>Ok(()),Some(prev) if block.height==prev.height+1&&block.parent_hash==hash_block(prev)=>Ok(()),_=>Err(format!("invalid block linkage at height {}",block.height))} }
+fn validate_chain(chain:&[Block])->Result<(),String>{for(i,b)in chain.iter().enumerate(){validate_block(b,i.checked_sub(1).map(|j|&chain[j]))?}Ok(())}
+fn replace_chain_if_valid(local:&mut Vec<Block>,candidate:Vec<Block>)->Result<bool,String>{validate_chain(&candidate)?;if candidate.len()>local.len(){*local=candidate;return Ok(true)}Ok(false)}
+fn produce_block(chain:&mut Vec<Block>,mempool:&mut Vec<Transaction>)->Result<(),String>{let previous=chain.last();let block=Block{height:previous.map(|b|b.height+1).unwrap_or(0),parent_hash:previous.map(hash_block).unwrap_or([0;32]),state_root:[0;32],transactions:mempool.drain(..).take(MAX_BLOCK_TXS).collect()};validate_block(&block,previous)?;chain.push(block);Ok(())}
+fn hex_encode(bytes:&[u8])->String{bytes.iter().map(|b|format!("{b:02x}")).collect()}
+fn decode_hex(s:&str)->Result<Vec<u8>,String>{if s.len()%2!=0{return Err("invalid hex".into())}(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).map_err(|_|"invalid hex".into())).collect()}
+fn auth_payload(nonce:&[u8;32])->Vec<u8>{[AUTH_DOMAIN,nonce].concat()}
+fn auth_message(key:&SigningKey,nonce:&[u8;32])->String{let public=key.verifying_key().to_bytes();let sig=key.sign(&auth_payload(nonce)).to_bytes();format!("AUTH {} {}",hex_encode(&public),hex_encode(&sig))}
+fn verify_auth(line:&str,nonce:&[u8;32])->bool{let mut p=line.split_whitespace();if p.next()!=Some("AUTH"){return false}let(Some(pk),Some(sig))=(p.next(),p.next())else{return false};let Ok(pk)=decode_hex(pk)else{return false};let Ok(sig)=decode_hex(sig)else{return false};let Ok(pk)=<[u8;32]>::try_from(pk.as_slice())else{return false};let Ok(key)=VerifyingKey::from_bytes(&pk)else{return false};let Ok(sig)=ed25519_dalek::Signature::from_slice(&sig)else{return false};key.verify(&auth_payload(nonce),&sig).is_ok()}
+fn issue_challenge(stream:&mut TcpStream)->std::io::Result<[u8;32]>{let mut nonce=[0u8;32];OsRng.fill_bytes(&mut nonce);stream.write_all(format!("CHALLENGE {}\n",hex_encode(&nonce)).as_bytes())?;Ok(nonce)}
+fn read_challenge(reader:&mut BufReader<TcpStream>)->std::io::Result<[u8;32]>{let mut line=String::new();reader.read_line(&mut line)?;let mut p=line.split_whitespace();if p.next()!=Some("CHALLENGE"){return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"missing challenge"))}let hex=p.next().ok_or_else(||std::io::Error::new(std::io::ErrorKind::InvalidData,"missing nonce"))?;let bytes=decode_hex(hex).map_err(std::io::Error::other)?;<[u8;32]>::try_from(bytes.as_slice()).map_err(|_|std::io::Error::new(std::io::ErrorKind::InvalidData,"invalid nonce"))}
+fn handle_peer(mut stream:TcpStream,chain:&mut Vec<Block>)->std::io::Result<()> {let nonce=issue_challenge(&mut stream)?;let mut reader=BufReader::new(stream.try_clone()?);let mut auth=String::new();reader.read_line(&mut auth)?;if !verify_auth(auth.trim(),&nonce){stream.write_all(b"UNAUTHENTICATED\n")?;return Ok(())}let mut line=String::new();reader.read_line(&mut line)?;match line.trim(){"PING"=>stream.write_all(b"PONG\n")?,"GET_HEIGHT"=>stream.write_all(format!("HEIGHT {}\n",chain.last().map(|b|b.height).unwrap_or(0)).as_bytes())?,"GET_TIP_HASH"=>stream.write_all(format!("TIP {}\n",hex_encode(&chain.last().map(hash_block).unwrap_or([0;32]))).as_bytes())?,"GET_CHAIN"=>{stream.write_all(serde_json::to_string(chain).map_err(std::io::Error::other)?.as_bytes())?;stream.write_all(b"\n")?},message if message.starts_with("SUBMIT_BLOCK ")=>{let block:Block=serde_json::from_str(message.trim_start_matches("SUBMIT_BLOCK ")).map_err(std::io::Error::other)?;match validate_block(&block,chain.last()){Ok(())=>{chain.push(block);save_chain(chain);stream.write_all(b"ACCEPTED\n")?},Err(_)=>stream.write_all(b"REJECTED\n")?}},_=>stream.write_all(b"ERROR unknown_message\n")?}Ok(())}
+fn run_listener(addr:&str)->std::io::Result<()> {let listener=TcpListener::bind(addr)?;let mut chain=load_chain();validate_chain(&chain).map_err(std::io::Error::other)?;println!("RDL challenge-authenticated development node listening on {}",addr);for stream in listener.incoming(){handle_peer(stream?,&mut chain)?}Ok(())}
+fn request(addr:&str,message:&str)->std::io::Result<String>{let mut stream=TcpStream::connect(addr)?;let mut reader=BufReader::new(stream.try_clone()?);let nonce=read_challenge(&mut reader)?;let identity=load_or_create_identity();stream.write_all(format!("{}\n{}\n",auth_message(&identity,&nonce),message).as_bytes())?;let mut response=String::new();reader.read_line(&mut response)?;Ok(response.trim().to_string())}
+fn sync_from_peer(addr:&str)->Result<(),String>{let payload=request(addr,"GET_CHAIN").map_err(|e|e.to_string())?;let candidate:Vec<Block>=serde_json::from_str(&payload).map_err(|e|e.to_string())?;let mut local=load_chain();validate_chain(&local)?;if replace_chain_if_valid(&mut local,candidate)?{save_chain(&local);println!("SYNCED blocks={}",local.len())}else{println!("SYNC_NOT_NEEDED")}Ok(())}
+fn main(){let args:Vec<String>=std::env::args().collect();if args.len()==3&&args[1]=="--listen"{run_listener(&args[2]).expect("listener");return}if args.len()==3&&args[1]=="--sync"{sync_from_peer(&args[2]).expect("peer sync");return}if args.len()==3&&(args[1]=="--ping"||args[1]=="--height"||args[1]=="--tip"){let command=match args[1].as_str(){"--ping"=>"PING","--height"=>"GET_HEIGHT",_=>"GET_TIP_HASH"};println!("{}",request(&args[2],command).expect("peer request"));return}let mut chain=load_chain();validate_chain(&chain).expect("existing ledger validation");if chain.is_empty(){chain.push(Block{height:0,parent_hash:[0;32],state_root:[0;32],transactions:vec![]})}let key=SigningKey::generate(&mut OsRng);let mut tx=Transaction{from:String::new(),to:"rdl_demo_recipient".into(),nonce:0,payload:b"RDL signed transaction".to_vec(),public_key:vec![],signature:vec![]};tx.sign(&key);let mut mempool=vec![tx];produce_block(&mut chain,&mut mempool).expect("block production");validate_chain(&chain).expect("chain validation");save_chain(&chain);println!("RDL Node v0.1.0 — challenge-authenticated development peer foundation");println!("STATUS: challenge-response peer authentication implemented; transport encryption, authorization, gossip, production consensus and testnet remain pending.");}
