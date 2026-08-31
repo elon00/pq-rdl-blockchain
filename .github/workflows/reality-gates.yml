@@ -14,11 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Format check
-        run: cargo fmt --all -- --check
       - name: Compile
         run: cargo check --workspace --all-targets
       - name: Test
         run: cargo test --workspace --all-targets
       - name: Multi-node smoke
         run: bash scripts/multi-node-smoke.sh
+      - name: Format check
+        run: cargo fmt --all -- --check
