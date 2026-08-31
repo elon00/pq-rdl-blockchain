@@ -1,3 +1,4 @@
+#![allow(clippy::possible_missing_else)]
 use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey};
 use rand_core::{OsRng, RngCore};
 use rdl_types::{Block, Transaction};
