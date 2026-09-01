@@ -3,9 +3,9 @@ name: QMoosa Master Finisher
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches: [main, master, qmoosa/reality-chain-v1]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, qmoosa/reality-chain-v1]
 
 permissions:
   contents: read
