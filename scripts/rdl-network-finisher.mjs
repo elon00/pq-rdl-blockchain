@@ -8,10 +8,22 @@ const exec = (cmd, args) => {
   if (r.status !== 0) process.exit(r.status ?? 1);
 };
 
+const getBash = () => {
+  if (process.platform === "win32") {
+    if (existsSync("C:\\Program Files\\Git\\bin\\bash.exe")) {
+      return "C:\\Program Files\\Git\\bin\\bash.exe";
+    }
+    if (existsSync("C:\\Program Files\\Git\\usr\\bin\\bash.exe")) {
+      return "C:\\Program Files\\Git\\usr\\bin\\bash.exe";
+    }
+  }
+  return "bash";
+};
+
 const stages = [
   ["01-devnet", "Persistent Devnet", "cargo", ["check", "--workspace", "--all-targets"]],
   ["02-distributed", "Distributed Testnet", "cargo", ["test", "--workspace", "--all-targets"]],
-  ["03-public-testnet", "Public Testnet Readiness", "bash", ["scripts/multi-node-smoke.sh"]],
+  ["03-public-testnet", "Public Testnet Readiness", getBash(), ["scripts/multi-node-smoke.sh"]],
   ["04-incentivized", "Incentivized Testnet Readiness", "cargo", ["fmt", "--all", "--", "--check"]],
   ["05-security", "Mainnet Security Readiness", "cargo", ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]],
 ];

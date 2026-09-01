@@ -916,6 +916,7 @@ fn validate_tls_material() -> std::io::Result<()> {
     Ok(())
 }
 fn configure_socket(stream: &TcpStream) -> std::io::Result<()> {
+    stream.set_nonblocking(false)?;
     let timeout = Some(Duration::from_secs(SOCKET_TIMEOUT_SECS));
     stream.set_read_timeout(timeout)?;
     stream.set_write_timeout(timeout)?;

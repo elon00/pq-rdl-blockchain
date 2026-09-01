@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-09-01T23:05:15.735Z",
+  "mode": "REALITY_MODE",
+  "results": [
+    {
+      "id": "01-devnet",
+      "name": "Persistent Devnet",
+      "verified": true,
+      "evidence": "cargo check --workspace --all-targets"
+    },
+    {
+      "id": "02-distributed",
+      "name": "Distributed Testnet",
+      "verified": true,
+      "evidence": "cargo test --workspace --all-targets"
+    },
+    {
+      "id": "03-public-testnet",
+      "name": "Public Testnet Readiness",
+      "verified": true,
+      "evidence": "C:\\Program Files\\Git\\bin\\bash.exe scripts/multi-node-smoke.sh"
+    },
+    {
+      "id": "04-incentivized",
+      "name": "Incentivized Testnet Readiness",
+      "verified": true,
+      "evidence": "cargo fmt --all -- --check"
+    },
+    {
+      "id": "05-security",
+      "name": "Mainnet Security Readiness",
+      "verified": true,
+      "evidence": "cargo clippy --workspace --all-targets -- -D warnings"
+    },
+    {
+      "id": "06-mainnet",
+      "name": "Mainnet Genesis Readiness",
+      "verified": false,
+      "evidence": {
+        "publicRpc": false,
+        "explorer": false,
+        "faucet": false,
+        "independentAudit": false,
+        "genesisApproval": false
+      },
+      "note": "BLOCKED: external deployment/audit/genesis evidence missing."
+    }
+  ],
+  "overall": "TESTNET_AND_MAINNET_EXTERNAL_EVIDENCE_REQUIRED"
+}
