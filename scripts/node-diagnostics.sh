@@ -1,0 +1,12 @@
+﻿#!/usr/bin/env bash
+echo "🏛️ RDL NODE ENVIRONMENT & HARDWARE DIAGNOSTIC REPORT"
+echo "===================================================="
+echo "📍 HOSTNAME:         $(hostname 2>/dev/null || uname -n)"
+echo "🌐 PUBLIC IP:         $(curl -s --max-time 4 https://ifconfig.me || curl -s --max-time 4 https://api.ipify.org || echo 'N/A')"
+echo "🐳 DOCKER VERSION:    $(docker --version 2>/dev/null || echo 'Docker not installed')"
+echo "📦 COMPOSE VERSION:   $(docker compose version 2>/dev/null || docker-compose --version 2>/dev/null || echo 'Docker Compose not installed')"
+echo "🧠 CPU CORES:         $(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 'N/A')"
+echo "💾 TOTAL RAM:         $(free -h 2>/dev/null | awk '/^Mem:/ {print $2}' || echo 'N/A')"
+echo "🦀 RUST VERSION:      $(rustc --version 2>/dev/null || echo 'Rust not in PATH')"
+echo "🟢 NODE.JS VERSION:   $(node -v 2>/dev/null || echo 'Node.js not in PATH')"
+echo "===================================================="
