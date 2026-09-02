@@ -8,13 +8,16 @@ echo "==========================================================================
 cd "$HOME"
 
 # 1. Setup Rust Toolchain in Cloud Shell
-echo -e "\n🦀 Step 1: Configuring Rust default toolchain (stable)..."
+echo -e "\n🦀 Step 1: Installing and configuring Rust stable toolchain..."
 if command -v rustup &> /dev/null; then
-    rustup default stable
+    echo "Configuring rustup stable toolchain..."
+    rustup toolchain install stable --profile minimal --no-self-update || true
+    rustup default stable || true
 else
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 fi
 source "$HOME/.cargo/env" 2>/dev/null || true
+export PATH="$HOME/.cargo/bin:$PATH"
 
 # 2. Clone or Update Repository
 echo -e "\n📦 Step 2: Updating RDL Blockchain Repository..."
