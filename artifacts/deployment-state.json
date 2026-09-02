@@ -1,0 +1,54 @@
+{
+  "synchronizedAt": "2026-09-02T18:32:29.062Z",
+  "git": {
+    "commit": "84f92e8dfd9f63b797116877debebfbd8f7b689c",
+    "branch": "master",
+    "repo": "https://github.com/elon00/pq-rdl-blockchain"
+  },
+  "network": {
+    "chainId": "RDL-TESTNET-001",
+    "version": "0.0.0",
+    "genesisSha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
+    "classification": "PARTIALLY_REACHABLE",
+    "consensus": "Conway Proof-of-Automaton (PoA) + Dilithium2/SPHINCS+",
+    "status": "TESTNET_LIVE_CANONICAL"
+  },
+  "nodes": [
+    {
+      "name": "Node 1 (Google Cloud)",
+      "role": "Public Node",
+      "url": "https://story-sunshine-schools-grateful.trycloudflare.com",
+      "provider": "Google Cloud",
+      "reachable": false,
+      "status": "UNREACHABLE",
+      "error": "getaddrinfo ENOTFOUND story-sunshine-schools-grateful.trycloudflare.com"
+    },
+    {
+      "name": "Node 2 (Local Laptop / Dev)",
+      "role": "Local Node",
+      "url": "http://127.0.0.1:3000",
+      "provider": "Localhost",
+      "reachable": true,
+      "status": "HEALTHY",
+      "httpCode": 200,
+      "latencyMs": 120,
+      "health": {
+        "status": "ok",
+        "mode": "DEMONSTRATION_IN_MEMORY",
+        "time": "2026-09-02T18:32:06.730Z",
+        "statusNote": "No external blockchain consensus, validator network, or Solana settlement is connected by this server."
+      }
+    },
+    {
+      "name": "Node 3 (GitHub Codespaces)",
+      "role": "Temporary Cloud Test Node",
+      "url": "https://super-telegram-45967gpjj7rhjwj9-3000.app.github.dev",
+      "provider": "GitHub Codespaces",
+      "reachable": false,
+      "status": "HTTP_401",
+      "httpCode": 401,
+      "latencyMs": 1373,
+      "health": null
+    }
+  ]
+}

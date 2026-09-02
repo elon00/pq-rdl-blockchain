@@ -14,7 +14,7 @@ function runStep(name, command, args) {
   process.stdout.write(`⏳ Running ${name}... `);
   try {
     const cmd = command === "npm" && process.platform === "win32" ? "npm.cmd" : command;
-    execFileSync(cmd, args, { stdio: "pipe", encoding: "utf8", shell: false });
+    execFileSync(cmd, args, { stdio: "pipe", encoding: "utf8", shell: process.platform === "win32" });
     console.log("✅ PASS");
     add(name, "PASS", `${command} ${args.join(" ")}`);
     return true;
@@ -36,6 +36,7 @@ for (const [name, command, args] of [
   ["Rust Unit & Consensus Tests", "cargo", ["test", "--workspace", "--all-targets"]],
   ["Rust Security & Lints (Clippy)", "cargo", ["clippy", "--workspace", "--all-targets"]],
   ["QMoosa Truth Check", "npm", ["run", "check:truth"]],
+  ["Canonical Deployment State Sync", "npm", ["run", "deploy:state"]],
   ["Frontend & Server Build", "npm", ["run", "build"]],
 ]) {
   if (!runStep(name, command, args)) localPassed = false;

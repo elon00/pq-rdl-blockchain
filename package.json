@@ -19,7 +19,8 @@
     "build:release": "node scripts/build-release-artifacts.mjs",
     "start:tunnel": "node scripts/start-public-tunnel-node.mjs",
     "preflight:build": "node scripts/preflight-build.mjs",
-    "finish:all": "node scripts/finish-all.mjs"
+    "finish:all": "node scripts/finish-all.mjs",
+    "deploy:state": "node scripts/sync-deployment-state.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
