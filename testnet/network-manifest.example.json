@@ -6,7 +6,7 @@
   "bootstrap_endpoints": [
     "https://isbn-desire-dairy-looks.trycloudflare.com"
   ],
-  "genesis_sha256": "9779e530ae4d7b36d7731584659bfdcedd7ac4b5eb97b4eb9cb11b82c241238b",
+  "genesis_sha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
   "release_version": "v0.1.0-testnet",
   "evidence_policy": "No public Testnet claim until independent infrastructure and reproducible evidence exist.",
   "genesis_artifact": "testnet/genesis.json",

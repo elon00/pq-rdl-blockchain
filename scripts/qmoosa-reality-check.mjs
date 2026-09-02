@@ -8,7 +8,8 @@ const add = (name, status, evidence) => checks.push({ name, status, evidence });
 
 function run(name, command, args) {
   try {
-    execFileSync(command, args, { stdio: "pipe", encoding: "utf8" });
+    const cmd = command === "npm" && process.platform === "win32" ? "npm.cmd" : command;
+    execFileSync(cmd, args, { stdio: "pipe", encoding: "utf8", shell: true });
     add(name, "PASS", `${command} ${args.join(" ")}`);
   } catch (error) {
     const message = String(error?.stderr || error?.message || "command failed").split("\n")[0].trim();
