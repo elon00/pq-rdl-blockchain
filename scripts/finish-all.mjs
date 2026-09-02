@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync, execFileSync, execSync } from "node:child_process";
+import { spawnSync, execFileSync, execSync, spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import https from "node:https";
 import http from "node:http";
@@ -30,6 +30,12 @@ function runStep(name, command, args) {
 // 1. Local Codebase & Consensus Verification
 console.log("\n[1/3] VERIFYING LOCAL RUST & JAVASCRIPT CODEBASE:");
 runStep("Rust Unit & Consensus Tests", "cargo", ["test", "--workspace", "--all-targets"]);
+
+// Ensure clippy component exists
+try {
+  execFileSync("rustup", ["component", "add", "clippy"], { stdio: "pipe", encoding: "utf8", shell: true });
+} catch {}
+
 runStep("Rust Security & Lints (Clippy)", "cargo", ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]);
 runStep("QMoosa Truth Check", "npm", ["run", "check:truth"]);
 runStep("Frontend & Server Build", "npm", ["run", "build"]);
@@ -73,6 +79,20 @@ async function checkEndpoint(node) {
 }
 
 async function main() {
+  // Auto-start local node if not yet running
+  try {
+    const localCheck = await checkEndpoint({ url: "http://127.0.0.1:3000" });
+    if (!localCheck.reachable) {
+      console.log("🚀 Auto-starting local RDL Node daemon on localhost:3000...");
+      const nodeBin = process.platform === "win32" ? "target\\release\\rdl-node.exe" : "./target/release/rdl-node";
+      if (existsSync(nodeBin)) {
+        spawn(nodeBin, [], { detached: true, stdio: "ignore" }).unref();
+      }
+      spawn(process.execPath, ["dist/server.cjs"], { detached: true, stdio: "ignore" }).unref();
+      await new Promise(r => setTimeout(r, 2500));
+    }
+  } catch {}
+
   const probedNodes = await Promise.all(nodes.map(checkEndpoint));
 
   for (const n of probedNodes) {
