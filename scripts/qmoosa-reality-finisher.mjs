@@ -9,7 +9,7 @@ const stages = [
   ["FIX", "node -e \"console.log('Reality mode: no fake auto-fix; unresolved failures remain failures.')\""],
   ["TEST", "npm test"],
   ["VERIFY", "npm run build"],
-  ["BENCHMARK", "node -e \"console.log('NOT_VERIFIED: reproducible multi-node benchmark evidence required.')\""],
+  ["PUBLIC_TESTNET_GATE", "node scripts/public-testnet-reality-gate.mjs"],
 ];
 
 const results=[];
@@ -21,7 +21,7 @@ for (const [stage, command] of stages) {
   } catch {
     results.push({stage,status:"FAIL",evidence:command});
     failed=true;
-    break;
+    if(stage!=="PUBLIC_TESTNET_GATE") break;
   }
 }
 
@@ -38,15 +38,15 @@ for (const [name, present] of Object.entries(requirements)) {
 }
 
 const allEvidence = Object.values(requirements).every(Boolean);
-const status = failed ? "FAILED" : allEvidence ? "TESTNET_EVIDENCE_COMPLETE" : "PROTOTYPE_OR_PARTIAL_IMPLEMENTATION";
+const status = failed ? "NOT_VERIFIED" : allEvidence ? "TESTNET_EVIDENCE_COMPLETE" : "PROTOTYPE_OR_PARTIAL_IMPLEMENTATION";
 results.push({stage:"REPORT",status:"COMPLETE"});
 writeFileSync("qmoosa-reality-report.json",JSON.stringify({
   mode:"REALITY_MODE",
-  branch:"qmoosa/reality-chain-v1",
   status,
   results,
-  requirements
+  requirements,
+  rule:"No public testnet success claim without independently reproducible live-network evidence."
 },null,2));
 
 console.log("\nQMOOSA REALITY MODE:",status);
-process.exit(failed ? 1 : 0);
+process.exit(failed ? 2 : 0);
