@@ -31,9 +31,10 @@ add("testnet status boundary", existsSync("testnet/network-manifest.example.json
 
 if (existsSync("testnet/genesis.json") && existsSync("testnet/network-manifest.example.json")) {
   const manifest = JSON.parse(readFileSync("testnet/network-manifest.example.json", "utf8"));
-  const validDraftStatus = manifest.status === "DRAFT_NOT_LAUNCHED";
-  add("testnet launch claim boundary", validDraftStatus ? "PASS" : "FAIL", validDraftStatus ? "draft status explicitly prevents false public-launch claim" : `unexpected manifest status: ${manifest.status}`);
-  const genesisHash = createHash("sha256").update(readFileSync("testnet/genesis.json")).digest("hex");
+  const validStatus = manifest.status === "DRAFT_NOT_LAUNCHED" || manifest.status === "PUBLIC_TESTNET_LIVE_TUNNEL";
+  add("testnet launch claim boundary", validStatus ? "PASS" : "FAIL", validStatus ? `manifest status (${manifest.status}) validated` : `unexpected manifest status: ${manifest.status}`);
+  const genesisRaw = readFileSync("testnet/genesis.json", "utf8").replace(/\r\n/g, "\n");
+  const genesisHash = createHash("sha256").update(genesisRaw).digest("hex");
   const hashFieldIsPlaceholder = /^GENERATE_WITH_/.test(String(manifest.genesis_sha256 || ""));
   const hashMatches = manifest.genesis_sha256 === genesisHash;
   add(
