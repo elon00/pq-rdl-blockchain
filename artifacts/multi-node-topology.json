@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-09-02T11:03:07.921Z",
+  "mode": "REALITY_MODE",
+  "classification": "MULTI_REGION_DISTRIBUTED_TESTNET",
+  "governanceNotice": "Nodes operated under developer setup. Independent third-party validator consortium required before Mainnet.",
+  "nodes": [
+    {
+      "name": "Node 1 (Google Cloud)",
+      "role": "Public RPC / Explorer Gateway",
+      "url": "https://story-sunshine-schools-grateful.trycloudflare.com",
+      "provider": "Google Cloud Shell",
+      "status": "UNREACHABLE",
+      "reachable": false,
+      "error": "getaddrinfo ENOTFOUND story-sunshine-schools-grateful.trycloudflare.com"
+    },
+    {
+      "name": "Node 2 (Local Laptop)",
+      "role": "Local Development Validator",
+      "url": "http://127.0.0.1:3000",
+      "provider": "Localhost",
+      "status": "HEALTHY",
+      "reachable": true,
+      "httpCode": 200
+    },
+    {
+      "name": "Node 3 (Oracle Cloud)",
+      "role": "Standby / Primary ARM Validator",
+      "url": null,
+      "provider": "Oracle Cloud Infrastructure (Pending Operator Setup)",
+      "status": "NOT_CONFIGURED",
+      "reachable": false,
+      "note": "Operator account setup pending"
+    }
+  ]
+}
