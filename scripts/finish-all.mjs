@@ -20,9 +20,12 @@ function runStep(name, command, args) {
     return true;
   } catch (error) {
     console.log("❌ FAIL");
+    const stdout = error?.stdout?.toString?.() ?? "";
     const stderr = error?.stderr?.toString?.() ?? "";
-    const message = (stderr || error?.message || "command failed").split("\n")[0].trim();
-    add(name, "FAIL", message || `${command} ${args.join(" ")}`);
+    const combined = [stdout, stderr].filter(Boolean).join("\n");
+    const lines = combined.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const detail = lines.slice(-8).join(" | ") || error?.message || `${command} ${args.join(" ")}`;
+    add(name, "FAIL", detail);
     return false;
   }
 }
