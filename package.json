@@ -18,6 +18,7 @@
     "backup:snapshots": "node scripts/backup-snapshots.mjs",
     "build:release": "node scripts/build-release-artifacts.mjs",
     "start:tunnel": "node scripts/start-public-tunnel-node.mjs",
+    "preflight:build": "node scripts/preflight-build.mjs",
     "finish:all": "node scripts/finish-all.mjs"
   },
   "dependencies": {
@@ -41,7 +42,6 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3",
     "@types/express": "^4.17.21"
   }
 }
