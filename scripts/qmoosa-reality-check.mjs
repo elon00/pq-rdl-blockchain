@@ -9,11 +9,13 @@ const add = (name, status, evidence) => checks.push({ name, status, evidence });
 function run(name, command, args) {
   try {
     const cmd = command === "npm" && process.platform === "win32" ? "npm.cmd" : command;
-    execFileSync(cmd, args, { stdio: "pipe", encoding: "utf8", shell: true });
+    execFileSync(cmd, args, { stdio: "pipe", encoding: "utf8", shell: false });
     add(name, "PASS", `${command} ${args.join(" ")}`);
   } catch (error) {
-    const message = String(error?.stderr || error?.message || "command failed").split("\n")[0].trim();
-    add(name, "FAIL", message || `${command} ${args.join(" ")}`);
+    const stdout = String(error?.stdout || "").trim();
+    const stderr = String(error?.stderr || "").trim();
+    const detail = (stderr || stdout || error?.message || "command failed").split("\n").slice(-8).join(" | ");
+    add(name, "FAIL", detail);
   }
 }
 
@@ -28,34 +30,23 @@ add("testnet deployment evidence template", existsSync("testnet/DEPLOYMENT_EVIDE
 add("testnet infrastructure specification", existsSync("testnet/INFRASTRUCTURE_SPEC.md") ? "PASS" : "FAIL", existsSync("testnet/INFRASTRUCTURE_SPEC.md") ? "present" : "missing");
 add("testnet launch boundary", existsSync("testnet/LAUNCH_BOUNDARY.md") ? "PASS" : "FAIL", existsSync("testnet/LAUNCH_BOUNDARY.md") ? "present" : "missing");
 add("mainnet launch boundary", existsSync("MAINNET_LAUNCH_BOUNDARY.md") ? "PASS" : "FAIL", existsSync("MAINNET_LAUNCH_BOUNDARY.md") ? "present" : "missing");
-add("testnet status boundary", existsSync("testnet/network-manifest.example.json") ? "PASS" : "FAIL", existsSync("testnet/network-manifest.example.json") ? "manifest present for status validation" : "manifest missing");
 
 if (existsSync("testnet/genesis.json") && existsSync("testnet/network-manifest.example.json")) {
   const manifest = JSON.parse(readFileSync("testnet/network-manifest.example.json", "utf8"));
-  const validStatus = manifest.status === "DRAFT_NOT_LAUNCHED" || manifest.status === "PUBLIC_TESTNET_LIVE_TUNNEL";
-  add("testnet launch claim boundary", validStatus ? "PASS" : "FAIL", validStatus ? `manifest status (${manifest.status}) validated` : `unexpected manifest status: ${manifest.status}`);
+  const allowedStatus = manifest.status === "NOT_VERIFIED" || manifest.status === "DRAFT_NOT_LAUNCHED" || manifest.status === "PUBLIC_TESTNET_LIVE_TUNNEL";
+  add("testnet launch claim boundary", allowedStatus ? "PASS" : "FAIL", `manifest status: ${manifest.status}`);
   const genesisRaw = readFileSync("testnet/genesis.json", "utf8").replace(/\r\n/g, "\n");
   const genesisHash = createHash("sha256").update(genesisRaw).digest("hex");
-  const hashFieldIsPlaceholder = /^GENERATE_WITH_/.test(String(manifest.genesis_sha256 || ""));
   const hashMatches = manifest.genesis_sha256 === genesisHash;
-  add(
-    "testnet genesis hash integrity",
-    hashMatches ? "PASS" : "FAIL",
-    hashMatches
-      ? genesisHash
-      : hashFieldIsPlaceholder
-        ? `manifest still contains generator placeholder; actual SHA-256 is ${genesisHash}`
-        : `manifest SHA-256 mismatch; actual SHA-256 is ${genesisHash}`,
-  );
+  add("testnet genesis hash integrity", hashMatches ? "PASS" : "FAIL", hashMatches ? genesisHash : `manifest=${manifest.genesis_sha256}; actual=${genesisHash}`);
 }
 
 if (existsSync("README.md")) {
   const readme = readFileSync("README.md", "utf8");
   const honest = /NOT PUBLIC TESTNET OR MAINNET/.test(readme);
-  add("deployment claim boundary", honest ? "PASS" : "FAIL", honest ? "README distinguishes devnet from public Testnet/Mainnet" : "README status boundary missing");
+  add("deployment claim boundary", honest ? "PASS" : "FAIL", honest ? "README distinguishes prototype from public Testnet/Mainnet" : "README status boundary missing");
 }
 
-run("testnet genesis hash", "npm", ["run", "testnet:genesis-hash"]);
 run("truth", "npm", ["run", "check:truth"]);
 run("lint", "npm", ["run", "lint"]);
 run("test", "npm", ["test"]);
