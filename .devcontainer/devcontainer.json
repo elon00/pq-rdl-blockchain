@@ -1,0 +1,23 @@
+﻿{
+  "name": "RDL Blockchain Node & Validator",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-1-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    }
+  },
+  "forwardPorts": [7100, 7101, 3000],
+  "portsAttributes": {
+    "7100": {
+      "label": "RDL JSON-RPC & Explorer",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    },
+    "7101": {
+      "label": "RDL P2P Node Protocol",
+      "visibility": "public"
+    }
+  },
+  "postCreateCommand": "cargo build --release --workspace && npm install && npm run build",
+  "postStartCommand": "nohup ./target/release/rdl-node > node.log 2>&1 & nohup node dist/server.cjs > rpc.log 2>&1 &"
+}
