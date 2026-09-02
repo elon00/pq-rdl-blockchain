@@ -1,0 +1,14 @@
+﻿{
+  "nodeId": "node-03-codespaces",
+  "name": "Node 3 (GitHub Codespaces Cloud Validator)",
+  "verifiedAt": "2026-09-02T13:56:39.000Z",
+  "status": "VERIFIED_ACTIVE",
+  "provider": "GitHub Codespaces / Microsoft Azure",
+  "hostname": "codespaces-fdd01f",
+  "publicEgressIp": "23.97.62.151",
+  "environment": "Linux x86_64 Container (2 vCPU, 8 GB RAM)",
+  "p2pPort": 7101,
+  "rpcPort": 3000,
+  "zeroCardEligible": true,
+  "evidence": "Verified Public Telemetry and Hardware Diagnostic Handshake"
+}

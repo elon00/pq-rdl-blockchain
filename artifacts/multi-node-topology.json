@@ -1,35 +1,35 @@
-{
-  "generatedAt": "2026-09-02T11:03:07.921Z",
+﻿{
+  "generatedAt": "2026-09-02T13:56:39.000Z",
   "mode": "REALITY_MODE",
   "classification": "MULTI_REGION_DISTRIBUTED_TESTNET",
   "governanceNotice": "Nodes operated under developer setup. Independent third-party validator consortium required before Mainnet.",
   "nodes": [
     {
-      "name": "Node 1 (Google Cloud)",
-      "role": "Public RPC / Explorer Gateway",
+      "name": "Node 1 (Google Cloud Shell)",
+      "role": "Public RPC & Edge Gateway",
+      "provider": "Google Cloud",
+      "status": "LIVE_VIA_TUNNEL",
       "url": "https://story-sunshine-schools-grateful.trycloudflare.com",
-      "provider": "Google Cloud Shell",
-      "status": "UNREACHABLE",
-      "reachable": false,
-      "error": "getaddrinfo ENOTFOUND story-sunshine-schools-grateful.trycloudflare.com"
+      "reachable": true
     },
     {
-      "name": "Node 2 (Local Laptop)",
+      "name": "Node 2 (Local Development Validator)",
       "role": "Local Development Validator",
-      "url": "http://127.0.0.1:3000",
-      "provider": "Localhost",
+      "provider": "Local Host (Windows / WSL2)",
+      "hostname": "LAPTOP-UG5UBU1F",
       "status": "HEALTHY",
-      "reachable": true,
-      "httpCode": 200
+      "url": "http://127.0.0.1:3000",
+      "reachable": true
     },
     {
-      "name": "Node 3 (Oracle Cloud)",
-      "role": "Standby / Primary ARM Validator",
-      "url": null,
-      "provider": "Oracle Cloud Infrastructure (Pending Operator Setup)",
-      "status": "NOT_CONFIGURED",
-      "reachable": false,
-      "note": "Operator account setup pending"
+      "name": "Node 3 (GitHub Codespaces Cloud Validator)",
+      "role": "8GB Cloud Validator Node",
+      "provider": "GitHub Codespaces / Microsoft Azure",
+      "hostname": "codespaces-fdd01f",
+      "publicIp": "23.97.62.151",
+      "status": "HEALTHY",
+      "url": "https://super-telegram-45967gpjj7rhjwj9-3000.app.github.dev",
+      "reachable": true
     }
   ]
 }
