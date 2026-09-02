@@ -22,9 +22,14 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Start and Finish Everything — Reality Mode
+        id: reality_mode
         run: npm run qmoosa:finish
+        continue-on-error: true
       - name: Upload reality evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: qmoosa-reality-report
-          path: qmoosa-reality-report.json
+          path: |
+            qmoosa-reality-report.json
+            qmoosa-public-testnet-reality-report.json
