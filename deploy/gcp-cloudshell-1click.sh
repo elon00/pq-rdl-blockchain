@@ -4,20 +4,33 @@ set -euo pipefail
 echo "🏛️ RDL BLOCKCHAIN — GOOGLE CLOUD SHELL 1-CLICK API DEPLOYER"
 echo "=============================================================="
 
-# 1. Detect Active Project
+# 1. Auto-Detect or Auto-Select Active Project
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null || true)
+
 if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "(unset)" ]; then
-    echo "⚠️ Please set your project ID first: gcloud config set project <YOUR_PROJECT_ID>"
-    exit 1
+    echo "🔍 Auto-detecting available Google Cloud projects..."
+    PROJECT_ID=$(gcloud projects list --format="value(projectId)" --limit=1 2>/dev/null || true)
+    
+    if [ -n "$PROJECT_ID" ]; then
+        echo "✅ Found project: $PROJECT_ID. Setting as active..."
+        gcloud config set project "$PROJECT_ID" --quiet
+    else
+        echo "⚠️ No Google Cloud project found. Creating a new project 'rdl-blockchain-net'..."
+        RANDOM_ID=$((RANDOM % 90000 + 10000))
+        PROJECT_ID="rdl-net-$RANDOM_ID"
+        gcloud projects create "$PROJECT_ID" --name="RDL Blockchain" --quiet || true
+        gcloud config set project "$PROJECT_ID" --quiet
+    fi
 fi
+
 echo "📍 Active Google Cloud Project: $PROJECT_ID"
 
 # 2. Enable Compute Engine API
-echo -e "\n🔌 Step 1: Enabling Google Compute Engine API..."
+echo -e "\n🔌 Step 1: Enabling Google Compute Engine API (this may take ~10-20 seconds)..."
 gcloud services enable compute.googleapis.com --quiet
 
 # 3. Create Firewall Rules for Port 7101 (P2P) & Port 7100 (RPC)
-echo -e "\n🛡️ Step 2: Creating Firewall Rules for P2P (7101) & RPC (7100)..."
+echo -e "\n🛡️ Step 2: Configuring Firewall Rules for P2P (7101) & RPC (7100)..."
 if ! gcloud compute firewall-rules describe allow-rdl-network &>/dev/null; then
     gcloud compute firewall-rules create allow-rdl-network \
         --direction=INGRESS \
@@ -57,7 +70,7 @@ else
 fi
 
 # 5. Fetch External Public IP Address
-EXTERNAL_IP=$(gcloud compute instances describe "$INSTANCE_NAME" --zone="$ZONE" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+EXTERNAL_IP=$(gcloud compute instances describe "$INSTANCE_NAME" --zone="$ZONE" --format="get(networkInterfaces[0].accessConfigs[0].natIP)")
 
 echo -e "\n=============================================================="
 echo "🎉 DEPLOYMENT SUCCESSFUL VIA GOOGLE CLOUD API!"
@@ -65,4 +78,4 @@ echo "🌐 Real Public IP Address: $EXTERNAL_IP"
 echo "📡 P2P Consensus Port:     $EXTERNAL_IP:7101"
 echo "🔗 Public RPC Endpoint:    http://$EXTERNAL_IP:7100"
 echo "=============================================================="
-echo "👉 Is External IP ko chat me bhej dein taaki hum live peer connect kar sakein!"
+echo "👉 Is External IP ko copy karke chat me bhej dein!"
