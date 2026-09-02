@@ -1,35 +1,46 @@
 {
-  "generatedAt": "2026-09-02T15:43:22.591Z",
+  "generatedAt": "2026-09-02T18:32:53.840Z",
   "mode": "REALITY_MODE",
-  "classification": "MULTI_REGION_DISTRIBUTED_TESTNET",
-  "governanceNotice": "Nodes operated under developer setup. Independent third-party validator consortium required before Mainnet.",
+  "classification": "PARTIALLY_REACHABLE",
+  "reachableCount": 1,
+  "totalConfiguredNodes": 3,
+  "note": "HTTP health proves endpoint reachability only; it does not prove blockchain P2P, consensus, state synchronization, transaction settlement, persistence, or independent administration.",
   "nodes": [
     {
       "name": "Node 1 (Google Cloud)",
-      "role": "Public RPC / Explorer Gateway",
+      "role": "Public Node",
       "url": "https://story-sunshine-schools-grateful.trycloudflare.com",
-      "provider": "Google Cloud Shell",
-      "status": "UNREACHABLE",
+      "provider": "Google Cloud",
       "reachable": false,
+      "status": "UNREACHABLE",
       "error": "getaddrinfo ENOTFOUND story-sunshine-schools-grateful.trycloudflare.com"
     },
     {
       "name": "Node 2 (Local Laptop / Dev)",
-      "role": "Local Development Validator",
+      "role": "Local Node",
       "url": "http://127.0.0.1:3000",
       "provider": "Localhost",
-      "status": "HEALTHY",
       "reachable": true,
-      "httpCode": 200
+      "status": "HEALTHY",
+      "httpCode": 200,
+      "latencyMs": 25,
+      "health": {
+        "status": "ok",
+        "mode": "DEMONSTRATION_IN_MEMORY",
+        "time": "2026-09-02T18:32:51.920Z",
+        "statusNote": "No external blockchain consensus, validator network, or Solana settlement is connected by this server."
+      }
     },
     {
       "name": "Node 3 (GitHub Codespaces)",
-      "role": "8GB Cloud Validator Node",
+      "role": "Temporary Cloud Test Node",
       "url": "https://super-telegram-45967gpjj7rhjwj9-3000.app.github.dev",
-      "provider": "GitHub Codespaces (Zero Card)",
-      "status": "HTTP_302",
+      "provider": "GitHub Codespaces",
       "reachable": false,
-      "httpCode": 302
+      "status": "HTTP_401",
+      "httpCode": 401,
+      "latencyMs": 1933,
+      "health": null
     }
   ]
 }
