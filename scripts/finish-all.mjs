@@ -40,7 +40,7 @@ console.log("\n[2/3] PROBING CONFIGURED CLOUD & REGIONAL NODES:");
 let nodes = [
   { name: "Node 1 (Google Cloud)", role: "Public RPC / Explorer Gateway", url: "https://story-sunshine-schools-grateful.trycloudflare.com", provider: "Google Cloud Shell" },
   { name: "Node 2 (Local Laptop)", role: "Local Development Validator", url: "http://127.0.0.1:3000", provider: "Localhost" },
-  { name: "Node 3 (Oracle Cloud)", role: "Standby / Primary ARM Validator", url: null, provider: "Oracle Cloud Infrastructure (Pending Operator Setup)" }
+  { name: "Node 3 (GitHub Codespaces)", role: "8GB Cloud Validator Node", url: "https://super-telegram-45967gpjj7rhjwj9-7100.app.github.dev", provider: "GitHub Codespaces (Zero Card)" }
 ];
 
 // Check public endpoints
