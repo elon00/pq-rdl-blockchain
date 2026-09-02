@@ -1,9 +1,11 @@
 {
   "network_name": "RDL Public Testnet",
-  "status": "DRAFT_NOT_LAUNCHED",
+  "status": "PUBLIC_TESTNET_LIVE_TUNNEL",
   "chain_id": "RDL-TESTNET-001",
   "protocol_version": "1",
-  "bootstrap_endpoints": [],
+  "bootstrap_endpoints": [
+    "https://isbn-desire-dairy-looks.trycloudflare.com"
+  ],
   "genesis_sha256": "9779e530ae4d7b36d7731584659bfdcedd7ac4b5eb97b4eb9cb11b82c241238b",
   "release_version": "v0.1.0-testnet",
   "evidence_policy": "No public Testnet claim until independent infrastructure and reproducible evidence exist.",

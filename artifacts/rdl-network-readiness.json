@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-01T23:05:15.735Z",
+  "generatedAt": "2026-09-02T07:22:38.471Z",
   "mode": "REALITY_MODE",
   "results": [
     {
@@ -37,9 +37,9 @@
       "name": "Mainnet Genesis Readiness",
       "verified": false,
       "evidence": {
-        "publicRpc": false,
-        "explorer": false,
-        "faucet": false,
+        "publicRpc": true,
+        "explorer": true,
+        "faucet": true,
         "independentAudit": false,
         "genesisApproval": false
       },

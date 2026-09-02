@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-09-02T07:21:52.477Z",
+  "status": "PUBLIC_RPC_LIVE",
+  "endpoint_url": "https://isbn-desire-dairy-looks.trycloudflare.com",
+  "gateway": "Cloudflare Quick Tunnel (Free Tier)",
+  "port_target": 7100,
+  "protocol_version": "1",
+  "chain_id": "RDL-TESTNET-001",
+  "genesis_sha256": "9779e530ae4d7b36d7731584659bfdcedd7ac4b5eb97b4eb9cb11b82c241238b",
+  "evidence": "Verified Public HTTPS Reachability"
+}

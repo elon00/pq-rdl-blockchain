@@ -16,7 +16,8 @@
     "rdl:finish": "node scripts/rdl-network-finisher.mjs",
     "testnet:genesis-hash": "node scripts/testnet-genesis-hash.mjs",
     "backup:snapshots": "node scripts/backup-snapshots.mjs",
-    "build:release": "node scripts/build-release-artifacts.mjs"
+    "build:release": "node scripts/build-release-artifacts.mjs",
+    "start:tunnel": "node scripts/start-public-tunnel-node.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
