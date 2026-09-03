@@ -5,7 +5,7 @@ import { Block, ChainState, PQKeypair, SmartContract } from '../types';
 type Props={kind:string;chainState:ChainState|null;blocks:Block[];contracts:SmartContract[];wallet:PQKeypair|null;};
 
 const meta:any={
- token:{title:'QMS Token & Coin',icon:Coins,description:'Network-native token interface. Supply and issuance are shown only from verified chain configuration.',metrics:['Chain height','TPS','Wallet']},
+ token:{title:'RDL Token & Coin',icon:Coins,description:'RDL token interface. Supply and issuance are shown only from verified chain configuration.',metrics:['Chain height','TPS','Wallet']},
  staking:{title:'Staking',icon:Landmark,description:'Staking dashboard shell synchronized with wallet and network state. No fake rewards are generated.',metrics:['Wallet','Blocks','Contracts']},
  governance:{title:'Governance / DAO',icon:Vote,description:'Proposal and governance interface backed by the existing contract model when governance contracts are available.',metrics:['Contracts','Chain height','Blocks']},
  nodes:{title:'Node Operator',icon:ServerCog,description:'Operational view synchronized with Peer Mesh and current chain status.',metrics:['Chain height','TPS','Blocks']},
@@ -26,6 +26,6 @@ export function QMoosaModuleView({kind,chainState,blocks,contracts,wallet}:Props
    <div className="flex items-center gap-4"><div className="rounded-xl bg-cyan-500/10 p-3"><Icon className="w-7 h-7 text-cyan-300"/></div><div><h2 className="text-2xl font-bold">{m.title}</h2><p className="text-slate-400 mt-1">{m.description}</p></div></div>
    <div className="mt-6 grid gap-4 sm:grid-cols-3">{m.metrics.map((x:string)=><div key={x} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"><div className="text-xs text-slate-500 uppercase">{x}</div><div className="mt-2 font-mono text-cyan-300 break-all">{String(values[x])}</div></div>)}</div>
   </div>
-  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-200">Reality mode: this UI is synchronized with available local API state. Features requiring an independently deployed token, staking contract, DAO, bridge, or public network remain unverified until real backend evidence exists.</div>
+  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-200">Reality mode: this UI is synchronized with available local API state. Features requiring an independently deployed RDL token, staking contract, DAO, bridge, or public network remain unverified until real backend evidence exists.</div>
  </section>
 }
