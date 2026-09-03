@@ -6,6 +6,8 @@ import { PQWalletView } from './components/PQWalletView';
 import { BlockExplorerView } from './components/BlockExplorerView';
 import { SmartContractsView } from './components/SmartContractsView';
 import { PeerMeshView } from './components/PeerMeshView';
+import { GovernanceView } from './components/GovernanceView';
+import { TokenomicsView } from './components/TokenomicsView';
 import { ProjectQRCode } from './components/ProjectQRCode';
 import { ChainState, Block, PQKeypair, SmartContract, Transaction } from './types';
 
@@ -62,6 +64,8 @@ export default function App() {
         {activeTab === 'explorer' && <BlockExplorerView blocks={blocks} />}
         {activeTab === 'contracts' && <SmartContractsView contracts={contracts} activeWallet={activeWallet} onDeployContract={handleDeployContract} />}
         {activeTab === 'nodes' && <PeerMeshView />}
+        {activeTab === 'governance' && <GovernanceView activeWallet={activeWallet} />}
+        {activeTab === 'tokenomics' && <TokenomicsView />}
         <div className="mt-8 max-w-sm"><ProjectQRCode label="Scan PQ-RDL project" value="https://github.com/elon00/pq-rdl-blockchain" /></div>
       </main>
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center font-mono text-xs text-slate-500">
