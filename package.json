@@ -23,7 +23,9 @@
     "deploy:state": "node scripts/sync-deployment-state.mjs",
     "qmoosa:master:finish": "node scripts/qmoosa-master-project-finisher.mjs",
     "qmoosa:magic": "npm run qmoosa:master:finish",
-    "qmoosa:finish:all": "npm run qmoosa:master:finish && npm run finish:all"
+    "qmoosa:ui:verify": "node scripts/verify-qmoosa-8-ui.mjs",
+    "qmoosa:ui:test": "node scripts/test-qmoosa-8-ui.mjs",
+    "qmoosa:finish:all": "npm run qmoosa:ui:verify && npm run qmoosa:ui:test && npm run qmoosa:master:finish && npm run finish:all"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
