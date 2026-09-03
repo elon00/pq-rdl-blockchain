@@ -61,6 +61,13 @@ The intended verification flow is:
 
 See [RDL_CONSTITUTION.md](./RDL_CONSTITUTION.md) for the RDL Constitution and Reality Charter.
 
+## Core Documentation
+
+- [White Paper](./docs/WHITEPAPER.md)
+- [Node Operator Guide](./docs/NODE_OPERATOR_GUIDE.md)
+- [DAO Governance Specification](./docs/DAO_GOVERNANCE.md)
+- [Compliance & Reality Rulebook](./docs/COMPLIANCE_AND_REALITY_RULEBOOK.md)
+
 ## Repository relationship
 
 - **`pq-rdl-blockchain`** — canonical runnable prototype and implementation
