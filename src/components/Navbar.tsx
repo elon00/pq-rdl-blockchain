@@ -34,6 +34,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'explorer', label: 'Block Explorer', icon: Boxes },
     { id: 'contracts', label: 'Web 4.0 AI Smart Contracts', icon: Code2 },
     { id: 'nodes', label: 'Peer Mesh Network', icon: Share2 },
+    { id: 'token', label: 'QMS Token', icon: Sparkles },
+    { id: 'staking', label: 'Staking', icon: Activity },
+    { id: 'governance', label: 'Governance / DAO', icon: ShieldCheck },
+    { id: 'analytics', label: 'Analytics', icon: Activity },
+    { id: 'bridge', label: 'Cross-Chain Bridge', icon: Share2 },
+    { id: 'identity', label: 'Digital Identity', icon: ShieldCheck },
+    { id: 'settings', label: 'Network Settings', icon: Sparkles },
   ];
 
   return (
