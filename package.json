@@ -22,7 +22,8 @@
     "finish:all": "node scripts/finish-all.mjs",
     "deploy:state": "node scripts/sync-deployment-state.mjs",
     "qmoosa:master:finish": "node scripts/qmoosa-master-project-finisher.mjs",
-    "qmoosa:magic": "npm run qmoosa:master:finish"
+    "qmoosa:magic": "npm run qmoosa:master:finish",
+    "qmoosa:finish:all": "npm run qmoosa:master:finish && npm run finish:all"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
