@@ -37,10 +37,14 @@ function runStep(name, command, args) {
 
 console.log("🏛️ QMOOSA MASTER PROJECT FINISHER");
 console.log("=================================");
-for (const [name, command, args] of steps) runStep(name, command, args);
+for (const [name, command, args] of steps) {
+  const ok = runStep(name, command, args);
+  if (!ok && name !== "public-testnet-reality") break;
+}
 
 mkdirSync("artifacts", { recursive: true });
-const localCore = results.slice(0, 6).every((r) => r.status === "PASS");
+const localCore = ["truth", "typescript", "frontend-server-build", "rust-tests", "rust-clippy"]
+  .every((name) => results.find((r) => r.name === name)?.status === "PASS");
 const localSmoke = results.find((r) => r.name === "local-multinode-smoke")?.status === "PASS";
 const testnet = results.find((r) => r.name === "public-testnet-reality")?.status === "PASS";
 const report = {
@@ -56,6 +60,15 @@ const report = {
     publicTestnetVerification: "Requires independently reproducible live-node evidence and the public-testnet reality gate.",
     mainnetVerification: "Requires production deployment, security review, independent operators, and mainnet-specific evidence."
   },
+  mainnetBlockers: [
+    "Production genesis/release evidence",
+    "Independent validator/operator administration",
+    "Production persistence and backup/restore evidence",
+    "Real P2P and consensus evidence",
+    "Real transaction settlement and state synchronization evidence",
+    "Restart/recovery evidence",
+    "Security review/audit and operational controls"
+  ],
   rule: "The finisher automates verification and evidence collection but never invents cloud nodes, independent validators, or mainnet proof.",
 };
 writeFileSync("artifacts/qmoosa-master-finisher-report.json", JSON.stringify(report, null, 2));
