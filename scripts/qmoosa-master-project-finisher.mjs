@@ -2,11 +2,12 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 const isWin = process.platform === "win32";
-const npmCmd = isWin ? "npm.cmd" : "npm";
+const npmCmd = isWin ? (process.env.ComSpec || "cmd.exe") : "npm";
+const npmArgs = (script) => isWin ? ["/d","/s","/c",`npm run ${script}`] : ["run",script];
 const steps = [
-  ["truth", npmCmd, ["run","check:truth"]],
-  ["typescript", npmCmd, ["run","lint"]],
-  ["frontend-server-build", npmCmd, ["run","build"]],
+  ["truth", npmCmd, npmArgs("check:truth")],
+  ["typescript", npmCmd, npmArgs("lint")],
+  ["frontend-server-build", npmCmd, npmArgs("build")],
   ["rust-tests", "cargo", ["test","--workspace","--all-targets"]],
   ["rust-clippy", "cargo", ["clippy","--workspace","--all-targets","--","-D","warnings"]],
   ["local-multinode-smoke", isWin ? "bash.exe" : "bash", ["scripts/multi-node-smoke.sh"]],
