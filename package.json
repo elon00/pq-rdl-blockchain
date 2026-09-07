@@ -11,7 +11,12 @@
     "lint": "tsc --noEmit",
     "check:env": "node check-env.mjs",
     "check:truth": "node check-truth.mjs",
-    "test": "npm run check:truth && npm run lint && npm run build",
+    "test:cargo": "cargo test",
+    "test:nist": "tsx src/crypto/tests/official-nist-vectors.test.ts",
+    "audit:crypto": "node scripts/audit-crypto.mjs",
+    "reality:universal": "tsx scripts/reality-universal.ts",
+    "reality:certify": "tsx scripts/generate-urs-certificate.ts",
+    "test": "npm run check:truth && npm run test:cargo && npm run test:nist && npm run audit:crypto && npm run reality:universal && npm run build",
     "qmoosa:finish": "node scripts/qmoosa-reality-finisher.mjs",
     "rdl:finish": "node scripts/rdl-network-finisher.mjs",
     "testnet:genesis-hash": "node scripts/testnet-genesis-hash.mjs",
@@ -24,6 +29,9 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^1.8.0",
+    "@noble/post-quantum": "^0.7.1",
     "@tailwindcss/vite": "^4.1.14",
     "@types/canvas-confetti": "^1.9.0",
     "@vitejs/plugin-react": "^5.0.4",
@@ -37,12 +45,12 @@
     "vite": "^6.2.3"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
-    "@types/express": "^4.17.21"
+    "typescript": "~5.8.2"
   }
 }

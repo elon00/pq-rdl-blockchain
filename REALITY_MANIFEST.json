@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "protocol": "PQ-RDL-BLOCKCHAIN",
+  "version": "1.0.0",
+  "description": "Post-Quantum Resistant Distributed Ledger (PQ-RDL) sovereign blockchain protocol featuring Rust consensus crates and pure-TS lattice cryptographic verification.",
+  "truthTaxonomy": {
+    "zeroSimulation": true,
+    "failClosed": true,
+    "dualConjunction": true,
+    "weakestLinkLaw": "URS_10 = min(E, I, O, V, R, C, P, F, A, H) * 10"
+  },
+  "subsystems": [
+    {
+      "name": "rdl-native-consensus-node",
+      "status": "production-verified",
+      "engine": "Rust (crates/rdl-node)",
+      "signatureScheme": "Ed25519-Dalek + SHA256"
+    },
+    {
+      "name": "nist-fips-203-ml-kem-768",
+      "status": "production-verified",
+      "publicKeyBytes": 1184,
+      "ciphertextBytes": 1088,
+      "sharedSecretBytes": 32,
+      "implicitRejectionFips203Section73": true
+    },
+    {
+      "name": "nist-fips-204-ml-dsa-65",
+      "status": "production-verified",
+      "publicKeyBytes": 1952,
+      "secretKeyBytes": 4032,
+      "signatureBytes": 3309,
+      "securityLevel": "NIST Level 3"
+    },
+    {
+      "name": "rdl-dual-hybrid-transaction-conjunction",
+      "status": "production-verified",
+      "formula": "Ed25519_valid AND ML_DSA_65_valid AND commitment_match",
+      "failClosed": true
+    },
+    {
+      "name": "state-commitment-anchor",
+      "status": "production-verified",
+      "hashFunction": "SHA-256",
+      "outputLengthBytes": 32
+    }
+  ]
+}

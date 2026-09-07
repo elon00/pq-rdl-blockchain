@@ -1,0 +1,18 @@
+{
+  "protocol": "PQ-RDL-BLOCKCHAIN",
+  "version": "1.0.0",
+  "commitSha": "45c62c36fde72c81ee76e3b73970c2f4f81ab1f5",
+  "timestamp": "2026-09-07T10:58:36.558Z",
+  "truthScore": 10,
+  "automatedProfile": "9.6 / 10 (A+)",
+  "humanAuditScore": 0.6,
+  "finalUrsScore": 6,
+  "weakestLinkDimension": "H (Human/External 3rd-party firm audit required for 10/10)",
+  "gatesPassed": 10,
+  "manifestSubsystems": 5,
+  "rustCratesVerified": [
+    "rdl-node",
+    "rdl-types"
+  ],
+  "masterRealityHashSha256": "48990d8acb181db0783ac121e6197a76f038a2763c5ec34e8386e7d8f6231e8c"
+}
