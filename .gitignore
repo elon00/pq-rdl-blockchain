@@ -10,3 +10,4 @@ target/
 data/
 snapshots/
 release/
+*-report.json
