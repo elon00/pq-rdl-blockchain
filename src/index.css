@@ -1,1 +1,33 @@
 @import "tailwindcss";
+
+/* PQ-RDL UI: polished horizontal scrolling for wide navigation/content rows. */
+.pq-horizontal-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(71 85 105) rgb(15 23 42);
+  -webkit-overflow-scrolling: touch;
+}
+
+.pq-horizontal-scroll::-webkit-scrollbar {
+  height: 7px;
+}
+
+.pq-horizontal-scroll::-webkit-scrollbar-track {
+  background: rgb(15 23 42 / 0.9);
+  border-radius: 9999px;
+}
+
+.pq-horizontal-scroll::-webkit-scrollbar-thumb {
+  background: rgb(71 85 105);
+  border-radius: 9999px;
+  border: 1px solid rgb(30 41 59);
+}
+
+.pq-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 116 139);
+}
+
+.pq-horizontal-scroll > * {
+  flex-shrink: 0;
+}
