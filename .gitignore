@@ -11,3 +11,4 @@ data/
 snapshots/
 release/
 *-report.json
+.qmoosa/

@@ -1,7 +1,8 @@
 {
-  "synchronizedAt": "2026-09-02T18:32:29.062Z",
+  "synchronizedAt": "2026-09-15T17:41:41.921Z",
+  "mode": "REALITY_MODE",
   "git": {
-    "commit": "84f92e8dfd9f63b797116877debebfbd8f7b689c",
+    "commit": "5af530f1ef1ba11f877e24c74e65b9379c68d54a",
     "branch": "master",
     "repo": "https://github.com/elon00/pq-rdl-blockchain"
   },
@@ -10,8 +11,9 @@
     "version": "0.0.0",
     "genesisSha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
     "classification": "PARTIALLY_REACHABLE",
-    "consensus": "Conway Proof-of-Automaton (PoA) + Dilithium2/SPHINCS+",
-    "status": "TESTNET_LIVE_CANONICAL"
+    "consensus": "PoS+BFT_DESIGN_TARGET",
+    "status": "NOT_VERIFIED",
+    "rule": "Network status is copied from the manifest/reality evidence state; this synchronizer never promotes an unverified network to live status."
   },
   "nodes": [
     {
@@ -31,11 +33,11 @@
       "reachable": true,
       "status": "HEALTHY",
       "httpCode": 200,
-      "latencyMs": 120,
+      "latencyMs": 25,
       "health": {
         "status": "ok",
         "mode": "DEMONSTRATION_IN_MEMORY",
-        "time": "2026-09-02T18:32:06.730Z",
+        "time": "2026-09-02T18:32:51.920Z",
         "statusNote": "No external blockchain consensus, validator network, or Solana settlement is connected by this server."
       }
     },
@@ -47,7 +49,7 @@
       "reachable": false,
       "status": "HTTP_401",
       "httpCode": 401,
-      "latencyMs": 1373,
+      "latencyMs": 1933,
       "health": null
     }
   ]

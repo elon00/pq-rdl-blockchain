@@ -89,7 +89,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="text-[11px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/60">
             <span>Latest Hash:</span>
             <span className="text-cyan-300 font-mono">
-              {chainState?.latestHash.substring(0, 8)}...
+              {chainState?.latestHash ? `${chainState.latestHash.substring(0, 8)}...` : '0x00000000...'}
             </span>
           </div>
         </div>
@@ -131,11 +131,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Zap className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-2xl font-bold font-mono text-emerald-300">
-            {chainState?.tps ?? 1840} TPS
+            {chainState?.tps !== null && chainState?.tps !== undefined ? `${chainState.tps} TPS` : 'Devnet (Target)'}
           </div>
           <div className="text-[11px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/60">
             <span>Active Mesh Nodes:</span>
-            <span className="text-emerald-300">{chainState?.activeNodes ?? 148} Peers</span>
+            <span className="text-emerald-300">{chainState?.activeNodes !== null && chainState?.activeNodes !== undefined ? `${chainState.activeNodes} Peers` : '3 Nodes (Devnet)'}</span>
           </div>
         </div>
       </div>

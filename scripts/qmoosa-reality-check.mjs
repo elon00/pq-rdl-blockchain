@@ -9,7 +9,7 @@ const add = (name, status, evidence) => checks.push({ name, status, evidence });
 function run(name, command, args) {
   try {
     const cmd = command === "npm" && process.platform === "win32" ? "npm.cmd" : command;
-    execFileSync(cmd, args, { stdio: "pipe", encoding: "utf8", shell: false });
+    execFileSync(cmd, args, { stdio: "pipe", encoding: "utf8", shell: process.platform === "win32" });
     add(name, "PASS", `${command} ${args.join(" ")}`);
   } catch (error) {
     const stdout = String(error?.stdout || "").trim();

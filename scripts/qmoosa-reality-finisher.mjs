@@ -22,7 +22,9 @@ function commandForPlatform(command) {
 function runStage(stage, command, args) {
   const printable = [command, ...args].join(" ");
   try {
-    execFileSync(commandForPlatform(command), args, { stdio: "inherit", shell: false });
+    const cmd = commandForPlatform(command);
+    const isCmd = process.platform === "win32" && (cmd === "npm" || cmd.endsWith(".cmd") || cmd.endsWith(".bat"));
+    execFileSync(cmd, args, { stdio: "inherit", shell: isCmd });
     results.push({ stage, status: "PASS", evidence: printable });
     return true;
   } catch (error) {

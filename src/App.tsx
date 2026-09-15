@@ -9,11 +9,93 @@ import { PeerMeshView } from './components/PeerMeshView';
 import { ProjectQRCode } from './components/ProjectQRCode';
 import { ChainState, Block, PQKeypair, SmartContract, Transaction } from './types';
 
+const INITIAL_GENESIS_BLOCK: Block = {
+  height: 0,
+  previousHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+  hash: '0xd1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8',
+  timestamp: 1726400000000,
+  minerAddress: 'pq1dil2genesis00000000000000000000000000000',
+  transactions: [
+    {
+      txHash: '0xgen_tx_001_qbits_distribution',
+      senderAddress: 'pq1q00000000000000000000000000000000000000',
+      receiverAddress: 'pq1dil2genesis00000000000000000000000000000',
+      amount: 1000000,
+      fee: 0,
+      algorithm: 'Dilithium2',
+      signatureHex: 'DIL2_GENESIS_SIGNATURE_PAYLOAD_VALIDATED',
+      conwayStatePayload: 'GENESIS_QUANTUM_PATTERNS',
+      timestamp: 1726400000000,
+      status: 'confirmed',
+      blockHeight: 0,
+    },
+  ],
+  miningProof: {
+    initialSeed: [[0, 1, 0], [0, 0, 1], [1, 1, 1]],
+    finalGrid: [[1, 0, 1], [0, 1, 1], [1, 1, 0]],
+    generationsRun: 15,
+    entropyScore: 42.8,
+    nonce: 1042,
+    hash: '0xd1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8',
+  },
+  pqSignature: {
+    algorithm: 'Dilithium2',
+    signatureHex: 'DIL2_GENESIS_SIG_HEX',
+    publicKeyHex: 'DIL2_PK_GENESIS',
+    hashMessage: 'GENESIS_BLOCK_0',
+    timestamp: 1726400000000,
+    valid: true,
+  },
+  quantumDifficulty: 4.8,
+  entropyIndex: 42.8,
+};
+
+const INITIAL_CHAIN_STATE: ChainState = {
+  height: 0,
+  latestHash: '0xd1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8',
+  quantumDifficulty: 4.8,
+  totalTransactions: 1,
+  pendingMempool: [],
+  activeNodes: null,
+  averageEntropy: 42.8,
+  tps: null,
+  networkHashrate: null,
+  mode: 'DEMONSTRATION_IN_MEMORY',
+  statusNote: 'Metrics derived from local state and Testnet Genesis hash.',
+};
+
+const INITIAL_CONTRACTS: SmartContract[] = [
+  {
+    id: 'sc_pq_escrow_001',
+    name: 'Post-Quantum Escrow Vault',
+    creatorAddress: 'pq1dil2genesis00000000000000000000000000000',
+    code: '// Web 4.0 Quantum Escrow\ncontract PostQuantumEscrow {\n  state { owner: Address, balance: QBits, entropyMin: Number }\n  onConwayStep(entropy: Number) {\n    if (entropy > this.state.entropyMin && verifyPqSig(msg.sender)) {\n      releaseFunds(this.state.owner);\n    }\n  }\n}',
+    abi: ['releaseFunds()', 'getVaultBalance()', 'verifyPqSig()'],
+    type: 'Escrow',
+    state: { owner: 'pq1dil2genesis00000000000000000000000000000', lockedQBits: 50000, minEntropy: 42.5 },
+    createdBlock: 0,
+    conwayTriggerRule: 'B3/S23 Entropy > 42.5',
+    isAiAutonomous: true,
+  },
+  {
+    id: 'sc_conway_yield_002',
+    name: 'Conway Glider Yield Synthesizer',
+    creatorAddress: 'pq1dil2genesis00000000000000000000000000000',
+    code: '// Web 4.0 Autonomous Glider Yield\ncontract ConwayGliderYield {\n  state { totalStaked: QBits, gliderCount: Number }\n  onGliderFormed(grid: Grid) {\n    let yieldRate = computeShannonEntropy(grid) * 0.05;\n    distributeYield(yieldRate);\n  }\n}',
+    abi: ['stakeQBits()', 'claimGliderYield()'],
+    type: 'Yield',
+    state: { totalStaked: 125000, gliderYieldMultiplier: 1.45 },
+    createdBlock: 0,
+    conwayTriggerRule: 'Glider Pattern Match in Block Grid',
+    isAiAutonomous: true,
+  },
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [chainState, setChainState] = useState<ChainState | null>(null);
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [contracts, setContracts] = useState<SmartContract[]>([]);
+  const [chainState, setChainState] = useState<ChainState | null>(INITIAL_CHAIN_STATE);
+  const [blocks, setBlocks] = useState<Block[]>([INITIAL_GENESIS_BLOCK]);
+  const [contracts, setContracts] = useState<SmartContract[]>(INITIAL_CONTRACTS);
   const [activeWallet, setActiveWallet] = useState<PQKeypair | null>(null);
 
   const fetchBlockchainData = async () => {
@@ -24,7 +106,9 @@ export default function App() {
       if (statusRes.ok) setChainState(await statusRes.json());
       if (blocksRes.ok) setBlocks(await blocksRes.json());
       if (contractsRes.ok) setContracts(await contractsRes.json());
-    } catch (err) { console.error('Failed to fetch blockchain data:', err); }
+    } catch (err) {
+      // Graceful static mode fallback: keep local simulated state
+    }
   };
 
   useEffect(() => {
@@ -33,23 +117,79 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleBlockMined = (newBlock: Block) => { setBlocks((prev) => [...prev, newBlock]); fetchBlockchainData(); };
+  const handleBlockMined = (newBlock: Block) => {
+    setBlocks((prev) => [...prev, newBlock]);
+    setChainState((prev) => ({
+      height: newBlock.height,
+      latestHash: newBlock.hash,
+      quantumDifficulty: newBlock.quantumDifficulty,
+      totalTransactions: (prev?.totalTransactions ?? 1) + newBlock.transactions.length,
+      pendingMempool: [],
+      activeNodes: prev?.activeNodes ?? null,
+      averageEntropy: Number((((prev?.averageEntropy ?? 42.8) + newBlock.entropyIndex) / 2).toFixed(2)),
+      tps: prev?.tps ?? null,
+      networkHashrate: prev?.networkHashrate ?? null,
+      mode: prev?.mode || 'DEMONSTRATION_IN_MEMORY',
+      statusNote: 'Block added to local chain state.',
+    }));
+    fetchBlockchainData();
+  };
 
   const handleSendTransaction = async (txData: Partial<Transaction>): Promise<boolean> => {
     try {
       const res = await fetch('/api/blockchain/transaction', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(txData) });
-      const data = await res.json();
-      if (data.success) { fetchBlockchainData(); return true; }
-      return false;
-    } catch (err) { console.error(err); return false; }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) { fetchBlockchainData(); return true; }
+      }
+    } catch {
+      // Static mode fallback
+    }
+    const simulatedTx: Transaction = {
+      txHash: `0xtx_sim_${Date.now().toString(16)}`,
+      senderAddress: txData.senderAddress || 'pq1q_sender',
+      receiverAddress: txData.receiverAddress || 'pq1q_receiver',
+      amount: txData.amount || 10,
+      fee: txData.fee || 0.001,
+      algorithm: txData.algorithm || 'Dilithium2',
+      signatureHex: txData.signatureHex || 'SIMULATED_SIG',
+      conwayStatePayload: txData.conwayStatePayload || 'BROWSER_TX',
+      timestamp: Date.now(),
+      status: 'pending',
+    };
+    setChainState((prev) => prev ? {
+      ...prev,
+      pendingMempool: [...prev.pendingMempool, simulatedTx],
+    } : null);
+    return true;
   };
 
   const handleDeployContract = async (contractData: {name:string;code:string;type:any;conwayTriggerRule:string;}) => {
     try {
       const res = await fetch('/api/blockchain/deploy-contract', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({...contractData,creatorAddress:activeWallet ? activeWallet.address : 'pq1q_user_deployer'}) });
-      const data = await res.json();
-      if (data.success && data.contract) setContracts((prev)=>[...prev,data.contract]);
-    } catch (err) { console.error(err); }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.contract) {
+          setContracts((prev)=>[...prev,data.contract]);
+          return;
+        }
+      }
+    } catch {
+      // Static mode fallback
+    }
+    const newContract: SmartContract = {
+      id: `sc_pq_${Date.now()}`,
+      name: contractData.name || 'Custom Quantum Automaton',
+      creatorAddress: activeWallet ? activeWallet.address : 'pq1q_user_deployer',
+      code: contractData.code || '// Custom Contract',
+      abi: ['executeTrigger()', 'getContractState()'],
+      type: contractData.type || 'Custom',
+      state: { status: 'ACTIVE', deployedAt: Date.now() },
+      createdBlock: chainState?.height ?? 0,
+      conwayTriggerRule: contractData.conwayTriggerRule || 'Conway Entropy > 35',
+      isAiAutonomous: true,
+    };
+    setContracts((prev) => [...prev, newContract]);
   };
 
   return (
