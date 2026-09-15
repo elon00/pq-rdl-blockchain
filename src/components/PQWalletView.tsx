@@ -11,9 +11,16 @@ import {
   Wallet,
   ArrowRightLeft,
   FileCheck2,
-  Sparkles
+  Sparkles,
+  Coins,
+  Droplets,
+  DollarSign,
+  Flame
 } from 'lucide-react';
 import { PQAlgorithm, PQKeypair, PQSignature, Transaction } from '../types';
+import { generatePQKeypair } from '../lib/pqCrypto';
+import { tokenEngine } from '../lib/tokenEngine';
+import { faucetEngine } from '../lib/faucetEngine';
 
 interface PQWalletViewProps {
   activeWallet: PQKeypair | null;
@@ -41,6 +48,8 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
   const [testPayload, setTestPayload] = useState<string>('POST_QUANTUM_BLOCKCHAIN_PAYLOAD_VERIFICATION');
   const [signedResult, setSignedResult] = useState<PQSignature | null>(null);
   const [verifyStatus, setVerifyStatus] = useState<boolean | null>(null);
+  const [faucetClaimStatus, setFaucetClaimStatus] = useState<string>('');
+  const [, setWalletRefreshTrigger] = useState<number>(0);
 
   // Copy helper
   const handleCopy = (text: string, fieldName: string) => {
@@ -57,10 +66,19 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ algorithm: selectedAlgo, seedPhrase: customSeed }),
       });
-      const data = await res.json();
-      if (data && data.address) {
-        onWalletGenerated(data);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.address) {
+          onWalletGenerated(data);
+          return;
+        }
       }
+    } catch {
+      // Fallback to client-side pure post-quantum generator
+    }
+    try {
+      const localKeypair = await generatePQKeypair(selectedAlgo, customSeed || undefined);
+      onWalletGenerated(localKeypair);
     } catch (err: any) {
       console.error('Keypair generation error:', err);
     }
@@ -254,6 +272,62 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
                   >
                     {copiedField === 'address' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                   </button>
+                </div>
+              </div>
+
+              {/* Token & Faucet Balances Box */}
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-3 font-mono">
+                <div className="flex items-center justify-between text-xs text-slate-300 font-bold border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-1.5 text-cyan-400">
+                    <Coins className="w-4 h-4" />
+                    <span>Post-Quantum Wallet Balances</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500">Chain: RDL-TESTNET-001</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-cyan-500/20">
+                    <div className="text-[11px] text-slate-400">Native Gas (RDL)</div>
+                    <div className="text-sm font-bold text-cyan-300">250.00 RDL</div>
+                  </div>
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-emerald-500/20">
+                    <div className="text-[11px] text-slate-400">RDL Stablecoin</div>
+                    <div className="text-sm font-bold text-emerald-400">
+                      {(tokenEngine.getTokenById('tok_rdl_stablecoin_001')?.balances[activeWallet.address] || 0).toLocaleString()} RDL-USD
+                    </div>
+                  </div>
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-amber-500/20">
+                    <div className="text-[11px] text-slate-400">RDL Meme Coin</div>
+                    <div className="text-sm font-bold text-amber-400">
+                      {(tokenEngine.getTokenById('tok_rdl_memecoin_002')?.balances[activeWallet.address] || 0).toLocaleString()} RDL-MEME
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instant Faucet Button */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setFaucetClaimStatus('Requesting 50 RDL + 1,000 RDL-USD + 10M RDL-MEME...');
+                      const res = await faucetEngine.dispense(activeWallet.address, 'ALL');
+                      if (res.success) {
+                        setFaucetClaimStatus('🎉 Testnet Drop Received: +50 RDL, +1,000 RDL-USD, +10M RDL-MEME!');
+                        setWalletRefreshTrigger(prev => prev + 1);
+                      } else {
+                        setFaucetClaimStatus(`⚠️ ${res.error}`);
+                      }
+                    }}
+                    className="w-full py-2 px-3 rounded-lg bg-teal-950/80 hover:bg-teal-900 border border-teal-500/40 text-teal-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  >
+                    <Droplets className="w-3.5 h-3.5 text-teal-400" />
+                    <span>Claim Free Testnet Starter Pack (Faucet)</span>
+                  </button>
+                  {faucetClaimStatus && (
+                    <div className="text-[11px] text-teal-300 mt-1.5 text-center">
+                      {faucetClaimStatus}
+                    </div>
+                  )}
                 </div>
               </div>
 

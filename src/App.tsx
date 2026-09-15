@@ -6,6 +6,10 @@ import { PQWalletView } from './components/PQWalletView';
 import { BlockExplorerView } from './components/BlockExplorerView';
 import { SmartContractsView } from './components/SmartContractsView';
 import { PeerMeshView } from './components/PeerMeshView';
+import { TokenLaunchpadView } from './components/TokenLaunchpadView';
+import { FaucetView } from './components/FaucetView';
+import { RdlSwapView } from './components/RdlSwapView';
+import { DeveloperView } from './components/DeveloperView';
 import { ProjectQRCode } from './components/ProjectQRCode';
 import { ChainState, Block, PQKeypair, SmartContract, Transaction } from './types';
 
@@ -197,11 +201,15 @@ export default function App() {
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} chainState={chainState} activeWallet={activeWallet} onOpenWalletModal={()=>setActiveTab('wallet')} />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
         {activeTab === 'dashboard' && <DashboardView chainState={chainState} blocks={blocks} onNavigateTab={setActiveTab} />}
+        {activeTab === 'faucet' && <FaucetView activeWallet={activeWallet} onOpenWallet={()=>setActiveTab('wallet')} />}
+        {activeTab === 'swap' && <RdlSwapView activeWallet={activeWallet} onOpenWallet={()=>setActiveTab('wallet')} />}
+        {activeTab === 'tokens' && <TokenLaunchpadView activeWallet={activeWallet} onOpenWallet={()=>setActiveTab('wallet')} />}
         {activeTab === 'conway' && <ConwayMinerView onBlockMined={handleBlockMined} activeWallet={activeWallet} />}
         {activeTab === 'wallet' && <PQWalletView activeWallet={activeWallet} onWalletGenerated={setActiveWallet} onSendTransaction={handleSendTransaction} />}
         {activeTab === 'explorer' && <BlockExplorerView blocks={blocks} />}
         {activeTab === 'contracts' && <SmartContractsView contracts={contracts} activeWallet={activeWallet} onDeployContract={handleDeployContract} />}
         {activeTab === 'nodes' && <PeerMeshView />}
+        {activeTab === 'developer' && <DeveloperView />}
         <div className="mt-8 max-w-sm"><ProjectQRCode label="Scan PQ-RDL project" value="https://github.com/elon00/pq-rdl-blockchain" /></div>
       </main>
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center font-mono text-xs text-slate-500">

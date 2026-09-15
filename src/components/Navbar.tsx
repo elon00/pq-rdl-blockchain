@@ -8,7 +8,11 @@ import {
   Share2,
   Sparkles,
   Activity,
-  Zap
+  Zap,
+  Coins,
+  Droplets,
+  ArrowRightLeft,
+  Terminal
 } from 'lucide-react';
 import { ChainState, PQKeypair } from '../types';
 
@@ -29,11 +33,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Network & Overview', icon: Activity },
+    { id: 'faucet', label: 'Testnet Faucet', icon: Droplets },
+    { id: 'swap', label: 'RDL Swap (DEX)', icon: ArrowRightLeft },
+    { id: 'tokens', label: 'Token Factory & Launchpad', icon: Coins },
     { id: 'conway', label: 'Conway Consensus Miner', icon: Cpu },
     { id: 'wallet', label: 'Post-Quantum Wallet', icon: Wallet },
     { id: 'explorer', label: 'Block Explorer', icon: Boxes },
     { id: 'contracts', label: 'Web 4.0 AI Smart Contracts', icon: Code2 },
-    { id: 'nodes', label: 'Peer Mesh Network', icon: Share2 },
+    { id: 'nodes', label: 'Peer Mesh & Validators', icon: Share2 },
+    { id: 'developer', label: 'Developer Platform & RPC', icon: Terminal },
   ];
 
   return (
@@ -43,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-4 overflow-x-auto whitespace-nowrap scrollbar-none">
           <div className="flex items-center gap-1.5 text-cyan-400 font-mono">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>PQ-RDL Web 4.0 Mainnet</span>
+            <span>PQ-RDL Web 4.0 — Operational Devnet / Testnet Candidate (Chain: RDL-TESTNET-001)</span>
           </div>
           <span className="text-slate-600">|</span>
           <span className="font-mono">

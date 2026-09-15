@@ -111,3 +111,40 @@ export interface AiContractAnalysis {
   suggestedOptimizations: string[];
   generatedCode?: string;
 }
+
+export type TokenType = 'STABLECOIN' | 'MEMECOIN' | 'UTILITY';
+
+export interface Token {
+  id: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  totalSupply: number;
+  isUnlimitedSupply: boolean;
+  type: TokenType;
+  creatorAddress: string;
+  contractAddress: string;
+  balances: Record<string, number>;
+  createdAt: number;
+  pegCurrency?: string;
+  oraclePriceUsd?: number;
+  reserveRatio?: number;
+  collateralVault?: string;
+  burnRatePercentage?: number;
+  memeLore?: string;
+  conwayPatternSeed?: string;
+  automatonEvolutionYield?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'agent';
+  modelName: 'Gemini 2.5 Flash' | 'Claude 3.7 Sonnet' | 'QMoosa Autonomous Agent';
+  text: string;
+  timestamp: number;
+  suggestedAction?: {
+    type: 'DEPLOY_STABLECOIN' | 'DEPLOY_MEMECOIN' | 'AUDIT_CONTRACT' | 'SIMULATE_CONWAY';
+    payload: any;
+  };
+}
+

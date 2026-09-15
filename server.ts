@@ -17,6 +17,8 @@ import {
   mineConwayBlock
 } from './src/lib/conwayEngine';
 import { Block, Transaction, ChainState, SmartContract } from './src/types';
+import { tokenEngine } from './src/lib/tokenEngine';
+import { faucetEngine } from './src/lib/faucetEngine';
 
 dotenv.config();
 
@@ -367,6 +369,70 @@ Always structure JSON output with properties:
 
       deployedContracts.push(newContract);
       res.json({ success: true, simulation: true, contract: newContract, statusNote: 'Contract is stored only in local process memory; no external VM or chain deployment occurred.' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Token Launchpad Endpoints
+  app.get('/api/tokens', (req, res) => {
+    res.json({ success: true, tokens: tokenEngine.getTokens() });
+  });
+
+  app.post('/api/tokens/create', (req, res) => {
+    try {
+      const newToken = tokenEngine.createToken(req.body);
+      res.json({ success: true, token: newToken });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/tokens/transfer', (req, res) => {
+    try {
+      const { tokenId, senderAddress, receiverAddress, amount } = req.body;
+      const result = tokenEngine.transferToken(tokenId, senderAddress, receiverAddress, Number(amount));
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/tokens/mint', (req, res) => {
+    try {
+      const { tokenId, recipientAddress, amount } = req.body;
+      const result = tokenEngine.mintToken(tokenId, recipientAddress, Number(amount));
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // Faucet Dispenser Endpoints
+  app.post('/api/faucet/dispense', async (req, res) => {
+    try {
+      const { recipientAddress, dropType } = req.body;
+      const result = await faucetEngine.dispense(recipientAddress, dropType);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/faucet/status', (req, res) => {
+    res.json({
+      success: true,
+      stats: faucetEngine.getStats(),
+      recentClaims: faucetEngine.getRecentClaims(),
+    });
+  });
+
+  // Post-Quantum Keypair Generation
+  app.post('/api/quantum/generate-keypair', async (req, res) => {
+    try {
+      const { algorithm, seedPhrase } = req.body;
+      const keypair = await generatePQKeypair(algorithm || 'Dilithium2', seedPhrase);
+      res.json(keypair);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
