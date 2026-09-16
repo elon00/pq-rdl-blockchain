@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 title PQ-RDL Web4 Blockchain - 1-Click Testnet Qualifier
 color 0B
 

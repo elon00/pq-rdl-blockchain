@@ -1,12 +1,10 @@
 {
   "network_name": "RDL Public Testnet",
-  "status": "PUBLIC_TESTNET_CANDIDATE",
+  "status": "PUBLIC_TESTNET_LIVE_TUNNEL",
   "chain_id": "RDL-TESTNET-001",
   "protocol_version": "1",
   "bootstrap_endpoints": [
-    "https://elon00.github.io/pq-rdl-blockchain/api",
-    "https://testnet-seed-1.rdl.network",
-    "https://testnet-seed-2.rdl.network"
+    "https://webmaster-vip-home-commit.trycloudflare.com"
   ],
   "genesis_sha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
   "release_version": "v0.1.0-testnet",
