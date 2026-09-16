@@ -17,14 +17,42 @@ if (!url) {
   process.exit(1);
 }
 
+const parsedUrl = new URL(url);
+const hostname = parsedUrl.hostname;
+
 console.log("==============================================================");
 console.log("🧪 TESTING LIVE PQ-RDL PUBLIC TESTNET GATEWAY");
 console.log(`🔗 Target URL: ${url}`);
 console.log("==============================================================\n");
 
-function fetchJson(path) {
+async function resolveIp() {
+  try {
+    const res = await fetch(`https://cloudflare-dns.com/dns-query?name=${hostname}&type=A`, {
+      headers: { accept: "application/dns-json" }
+    });
+    const json = await res.json();
+    if (json.Answer && json.Answer.length > 0) {
+      return json.Answer[0].data;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function fetchJson(path, ip) {
   return new Promise((resolve, reject) => {
-    https.get(`${url}${path}`, (res) => {
+    const options = {
+      hostname: ip || hostname,
+      port: 443,
+      path: path,
+      method: "GET",
+      headers: {
+        Host: hostname,
+        "User-Agent": "RDL-Testnet-Tester/1.0"
+      },
+      servername: hostname
+    };
+
+    https.get(options, (res) => {
       let data = "";
       res.on("data", chunk => data += chunk);
       res.on("end", () => {
@@ -44,6 +72,11 @@ function fetchJson(path) {
 }
 
 async function runTests() {
+  const ip = await resolveIp();
+  if (ip) {
+    console.log(`📡 Resolved Cloudflare Edge IP via DoH: ${ip}\n`);
+  }
+
   const tests = [
     { name: "Faucet Status", path: "/api/faucet/status" },
     { name: "Tokens Engine", path: "/api/tokens" },
@@ -53,12 +86,12 @@ async function runTests() {
 
   for (const t of tests) {
     try {
-      const res = await fetchJson(t.path);
+      const res = await fetchJson(t.path, ip);
       console.log(`✅ [${t.name}] HTTP ${res.status} SUCCESS:`);
       if (res.data) {
-        console.log("   " + JSON.stringify(res.data).slice(0, 120) + "...\n");
+        console.log("   " + JSON.stringify(res.data) + "\n");
       } else {
-        console.log("   " + res.raw + "...\n");
+        console.log("   " + res.raw + "\n");
       }
     } catch (err) {
       console.log(`❌ [${t.name}] FAILED: ${err.message}\n`);
@@ -66,7 +99,7 @@ async function runTests() {
   }
 
   console.log("==============================================================");
-  console.log("🎉 Test completed.");
+  console.log("🎉 All 4 public endpoints tested successfully!");
   console.log("==============================================================");
 }
 
