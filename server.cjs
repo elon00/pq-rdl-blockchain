@@ -530,6 +530,12 @@ contract ConwayGliderYield {
   app.get("/api/blockchain/blocks", (req, res) => {
     res.json(blockchain);
   });
+  app.get("/api/blocks", (req, res) => {
+    res.json(blockchain);
+  });
+  app.get("/api/network", (req, res) => {
+    res.redirect("/api/blockchain/status");
+  });
   app.get("/api/blockchain/contracts", (req, res) => {
     res.json(deployedContracts);
   });
