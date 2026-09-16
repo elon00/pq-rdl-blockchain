@@ -26,7 +26,7 @@
       "name": "RDL Address & State Commitment Integrity",
       "passed": true,
       "score": 1,
-      "evidence": "RDL Address (5aa758686e4527...) & Commitment Derived"
+      "evidence": "RDL Address (821ed0dd52379f...) & Commitment Derived"
     },
     {
       "gate": 5,
@@ -72,5 +72,5 @@
     }
   ],
   "u10Score": 10,
-  "timestamp": "2026-09-16T12:25:28.619Z"
+  "timestamp": "2026-09-16T12:28:08.190Z"
 }

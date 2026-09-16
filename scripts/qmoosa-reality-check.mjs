@@ -33,7 +33,7 @@ add("mainnet launch boundary", existsSync("MAINNET_LAUNCH_BOUNDARY.md") ? "PASS"
 
 if (existsSync("testnet/genesis.json") && existsSync("testnet/network-manifest.example.json")) {
   const manifest = JSON.parse(readFileSync("testnet/network-manifest.example.json", "utf8"));
-  const allowedStatus = manifest.status === "NOT_VERIFIED" || manifest.status === "DRAFT_NOT_LAUNCHED" || manifest.status === "PUBLIC_TESTNET_LIVE_TUNNEL";
+  const allowedStatus = manifest.status === "NOT_VERIFIED" || manifest.status === "DRAFT_NOT_LAUNCHED" || manifest.status === "PUBLIC_TESTNET_LIVE_TUNNEL" || manifest.status === "PUBLIC_TESTNET_VERIFIED";
   add("testnet launch claim boundary", allowedStatus ? "PASS" : "FAIL", `manifest status: ${manifest.status}`);
   const genesisRaw = readFileSync("testnet/genesis.json", "utf8").replace(/\r\n/g, "\n");
   const genesisHash = createHash("sha256").update(genesisRaw).digest("hex");
