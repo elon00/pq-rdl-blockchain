@@ -419,7 +419,7 @@ var ai = process.env.GEMINI_API_KEY ? new import_genai.GoogleGenAI({
 }) : null;
 async function startServer() {
   const app = (0, import_express.default)();
-  const PORT = 3e3;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
   app.use(import_express.default.json({ limit: "10mb" }));
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
