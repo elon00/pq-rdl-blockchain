@@ -1,8 +1,8 @@
 {
-  "synchronizedAt": "2026-09-16T12:24:50.723Z",
+  "synchronizedAt": "2026-09-16T12:36:41.567Z",
   "mode": "REALITY_MODE",
   "git": {
-    "commit": "f7e5e9c9c96fa16637487ab44a0f96f0518d4201",
+    "commit": "ef7c71a2cfb28fabc36260c6adddab07e5aa0860",
     "branch": "master",
     "repo": "https://github.com/elon00/pq-rdl-blockchain"
   },
@@ -12,7 +12,7 @@
     "genesisSha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
     "classification": "PARTIALLY_REACHABLE",
     "consensus": "PoS+BFT_DESIGN_TARGET",
-    "status": "PUBLIC_TESTNET_VERIFIED",
+    "status": "PUBLIC_TESTNET_CANDIDATE",
     "rule": "Network status is copied from the manifest/reality evidence state; this synchronizer never promotes an unverified network to live status."
   },
   "nodes": [

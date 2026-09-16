@@ -104,8 +104,8 @@ npm run testnet:cluster`;
             <span className="px-3 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
               Genesis SHA-256: d1ba8eb5003434c0...
             </span>
-            <span className="px-3 py-1 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-bold">
-              Status: 🟢 PUBLIC TESTNET VERIFIED
+            <span className="px-3 py-1 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300 font-bold">
+              Status: 🟡 PUBLIC TESTNET CANDIDATE (CI Multi-Node Qualified)
             </span>
           </div>
         </div>
@@ -121,20 +121,20 @@ npm run testnet:cluster`;
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-white font-bold text-base">1-Click Testnet Qualification Pipeline</h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/30">
-                  Bountyhunter OS Verified
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500/30">
+                  Bountyhunter OS CI Baseline
                 </span>
               </div>
               <p className="text-slate-400 text-xs mt-0.5">
-                Novice-friendly 1-click execution: multi-node boot, P2P handshake, real PQ tx, block mining, 3-node state sync & disk crash recovery.
+                Novice-friendly 1-click execution: multi-node boot, P2P handshake, real PQ tx, block mining, 3-node state sync & disk crash recovery. External multi-cloud nodes required for full public verification.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 font-bold text-xs flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-400" />
-              <span>PUBLIC TESTNET VERIFIED</span>
+            <span className="px-3 py-1.5 rounded-lg bg-amber-950/80 border border-amber-500/50 text-amber-300 font-bold text-xs flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-amber-400" />
+              <span>TESTNET CANDIDATE (CI QUALIFIED)</span>
             </span>
           </div>
         </div>

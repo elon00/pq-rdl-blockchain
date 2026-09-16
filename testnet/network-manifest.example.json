@@ -1,6 +1,6 @@
 {
   "network_name": "RDL Public Testnet",
-  "status": "PUBLIC_TESTNET_VERIFIED",
+  "status": "PUBLIC_TESTNET_CANDIDATE",
   "chain_id": "RDL-TESTNET-001",
   "protocol_version": "1",
   "bootstrap_endpoints": [
