@@ -11,7 +11,11 @@ import {
   FileCode,
   Globe,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Cloud,
+  Send,
+  Github,
+  Server
 } from 'lucide-react';
 
 export const DeveloperView: React.FC = () => {
@@ -49,10 +53,17 @@ curl -X POST http://localhost:3000/api/faucet/dispense \\
 # Query Chain Status & Genesis Hash
 curl http://localhost:3000/api/blockchain/status`;
 
-  const rustCode = `# Run Native RDL HotStuff BFT Node locally
-cargo run --bin rdl-node -- \\
-  --listen 0.0.0.0:7000 \\
-  --bootstrap-peers 127.0.0.1:7001,127.0.0.1:7002`;
+  const gcpCode = `# 1-Click Google Cloud Shell Launch (Zero Cost / Free VM)
+git clone https://github.com/elon00/pq-rdl-blockchain.git
+cd pq-rdl-blockchain
+./deploy/cloudshell-direct-node.sh`;
+
+  const tgCode = `# Start Telegram Cloud Node & Faucet Controller
+export TELEGRAM_BOT_TOKEN="YOUR_BOT_FATHER_TOKEN"
+npm run telegram:bot`;
+
+  const dockerCode = `# Launch 3-Node BFT Testnet Cluster + RPC + Telegram Bot
+npm run testnet:cluster`;
 
   return (
     <div className="space-y-8 font-mono text-xs">
@@ -72,7 +83,7 @@ cargo run --bin rdl-node -- \\
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed font-sans">
-            Comprehensive JSON-RPC endpoints, Rust consensus node specifications, NIST FIPS 203/204 wire invariants, and SDK integration guides for <strong className="text-cyan-300">RDL-TESTNET-001</strong>.
+            Comprehensive JSON-RPC endpoints, Google Cloud deployment, GitHub Actions cloud runners, Telegram Bot node controllers, and NIST FIPS 203/204 wire invariants for <strong className="text-cyan-300">RDL-TESTNET-001</strong>.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
@@ -82,6 +93,101 @@ cargo run --bin rdl-node -- \\
             <span className="px-3 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
               Genesis SHA-256: d1ba8eb5003434c0...
             </span>
+            <span className="px-3 py-1 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300">
+              Status: Operational Devnet / Testnet Candidate
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Cloud & Telegram Node Run Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-white text-base font-bold">
+          <Cloud className="w-5 h-5 text-cyan-400" />
+          <span>Cloud Nodes, GitHub Runners & Telegram Controllers</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Google Cloud Platform */}
+          <div className="bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-colors rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-cyan-400 font-bold text-sm">
+                <Cloud className="w-4 h-4" />
+                <span>Google Cloud (GCP)</span>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-500/30">Always Free</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Deploy on Google Cloud Shell (100% free with Cloudflare Edge tunnel) or provision an Always-Free <code className="text-cyan-300">e2-micro</code> GCE instance via Terraform.
+            </p>
+            <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-cyan-300 overflow-x-auto text-[10px]">
+              {gcpCode}
+            </pre>
+            <div className="flex justify-end">
+              <button
+                onClick={() => handleCopy(gcpCode, 'gcp')}
+                className="text-slate-400 hover:text-cyan-300 cursor-pointer flex items-center gap-1 text-[11px]"
+              >
+                {copiedSnippet === 'gcp' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>Copy Command</span>
+              </button>
+            </div>
+          </div>
+
+          {/* GitHub Actions & Codespaces */}
+          <div className="bg-slate-900/80 border border-slate-800 hover:border-purple-500/40 transition-colors rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
+                <Github className="w-4 h-4" />
+                <span>GitHub Cloud Nodes</span>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] bg-purple-950 text-purple-300 border border-purple-500/30">Actions & Codespaces</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Run automated cloud consensus rounds via GitHub Actions runner (<code className="text-purple-300">testnet-node.yml</code>) or launch a 1-click cloud validator in Codespaces.
+            </p>
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2 text-[10px] text-slate-300">
+              <div>• <strong>Workflow</strong>: <code className="text-purple-300">.github/workflows/testnet-node.yml</code></div>
+              <div>• <strong>Codespaces</strong>: <code className="text-purple-300">.devcontainer/devcontainer.json</code></div>
+              <div>• <strong>Schedule</strong>: Runs cloud consensus every 6 hours.</div>
+            </div>
+            <div className="flex justify-end">
+              <a
+                href="https://github.com/elon00/pq-rdl-blockchain/actions"
+                target="_blank"
+                rel="noreferrer"
+                className="text-purple-400 hover:text-purple-300 flex items-center gap-1 text-[11px]"
+              >
+                <span>View GitHub Actions</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+
+          {/* Telegram Cloud Bot */}
+          <div className="bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 transition-colors rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                <Send className="w-4 h-4" />
+                <span>Telegram Cloud Bot</span>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/30">Bot API</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Control nodes, claim faucet drops (<code className="text-emerald-300">/faucet</code>), mine Conway blocks (<code className="text-emerald-300">/mine</code>), and query balances directly from Telegram.
+            </p>
+            <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-emerald-300 overflow-x-auto text-[10px]">
+              {tgCode}
+            </pre>
+            <div className="flex justify-end">
+              <button
+                onClick={() => handleCopy(tgCode, 'tg')}
+                className="text-slate-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1 text-[11px]"
+              >
+                {copiedSnippet === 'tg' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>Copy Command</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -150,20 +256,23 @@ cargo run --bin rdl-node -- \\
             </div>
           </div>
 
-          {/* cURL Example */}
+          {/* Docker & cURL Example */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-white text-sm">cURL Faucet & RPC Example</span>
+              <span className="font-bold text-white text-sm flex items-center gap-2">
+                <Server className="w-4 h-4 text-cyan-400" />
+                <span>Docker Testnet Cluster (3 Nodes)</span>
+              </span>
               <button
-                onClick={() => handleCopy(curlCode, 'curl')}
+                onClick={() => handleCopy(dockerCode, 'docker')}
                 className="text-slate-400 hover:text-cyan-300 cursor-pointer flex items-center gap-1"
               >
-                {copiedSnippet === 'curl' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedSnippet === 'docker' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>Copy</span>
               </button>
             </div>
             <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-cyan-300 overflow-x-auto text-[11px]">
-              {curlCode}
+              {dockerCode}
             </pre>
           </div>
         </div>

@@ -25,7 +25,11 @@
     "start:tunnel": "node scripts/start-public-tunnel-node.mjs",
     "preflight:build": "node scripts/preflight-build.mjs",
     "finish:all": "node scripts/finish-all.mjs",
-    "deploy:state": "node scripts/sync-deployment-state.mjs"
+    "deploy:state": "node scripts/sync-deployment-state.mjs",
+    "telegram:bot": "node scripts/telegram-node-bot.mjs",
+    "test:telegram": "tsx services/telegram-bot/bot.ts --test",
+    "testnet:cluster": "docker compose -f docker-compose.testnet.yml up -d",
+    "testnet:cluster:down": "docker compose -f docker-compose.testnet.yml down"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

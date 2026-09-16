@@ -1,23 +1,35 @@
-﻿{
-  "name": "RDL Blockchain Node & Validator",
-  "image": "mcr.microsoft.com/devcontainers/rust:1-1-bullseye",
+{
+  "name": "PQ-RDL Web4 Cloud Node (Codespaces)",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22"
-    }
-  },
-  "forwardPorts": [7100, 7101, 3000],
-  "portsAttributes": {
-    "7100": {
-      "label": "RDL JSON-RPC & Explorer",
-      "onAutoForward": "openBrowser",
-      "visibility": "public"
     },
-    "7101": {
-      "label": "RDL P2P Node Protocol",
-      "visibility": "public"
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "forwardPorts": [3000, 7000, 7100],
+  "portsAttributes": {
+    "3000": {
+      "label": "PQ-RDL Web UI & JSON-RPC Gateway",
+      "onAutoForward": "openBrowser"
+    },
+    "7000": {
+      "label": "HotStuff BFT Consensus P2P",
+      "onAutoForward": "silent"
+    },
+    "7100": {
+      "label": "Native Node RPC",
+      "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "cargo build --release --workspace && npm install && npm run build",
-  "postStartCommand": "nohup ./target/release/rdl-node > node.log 2>&1 & nohup node dist/server.cjs > rpc.log 2>&1 &"
+  "postCreateCommand": "npm ci && cargo build --release --workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  }
 }

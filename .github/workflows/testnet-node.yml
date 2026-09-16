@@ -1,0 +1,87 @@
+name: PQ-RDL Cloud Testnet Node Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      blocks_to_mine:
+        description: 'Number of Conway Automaton blocks to validate'
+        required: false
+        default: '5'
+      run_telegram_tests:
+        description: 'Run Telegram Cloud Bot self-tests'
+        type: boolean
+        required: false
+        default: true
+  schedule:
+    - cron: '0 */6 * * *' # Automated cloud validator rounds every 6 hours
+  push:
+    branches:
+      - master
+    paths:
+      - 'crates/**'
+      - 'src/**'
+      - 'services/**'
+
+jobs:
+  cloud-testnet-node:
+    name: ⚡ GitHub Cloud Testnet Node
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 📥 Checkout PQ-RDL Blockchain
+        uses: actions/checkout@v4
+
+      - name: 🦀 Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: 📦 Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: ⚙️ Install Dependencies
+        run: npm ci
+
+      - name: 🛡️ Compile Native Rust Node
+        run: cargo build --release --workspace
+
+      - name: 🧪 Execute Consensus & BFT Safety Tests
+        run: cargo test --workspace --all-targets
+
+      - name: ⚛️ Verify NIST PQC & Wycheproof Invariants
+        run: npm run test:nist
+
+      - name: 🤖 Execute Telegram Cloud Bot Verification
+        run: npx tsx services/telegram-bot/bot.ts --test
+
+      - name: ⛏️ Execute Automated Cloud Consensus Rounds
+        run: |
+          echo "Running Conway Automaton Proof-of-Automaton consensus..."
+          npx tsx scripts/reality-universal.ts
+
+      - name: 📊 Generate Node Telemetry Snapshot
+        run: |
+          mkdir -p artifacts
+          node -e "
+            const fs = require('fs');
+            const telemetry = {
+              chain_id: 'RDL-TESTNET-001',
+              timestamp: Date.now(),
+              runner: 'GitHub Cloud Actions Runner (ubuntu-latest)',
+              pqc_standards: ['NIST FIPS 203 ML-KEM-768', 'NIST FIPS 204 ML-DSA-65'],
+              consensus: 'HotStuff BFT + Conway Proof-of-Automaton',
+              status: 'OPERATIONAL_TESTNET_ACTIVE',
+              genesis_anchor: 'd1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8'
+            };
+            fs.writeFileSync('artifacts/cloud-node-telemetry.json', JSON.stringify(telemetry, null, 2));
+          "
+
+      - name: 📤 Upload Cloud Node Telemetry Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-node-telemetry
+          path: artifacts/cloud-node-telemetry.json

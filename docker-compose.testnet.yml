@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # 🏛️ HotStuff BFT Validator Node 1 (Bootstrap Seed)
+  rdl-validator-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rdl-testnet-val-1
+    command: ["./target/release/rdl-node", "--listen", "0.0.0.0:7001"]
+    environment:
+      - RDL_NODE_ID=validator-1
+      - RDL_DATA_DIR=/var/lib/rdl
+      - RDL_BOOTSTRAP_PEERS=rdl-validator-2:7002,rdl-validator-3:7003
+    ports:
+      - "7001:7001"
+    volumes:
+      - rdl-data-1:/var/lib/rdl
+    restart: unless-stopped
+    networks:
+      - rdl-testnet-net
+
+  # 🏛️ HotStuff BFT Validator Node 2
+  rdl-validator-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rdl-testnet-val-2
+    command: ["./target/release/rdl-node", "--listen", "0.0.0.0:7002"]
+    environment:
+      - RDL_NODE_ID=validator-2
+      - RDL_DATA_DIR=/var/lib/rdl
+      - RDL_BOOTSTRAP_PEERS=rdl-validator-1:7001,rdl-validator-3:7003
+    ports:
+      - "7002:7002"
+    volumes:
+      - rdl-data-2:/var/lib/rdl
+    restart: unless-stopped
+    networks:
+      - rdl-testnet-net
+
+  # 🏛️ HotStuff BFT Validator Node 3
+  rdl-validator-3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rdl-testnet-val-3
+    command: ["./target/release/rdl-node", "--listen", "0.0.0.0:7003"]
+    environment:
+      - RDL_NODE_ID=validator-3
+      - RDL_DATA_DIR=/var/lib/rdl
+      - RDL_BOOTSTRAP_PEERS=rdl-validator-1:7001,rdl-validator-2:7002
+    ports:
+      - "7003:7003"
+    volumes:
+      - rdl-data-3:/var/lib/rdl
+    restart: unless-stopped
+    networks:
+      - rdl-testnet-net
+
+  # 🌐 Web UI, Explorer, AMM Swap DEX, Faucet & JSON-RPC Gateway
+  rdl-rpc-server:
+    image: node:22-bookworm-slim
+    container_name: rdl-testnet-rpc
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sh -c "npm ci && npm run build && node dist/server.cjs"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - rdl-validator-1
+    restart: unless-stopped
+    networks:
+      - rdl-testnet-net
+
+  # 🤖 Telegram Cloud Node & Faucet Controller
+  rdl-telegram-bot:
+    image: node:22-bookworm-slim
+    container_name: rdl-testnet-tg-bot
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sh -c "node scripts/telegram-node-bot.mjs"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+    depends_on:
+      - rdl-rpc-server
+    restart: unless-stopped
+    networks:
+      - rdl-testnet-net
+
+volumes:
+  rdl-data-1:
+  rdl-data-2:
+  rdl-data-3:
+
+networks:
+  rdl-testnet-net:
+    driver: bridge
