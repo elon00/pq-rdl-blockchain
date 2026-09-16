@@ -54,9 +54,14 @@ const checkLine = (line) => {
     console.log(`🎉 PUBLIC TESTNET RPC & EXPLORER IS LIVE OVER THE INTERNET!`);
     console.log(`🔗 Public URL: ${publicUrl}`);
     console.log("==============================================================");
+    console.log("⚠️  IMPORTANT: KEEP THIS WINDOW OPEN to keep the public gateway live!");
+    console.log("🌐 Open this URL in Chrome / Edge / Mobile: " + publicUrl);
+    console.log("💻 To run curl or tests, open a NEW terminal window (do not press Ctrl+C here)");
+    console.log("==============================================================\n");
 
     // Write Machine-Verifiable Evidence
     mkdirSync("artifacts", { recursive: true });
+    writeFileSync("artifacts/active-tunnel-url.txt", publicUrl);
     
     const rpcEvidence = {
       generatedAt: new Date().toISOString(),
@@ -110,6 +115,13 @@ const checkLine = (line) => {
     setTimeout(() => {
       const req = https.get(publicUrl, (res) => {
         console.log(`\n📡 Live External Ping Status: HTTP ${res.statusCode} (Connected via Internet Edge!)`);
+        console.log(`🟢 Live endpoints ready to test:`);
+        console.log(`   Explorer UI:   ${publicUrl}`);
+        console.log(`   Faucet Status: ${publicUrl}/api/faucet/status`);
+        console.log(`   Tokens:        ${publicUrl}/api/tokens`);
+        console.log(`   Blocks:        ${publicUrl}/api/blocks`);
+        console.log(`   Network State: ${publicUrl}/api/network\n`);
+        console.log(`💡 Keep this window open. Open the links above in your browser or a second terminal!\n`);
       });
       req.on("error", (e) => {
         console.log(`📡 Cloudflare DNS propagating in background (${e.message}). Edge endpoint is registered.`);
