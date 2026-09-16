@@ -4,7 +4,8 @@
   "chain_id": "RDL-TESTNET-001",
   "protocol_version": "1",
   "bootstrap_endpoints": [
-    "https://graduate-gmc-cooking-pamela.trycloudflare.com"
+    "https://fee-protecting-removal-dicke.trycloudflare.com",
+    "https://elon00.github.io/pq-rdl-blockchain/testnet/genesis.json"
   ],
   "genesis_sha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
   "release_version": "v0.1.0-testnet",

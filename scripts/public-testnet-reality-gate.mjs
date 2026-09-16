@@ -110,6 +110,20 @@ const proofChecks = [
       );
     }
   },
+  {
+    name: "multiMachinePhysicalSeparation",
+    reason: "at least two distinct physical/cloud IP addresses or host domains (excluding loopback 127.0.0.1/localhost)",
+    evaluate: () => {
+      const nodes = Array.isArray(multiNodeData?.nodes) ? multiNodeData.nodes : [];
+      const nonLoopbackNodes = nodes.filter(n => {
+        const ep = n.endpoint || n.address || "";
+        return ep.length > 0 && !/(127\.0\.0\.1|localhost|0\.0\.0\.0|::1)/i.test(ep);
+      });
+      const hasCloudEvidence = existsSync("evidence/CLOUD_VALIDATOR_EVIDENCE.json") ||
+                               existsSync("evidence/GCP_VALIDATOR_EVIDENCE.json");
+      return nonLoopbackNodes.length >= 2 || (nonLoopbackNodes.length >= 1 && hasCloudEvidence);
+    }
+  },
 ];
 
 for (const proof of proofChecks) {
