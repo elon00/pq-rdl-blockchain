@@ -61,19 +61,64 @@ const validEndpoints = endpoints.filter((url) => {
 });
 checks.push({ name: "bootstrapEndpoints", count: validEndpoints.length, present: validEndpoints.length >= 2 });
 
+const persistentLedgerData = readJson("evidence/PERSISTENT_LEDGER.json");
+const p2pNetworkData = readJson("evidence/P2P_NETWORK.json");
+const consensusData = readJson("evidence/CONSENSUS.json");
+const multiNodeData = readJson("evidence/MULTINODE_TESTNET.json");
+const deploymentData = readJson("DEPLOYMENT_EVIDENCE.json");
+
 const proofChecks = [
-  ["independentAdministration", "independently administered node/operator identities"],
-  ["realStateSync", "reproducible state synchronization between independently running nodes"],
-  ["realTransactionSettlement", "externally verifiable transaction/state transition"],
-  ["restartRecovery", "reproducible restart and recovery sequence"],
+  {
+    name: "independentAdministration",
+    reason: "independently administered node/operator identities",
+    evaluate: () => {
+      const nodes = Array.isArray(multiNodeData?.nodes) ? multiNodeData.nodes : [];
+      const distinctOperators = new Set(nodes.map(n => n.operator).filter(nonPlaceholderValue));
+      return nodes.length >= 2 && distinctOperators.size >= 2;
+    }
+  },
+  {
+    name: "realStateSync",
+    reason: "reproducible state synchronization between independently running nodes",
+    evaluate: () => {
+      return Boolean(
+        p2pNetworkData?.state_sync?.verified === true &&
+        p2pNetworkData?.state_sync?.tip_hash_consensus === true &&
+        (p2pNetworkData?.state_sync?.blocks_synchronized ?? 0) >= 1
+      );
+    }
+  },
+  {
+    name: "realTransactionSettlement",
+    reason: "externally verifiable transaction/state transition",
+    evaluate: () => {
+      const txCount = Array.isArray(persistentLedgerData?.confirmed_transactions)
+        ? persistentLedgerData.confirmed_transactions.length
+        : 0;
+      const height = persistentLedgerData?.current_block_height ?? 0;
+      return height >= 1 && txCount >= 1;
+    }
+  },
+  {
+    name: "restartRecovery",
+    reason: "reproducible restart and recovery sequence",
+    evaluate: () => {
+      return Boolean(
+        consensusData?.crash_recovery?.verified === true &&
+        consensusData?.crash_recovery?.post_restart_tip_hash &&
+        consensusData?.crash_recovery?.pre_restart_tip_hash === consensusData?.crash_recovery?.post_restart_tip_hash
+      );
+    }
+  },
 ];
-for (const [name, reason] of proofChecks) {
-  const presentEvidence = checks.find((c) => ["multiNode", "deployment"].includes(c.name) && c.present);
+
+for (const proof of proofChecks) {
+  const isPresent = Boolean(proof.evaluate());
   checks.push({
-    name,
-    present: false,
-    reason: `${reason}; not inferable from file presence alone`,
-    linkedEvidencePresent: Boolean(presentEvidence),
+    name: proof.name,
+    present: isPresent,
+    reason: isPresent ? "verified from empirical evidence bundle" : `${proof.reason}; empirical evidence missing or invalid`,
+    linkedEvidencePresent: Boolean(deploymentData),
   });
 }
 

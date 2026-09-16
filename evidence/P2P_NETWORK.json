@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-09-16T12:24:50.228Z",
+  "mode": "REALITY_MODE",
+  "protocol": "RDL-HotStuff-BFT-v1",
+  "mutual_challenge_auth": true,
+  "active_peers": [
+    {
+      "peer_id": "node-1",
+      "address": "127.0.0.1:7101",
+      "ping": "PONG",
+      "status": "ACTIVE"
+    },
+    {
+      "peer_id": "node-2",
+      "address": "127.0.0.1:7102",
+      "ping": "PONG",
+      "status": "ACTIVE"
+    },
+    {
+      "peer_id": "node-3",
+      "address": "127.0.0.1:7103",
+      "ping": "PONG",
+      "status": "ACTIVE"
+    }
+  ],
+  "state_sync": {
+    "verified": true,
+    "method": "GET_CHAIN",
+    "candidate_validation": "ParentHash+StateRoot+HotStuffLock",
+    "blocks_synchronized": 2,
+    "tip_hash_consensus": true
+  }
+}

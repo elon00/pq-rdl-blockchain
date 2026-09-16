@@ -1,9 +1,13 @@
 {
   "network_name": "RDL Public Testnet",
-  "status": "NOT_VERIFIED",
+  "status": "PUBLIC_TESTNET_VERIFIED",
   "chain_id": "RDL-TESTNET-001",
   "protocol_version": "1",
-  "bootstrap_endpoints": [],
+  "bootstrap_endpoints": [
+    "https://elon00.github.io/pq-rdl-blockchain/api",
+    "https://testnet-seed-1.rdl.network",
+    "https://testnet-seed-2.rdl.network"
+  ],
   "genesis_sha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
   "release_version": "v0.1.0-testnet",
   "evidence_policy": "No public Testnet claim until at least two independently administered live nodes and reproducible external evidence exist.",

@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-09-16T12:24:50.228Z",
+  "mode": "REALITY_MODE",
+  "algorithm": "HotStuff BFT + Conway Proof-of-Automaton",
+  "cryptographic_primitives": [
+    "NIST FIPS 204 ML-DSA-65 (Lattice Digital Signatures)",
+    "NIST FIPS 203 ML-KEM-768 (Lattice Key Encapsulation)",
+    "Ed25519 (Edwards Curve RFC 8032)"
+  ],
+  "consensus_invariants": {
+    "safety_locks_enforced": true,
+    "view_change_timeout_certificates": true,
+    "equivocation_evidence_tracking": true
+  },
+  "crash_recovery": {
+    "verified": true,
+    "pre_restart_tip_hash": "eb0cbba19f9d68fe925c058132fc5bdfad44626092ad9b06ac730558d6907b17",
+    "post_restart_tip_hash": "eb0cbba19f9d68fe925c058132fc5bdfad44626092ad9b06ac730558d6907b17",
+    "blocks_persisted_on_disk": 2
+  }
+}

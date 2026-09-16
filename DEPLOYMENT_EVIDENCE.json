@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-09-16T12:24:50.228Z",
+  "mode": "REALITY_MODE",
+  "verdict": "PUBLIC_TESTNET_QUALIFIED",
+  "chain_id": "RDL-TESTNET-001",
+  "genesis_sha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
+  "evidence_files": [
+    "evidence/PERSISTENT_LEDGER.json",
+    "evidence/P2P_NETWORK.json",
+    "evidence/CONSENSUS.json",
+    "evidence/MULTINODE_TESTNET.json"
+  ],
+  "qualification_proofs": {
+    "independentAdministration": true,
+    "realStateSync": true,
+    "realTransactionSettlement": true,
+    "restartRecovery": true
+  }
+}

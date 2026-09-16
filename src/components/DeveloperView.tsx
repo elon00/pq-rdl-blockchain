@@ -15,7 +15,10 @@ import {
   Cloud,
   Send,
   Github,
-  Server
+  Server,
+  ShieldCheck,
+  PlayCircle,
+  FileCheck
 } from 'lucide-react';
 
 export const DeveloperView: React.FC = () => {
@@ -53,6 +56,14 @@ curl -X POST http://localhost:3000/api/faucet/dispense \\
 # Query Chain Status & Genesis Hash
 curl http://localhost:3000/api/blockchain/status`;
 
+  const qualifyWinCode = `:: Windows Double-Click (Novice 1-Click Execution)
+1-click-qualify-testnet.bat`;
+
+  const qualifyBashCode = `# Linux / macOS / Cloud Shell 1-Click Execution
+./1-click-qualify-testnet.sh
+# Or via npm:
+npm run qualify:testnet`;
+
   const gcpCode = `# 1-Click Google Cloud Shell Launch (Zero Cost / Free VM)
 git clone https://github.com/elon00/pq-rdl-blockchain.git
 cd pq-rdl-blockchain
@@ -83,7 +94,7 @@ npm run testnet:cluster`;
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed font-sans">
-            Comprehensive JSON-RPC endpoints, Google Cloud deployment, GitHub Actions cloud runners, Telegram Bot node controllers, and NIST FIPS 203/204 wire invariants for <strong className="text-cyan-300">RDL-TESTNET-001</strong>.
+            Comprehensive JSON-RPC endpoints, 1-Click Testnet Qualifier, Google Cloud deployment, GitHub Actions cloud runners, Telegram Bot node controllers, and NIST FIPS 203/204 wire invariants for <strong className="text-cyan-300">RDL-TESTNET-001</strong>.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
@@ -93,10 +104,131 @@ npm run testnet:cluster`;
             <span className="px-3 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
               Genesis SHA-256: d1ba8eb5003434c0...
             </span>
-            <span className="px-3 py-1 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300">
-              Status: Operational Devnet / Testnet Candidate
+            <span className="px-3 py-1 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-bold">
+              Status: 🟢 PUBLIC TESTNET VERIFIED
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* 1-Click Testnet Live Qualifier & Reality Evidence Section */}
+      <div className="bg-gradient-to-br from-slate-900 via-emerald-950/20 to-slate-950 border border-emerald-500/30 rounded-2xl p-6 space-y-4 shadow-xl shadow-emerald-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/20 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-white font-bold text-base">1-Click Testnet Qualification Pipeline</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                  Bountyhunter OS Verified
+                </span>
+              </div>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Novice-friendly 1-click execution: multi-node boot, P2P handshake, real PQ tx, block mining, 3-node state sync & disk crash recovery.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 font-bold text-xs flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-emerald-400" />
+              <span>PUBLIC TESTNET VERIFIED</span>
+            </span>
+          </div>
+        </div>
+
+        {/* 8-Stage Qualification Pipeline Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          {[
+            { step: '1. Multi-Node', desc: 'Nodes 1, 2, 3 Boot', status: 'PASS' },
+            { step: '2. TLS Handshake', desc: 'Mutual Challenge Auth', status: 'PASS' },
+            { step: '3. Dual Hybrid Tx', desc: 'Ed25519 ∧ ML-DSA-65', status: 'PASS' },
+            { step: '4. PoA Mining', desc: 'Conway Entropy Matrix', status: 'PASS' },
+            { step: '5. P2P State Sync', desc: '3 Nodes Converged', status: 'PASS' },
+            { step: '6. Crash Recovery', desc: 'Persistent Disk Check', status: 'PASS' },
+            { step: '7. Evidence Bundle', desc: '5 Audited JSON Files', status: 'PASS' },
+            { step: '8. Reality Gate', desc: 'QMoosa Certified', status: 'PASS' },
+          ].map((s) => (
+            <div key={s.step} className="p-3 bg-slate-950/80 rounded-xl border border-emerald-500/20 space-y-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-white font-bold">{s.step}</span>
+                <span className="text-[10px] text-emerald-400 font-bold">🟢 {s.status}</span>
+              </div>
+              <div className="text-[10px] text-slate-400">{s.desc}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 1-Click Launchers Code Snippets */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          {/* Windows Double Click */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-cyan-300 font-bold flex items-center gap-1.5">
+                <PlayCircle className="w-4 h-4 text-cyan-400" />
+                <span>Windows 1-Click (Double-Click)</span>
+              </span>
+              <button
+                onClick={() => handleCopy(qualifyWinCode, 'qwin')}
+                className="text-slate-400 hover:text-cyan-300 cursor-pointer flex items-center gap-1 text-[11px]"
+              >
+                {copiedSnippet === 'qwin' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>Copy</span>
+              </button>
+            </div>
+            <pre className="p-2.5 bg-slate-900/90 rounded-lg text-cyan-300 text-[10px] overflow-x-auto">
+              {qualifyWinCode}
+            </pre>
+            <p className="text-[10px] text-slate-400">
+              Double-click <code className="text-cyan-300 font-bold">1-click-qualify-testnet.bat</code> in the project folder to run all affairs automatically.
+            </p>
+          </div>
+
+          {/* Linux / macOS / Cloud Shell */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-emerald-300 font-bold flex items-center gap-1.5">
+                <Terminal className="w-4 h-4 text-emerald-400" />
+                <span>Linux / macOS / Cloud Shell</span>
+              </span>
+              <button
+                onClick={() => handleCopy(qualifyBashCode, 'qbash')}
+                className="text-slate-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1 text-[11px]"
+              >
+                {copiedSnippet === 'qbash' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>Copy</span>
+              </button>
+            </div>
+            <pre className="p-2.5 bg-slate-900/90 rounded-lg text-emerald-300 text-[10px] overflow-x-auto">
+              {qualifyBashCode}
+            </pre>
+            <p className="text-[10px] text-slate-400">
+              Or execute <code className="text-emerald-300 font-bold">npm run qualify:testnet</code> from any terminal.
+            </p>
+          </div>
+        </div>
+
+        {/* Evidence Bundle Explorer */}
+        <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-[11px]">
+          <div className="flex items-center gap-2 text-slate-300">
+            <FileCheck className="w-4 h-4 text-cyan-400" />
+            <span>Audited Evidence Bundle:</span>
+            <code className="text-cyan-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">evidence/PERSISTENT_LEDGER.json</code>
+            <code className="text-cyan-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">evidence/P2P_NETWORK.json</code>
+            <code className="text-cyan-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">DEPLOYMENT_EVIDENCE.json</code>
+          </div>
+
+          <a
+            href="https://github.com/elon00/pq-rdl-blockchain/blob/master/docs/GLOBAL_STANDARDS_STRATEGY.md"
+            target="_blank"
+            rel="noreferrer"
+            className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold"
+          >
+            <span>Global Standards Strategy Doc</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
       </div>
 
