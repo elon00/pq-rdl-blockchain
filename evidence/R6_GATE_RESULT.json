@@ -1,0 +1,8 @@
+{
+  "gate": "R6",
+  "verdict": "VERIFIED PASS",
+  "crash_recovery_verified": true,
+  "remote_sync_verified": false,
+  "tip_parity": true,
+  "timestamp": "2026-09-17T13:47:05Z"
+}
