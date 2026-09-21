@@ -152,7 +152,7 @@ contract ConwayGliderYield {
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
-      mode: 'PUBLIC_TESTNET_HOTSTUFF_BFT',
+      mode: 'LOCAL_DEVNET_PROTOTYPE',
       time: new Date().toISOString(),
       persistence: 'DISK_PERSISTENT',
       ledger_path: 'data/rdl-ledger-chain.json',
@@ -177,9 +177,9 @@ contract ConwayGliderYield {
       pendingMempool: mempool,
       activeNodes: 3,
       averageEntropy: avgEntropy,
-      tps: 24.5,
-      networkHashrate: '14.2 MH/s',
-      mode: 'PUBLIC_TESTNET_HOTSTUFF_BFT',
+      tps: null,
+      networkHashrate: null,
+      mode: 'LOCAL_DEVNET_PROTOTYPE',
       persistence: {
         storage: 'DISK_PERSISTENT',
         ledger_path: 'data/rdl-ledger-chain.json',
@@ -196,7 +196,7 @@ contract ConwayGliderYield {
         state_sync: 'VERIFIED (ParentHash+StateRoot+HotStuffLock)',
         quorum: '2/3 BFT Majority'
       },
-      statusNote: 'Live persistent disk ledger synchronized across 3 independent HotStuff BFT validators with verified crash recovery.',
+      statusNote: 'Local development ledger telemetry only. Public Testnet/Mainnet status requires independent external evidence.',
     };
 
     res.json(chainState);
@@ -242,7 +242,7 @@ contract ConwayGliderYield {
         status: 'pending',
       };
 
-      mempool.push(newTx);
+      return res.status(501).json({ success: false, error: 'Transaction submission disabled until sender authorization and cryptographic signature verification are enforced server-side.', simulation: true });
       res.json({ success: true, simulation: true, transaction: newTx, mempoolSize: mempool.length, statusNote: 'Transaction exists only in this process memory and has not been broadcast to an external network.' });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Failed to submit transaction' });
