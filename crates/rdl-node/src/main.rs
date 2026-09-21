@@ -850,7 +850,9 @@ fn identity_rate_allowed(limits: &mut HashMap<[u8; 32], VecDeque<Instant>>, pk: 
 }
 fn read_bounded_line<R: BufRead>(reader: &mut R) -> std::io::Result<String> {
     let mut line = String::new();
-    let n = reader.take((MAX_FRAME_BYTES + 1) as u64).read_line(&mut line)?;
+    let n = reader
+        .take((MAX_FRAME_BYTES + 1) as u64)
+        .read_line(&mut line)?;
     if n == 0 {
         return Err(std::io::Error::new(
             std::io::ErrorKind::UnexpectedEof,
@@ -1592,7 +1594,9 @@ mod frame_limit_tests {
     fn rejects_truncated_and_invalid_utf8_frames() {
         for bytes in [b"PING".to_vec(), Vec::new()] {
             assert_eq!(
-                read_bounded_line(&mut Cursor::new(bytes)).unwrap_err().kind(),
+                read_bounded_line(&mut Cursor::new(bytes))
+                    .unwrap_err()
+                    .kind(),
                 std::io::ErrorKind::UnexpectedEof
             );
         }
