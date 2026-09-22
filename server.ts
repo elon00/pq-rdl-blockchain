@@ -80,16 +80,49 @@ async function startServer() {
     };
   };
 
+  const isValidStoredBlock = (value: unknown): value is Block => {
+    if (!value || typeof value !== 'object') return false;
+    const block = value as Partial<Block>;
+    return (
+      Number.isInteger(block.height) &&
+      Number(block.height) >= 0 &&
+      typeof block.previousHash === 'string' &&
+      typeof block.hash === 'string' &&
+      typeof block.timestamp === 'number' &&
+      Number.isFinite(block.timestamp) &&
+      typeof block.minerAddress === 'string' &&
+      Array.isArray(block.transactions) &&
+      !!block.miningProof &&
+      typeof block.miningProof === 'object' &&
+      !!block.pqSignature &&
+      typeof block.pqSignature === 'object' &&
+      typeof block.quantumDifficulty === 'number' &&
+      Number.isFinite(block.quantumDifficulty) &&
+      typeof block.entropyIndex === 'number' &&
+      Number.isFinite(block.entropyIndex)
+    );
+  };
+
   const persistLedger = (chain: Block[]) => {
     const tempPath = `${LEDGER_FILE}.${process.pid}.tmp`;
-    fs.writeFileSync(tempPath, JSON.stringify(chain, null, 2), { mode: 0o600 });
-    fs.renameSync(tempPath, LEDGER_FILE);
+    try {
+      fs.writeFileSync(tempPath, JSON.stringify(chain, null, 2), { mode: 0o600 });
+      fs.renameSync(tempPath, LEDGER_FILE);
+    } finally {
+      try {
+        fs.rmSync(tempPath, { force: true });
+      } catch {
+        // Best-effort cleanup only; the original persistence error must win.
+      }
+    }
   };
 
   let blockchain: Block[] = [];
   try {
     const parsed = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
-    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('empty or invalid ledger');
+    if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every(isValidStoredBlock)) {
+      throw new Error('empty or invalid ledger');
+    }
     blockchain = parsed;
     console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
   } catch (error: any) {
@@ -298,11 +331,18 @@ contract ConwayGliderYield {
       blockchain.push(newBlock);
       try {
         persistLedger(blockchain);
-      } catch (e) {
-        console.error('Failed to persist block to disk:', e);
+      } catch (error) {
+        blockchain.pop();
+        throw new Error(`failed to persist new block: ${error instanceof Error ? error.message : String(error)}`);
       }
 
-      res.json({ success: true, block: newBlock, chainHeight: blockchain.length, persistedOnDisk: true, statusNote: 'Block mined with Conway cellular automata and persisted to disk ledger.' });
+      res.json({
+        success: true,
+        block: newBlock,
+        chainHeight: blockchain.length,
+        persistedOnDisk: true,
+        statusNote: 'Local prototype block generated and durably written to the configured ledger file.'
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Block mining failed' });
     }
