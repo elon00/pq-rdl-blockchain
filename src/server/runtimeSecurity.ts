@@ -20,12 +20,12 @@ function secureTokenEquals(header: string | undefined, token: string): boolean {
 }
 
 function allowedOrigins(): Set<string> {
-  return new Set(
-    (process.env.RDL_CORS_ALLOWED_ORIGINS || '')
-      .split(',')
-      .map(x => x.trim())
-      .filter(Boolean)
-  );
+  const configured = (process.env.RDL_CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(x => x.trim())
+    .filter(Boolean);
+  if (process.env.APP_URL?.trim()) configured.push(process.env.APP_URL.trim());
+  return new Set(configured);
 }
 
 function positiveInt(raw: string | undefined, fallback: number, min: number, max: number): number {
@@ -61,7 +61,7 @@ export function applyRuntimeSecurity(app: Express): void {
         res.setHeader('Vary', 'Origin');
         res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      } else if (req.method === 'OPTIONS') {
+      } else if (production) {
         return res.status(403).json({ error: 'origin not allowed' });
       }
     }
