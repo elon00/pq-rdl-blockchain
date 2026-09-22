@@ -46,61 +46,58 @@ async function startServer() {
   const DATA_DIR = process.env.RDL_WEB_DATA_DIR
     ? path.resolve(process.env.RDL_WEB_DATA_DIR)
     : path.join(process.cwd(), 'data');
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
+  fs.mkdirSync(DATA_DIR, { recursive: true });
   const LEDGER_FILE = path.join(DATA_DIR, 'rdl-ledger-chain.json');
 
-  const createPrototypeGenesis = async (): Promise<Block> => {
-    const genesisKeypair = await generatePQKeypair('Dilithium2');
-    const genesisSeed = generateRandomGrid(0.3);
-    const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
-    const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
-    const timestamp = Date.now();
-
+  const createPrototypeGenesis = (): Block => {
+    const timestamp = 1726400000000;
+    const hash = '0xd1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8';
     return {
       height: 0,
       previousHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-      hash: genesisProof.hash,
+      hash,
       timestamp,
-      minerAddress: genesisKeypair.address,
-      transactions: [
-        {
-          txHash: '0xgenesis_local_prototype',
-          senderAddress: 'pq1q00000000000000000000000000000000000000',
-          receiverAddress: genesisKeypair.address,
-          amount: 1000000,
-          fee: 0,
-          algorithm: 'Dilithium2',
-          signatureHex: genesisSignature.signatureHex,
-          conwayStatePayload: 'LOCAL_PROTOTYPE_GENESIS',
-          timestamp,
-          status: 'simulated',
-          blockHeight: 0,
-        },
-      ],
-      miningProof: genesisProof,
-      pqSignature: { ...genesisSignature, valid: true },
+      minerAddress: 'local-prototype-genesis',
+      transactions: [],
+      miningProof: {
+        initialSeed: [[0, 1, 0], [0, 0, 1], [1, 1, 1]],
+        finalGrid: [[1, 0, 1], [0, 1, 1], [1, 1, 0]],
+        generationsRun: 15,
+        entropyScore: 42.8,
+        nonce: 1042,
+        hash,
+      },
+      pqSignature: {
+        algorithm: 'Dilithium2',
+        signatureHex: 'DEMO_FIXTURE_NOT_A_CRYPTOGRAPHIC_SIGNATURE',
+        publicKeyHex: 'DEMO_FIXTURE_PUBLIC_KEY_NOT_REAL',
+        hashMessage: 'LOCAL_PROTOTYPE_GENESIS_FIXTURE',
+        timestamp,
+        valid: false,
+      },
       quantumDifficulty: 4.8,
-      entropyIndex: genesisProof.entropyScore,
+      entropyIndex: 42.8,
     };
   };
 
+  const persistLedger = (chain: Block[]) => {
+    const tempPath = `${LEDGER_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tempPath, JSON.stringify(chain, null, 2), { mode: 0o600 });
+    fs.renameSync(tempPath, LEDGER_FILE);
+  };
+
   let blockchain: Block[] = [];
-  if (fs.existsSync(LEDGER_FILE)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('empty or invalid ledger');
-      blockchain = parsed;
-      console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
-    } catch (error) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('empty or invalid ledger');
+    blockchain = parsed;
+    console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
+  } catch (error: any) {
+    if (error?.code !== 'ENOENT') {
       console.error('[PERSISTENCE] Existing local prototype ledger is invalid; reinitializing:', error);
-      blockchain = [await createPrototypeGenesis()];
-      fs.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2), { mode: 0o600 });
     }
-  } else {
-    blockchain = [await createPrototypeGenesis()];
-    fs.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2), { mode: 0o600 });
+    blockchain = [createPrototypeGenesis()];
+    persistLedger(blockchain);
     console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
   }
   const mempool: Transaction[] = [];
@@ -254,7 +251,7 @@ contract ConwayGliderYield {
       const { minerAddress, seedGrid, algorithm } = req.body;
       const algo = algorithm || 'Dilithium2';
 
-      const minerKeypair = await generatePQKeypair(algo, `Miner-${minerAddress || 'Node'}`);
+      const minerKeypair = await generatePQKeypair(algo);
       const seed = seedGrid && Array.isArray(seedGrid) ? seedGrid : generateRandomGrid(0.28);
 
       const latestBlock = blockchain[blockchain.length - 1];
@@ -300,7 +297,7 @@ contract ConwayGliderYield {
 
       blockchain.push(newBlock);
       try {
-        fs.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2));
+        persistLedger(blockchain);
       } catch (e) {
         console.error('Failed to persist block to disk:', e);
       }
