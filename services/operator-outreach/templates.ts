@@ -1,9 +1,10 @@
 import type { OperatorContact } from './types.ts';
+import { sanitizeDisplayName } from './sanitize.ts';
 
 const repoUrl = 'https://github.com/elon00/pq-rdl-blockchain';
 
 export function invitation(contact: OperatorContact) {
-  const name = contact.name || 'Node operator';
+  const name = sanitizeDisplayName(contact.name);
   return {
     subject: 'Invitation: help operate the PQ-RDL prototype/devnet',
     body: `Hi ${name},
@@ -26,9 +27,10 @@ PQ-RDL operator outreach`
 }
 
 export function briefing(contact: OperatorContact) {
+  const name = sanitizeDisplayName(contact.name);
   return {
     subject: 'PQ-RDL node operator technical briefing',
-    body: `Hi ${contact.name},
+    body: `Hi ${name},
 
 Operator briefing:
 
@@ -47,9 +49,10 @@ Reply with questions or your node environment and we can continue the onboarding
 }
 
 export function followUp(contact: OperatorContact) {
+  const name = sanitizeDisplayName(contact.name);
   return {
     subject: 'Follow-up: PQ-RDL node operator invitation',
-    body: `Hi ${contact.name},
+    body: `Hi ${name},
 
 Following up on the PQ-RDL node-operator invitation. If you would like to evaluate the project, the quickest path is:
 
@@ -64,5 +67,6 @@ PQ-RDL operator outreach`
 }
 
 export function voiceBrief(contact: OperatorContact) {
-  return `Hello ${contact.name}. This is a technical invitation regarding the PQ-RDL blockchain prototype and devnet. We are looking for operators willing to review the repository and potentially run a node. The project is not being presented as a public mainnet, and no financial reward is guaranteed. Please review github dot com slash elon zero zero slash p q dash r d l dash blockchain. You may opt out of future contact at any time.`;
+  const name = sanitizeDisplayName(contact.name);
+  return `Hello ${name}. This is a technical invitation regarding the PQ-RDL blockchain prototype and devnet. We are looking for operators willing to review the repository and potentially run a node. The project is not being presented as a public mainnet, and no financial reward is guaranteed. Please review github dot com slash elon zero zero slash p q dash r d l dash blockchain. You may opt out of future contact at any time.`;
 }
