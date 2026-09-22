@@ -22,7 +22,109 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // server.ts
+var import_express2 = __toESM(require("express"), 1);
+
+// src/server/runtimeSecurity.ts
 var import_express = __toESM(require("express"), 1);
+var import_node_crypto = require("node:crypto");
+var PROTECTED_POSTS = /* @__PURE__ */ new Set([
+  "/api/blockchain/mine",
+  "/api/blockchain/deploy-contract",
+  "/api/tokens/create",
+  "/api/tokens/transfer",
+  "/api/tokens/mint",
+  "/api/faucet/dispense",
+  "/api/gemini/smart-contract-copilot"
+]);
+var SERVER_KEYGEN_PATH = "/api/quantum/generate-keypair";
+function secureTokenEquals(header, token) {
+  const expected = Buffer.from(`Bearer ${token}`);
+  const actual = Buffer.from(header || "");
+  return expected.length === actual.length && (0, import_node_crypto.timingSafeEqual)(expected, actual);
+}
+function allowedOrigins() {
+  const configured = (process.env.RDL_CORS_ALLOWED_ORIGINS || "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (process.env.APP_URL?.trim()) configured.push(process.env.APP_URL.trim());
+  return new Set(configured);
+}
+function positiveInt(raw, fallback, min, max) {
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= min && value <= max ? value : fallback;
+}
+function applyRuntimeSecurity(app) {
+  const production = process.env.NODE_ENV === "production";
+  const simulationEnabled = process.env.RDL_ENABLE_SIMULATION_API === "true";
+  const adminToken = process.env.RDL_ADMIN_TOKEN?.trim() || "";
+  const origins = allowedOrigins();
+  const maxBodyKb = positiveInt(process.env.RDL_MAX_JSON_BODY_KB, 256, 16, 1024);
+  const requestsPerMinute = positiveInt(process.env.RDL_API_REQUESTS_PER_MINUTE, 120, 10, 1e4);
+  if (production && simulationEnabled && (adminToken.length < 32 || /^change[_-]?me/i.test(adminToken))) {
+    throw new Error("RDL_ADMIN_TOKEN must be a non-placeholder secret of at least 32 characters when production simulation APIs are enabled");
+  }
+  app.disable("x-powered-by");
+  app.use(import_express.default.json({ limit: `${maxBodyKb}kb` }));
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    const origin = req.headers.origin;
+    if (origin) {
+      if (origins.has(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
+        res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      } else if (production) {
+        return res.status(403).json({ error: "origin not allowed" });
+      }
+    }
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+    next();
+  });
+  const buckets = /* @__PURE__ */ new Map();
+  app.use("/api", (req, res, next) => {
+    const now = Date.now();
+    const key = req.ip || req.socket.remoteAddress || "unknown";
+    let bucket = buckets.get(key);
+    if (!bucket || now - bucket.startedAt >= 6e4) {
+      bucket = { startedAt: now, count: 0 };
+      buckets.set(key, bucket);
+    }
+    bucket.count += 1;
+    if (bucket.count > requestsPerMinute) {
+      return res.status(429).json({ error: "rate limit exceeded" });
+    }
+    if (buckets.size > 1e4) {
+      for (const [entryKey, entry] of buckets) {
+        if (now - entry.startedAt >= 12e4) buckets.delete(entryKey);
+      }
+    }
+    next();
+  });
+  app.use((req, res, next) => {
+    if (!production || req.method !== "POST") return next();
+    const path2 = req.path;
+    if (path2 === SERVER_KEYGEN_PATH) {
+      return res.status(403).json({
+        error: "server-side private-key generation is disabled in production; generate keys in a trusted client or offline environment"
+      });
+    }
+    if (!PROTECTED_POSTS.has(path2)) return next();
+    if (!simulationEnabled) {
+      return res.status(503).json({
+        error: "simulation mutation API is disabled in production",
+        mode: "READ_ONLY_PRODUCTION_PREVIEW"
+      });
+    }
+    if (!secureTokenEquals(req.headers.authorization, adminToken)) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    next();
+  });
+}
+
+// server.ts
 var import_path = __toESM(require("path"), 1);
 var import_fs = __toESM(require("fs"), 1);
 var import_vite = require("vite");
@@ -361,7 +463,7 @@ var FaucetEngine = class {
     this.pending = /* @__PURE__ */ new Set();
     this.COOLDOWN_MS = 60 * 1e3;
   }
-  // 60-second cooldown per address for testnet rate limiting
+  // Local demo cooldown; not a production abuse-control system
   async dispense(recipientAddress, dropType = "ALL") {
     if (!recipientAddress || recipientAddress.trim().length < 8) {
       return { success: false, error: "Please specify a valid post-quantum recipient address (e.g. pq1dil2...)" };
@@ -419,7 +521,7 @@ var FaucetEngine = class {
         memecoinAmount,
         timestamp: now,
         conwayProofNonce: conwayNonce,
-        status: "CONFIRMED"
+        status: "SIMULATED"
       };
       this.claims.unshift(claim);
       this.lastClaimByAddress.set(recipientAddress, now);
@@ -455,71 +557,70 @@ var ai = process.env.GEMINI_API_KEY ? new import_genai.GoogleGenAI({
   }
 }) : null;
 async function startServer() {
-  const app = (0, import_express.default)();
+  const app = (0, import_express2.default)();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
-  app.use(import_express.default.json({ limit: "10mb" }));
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    if (req.method === "OPTIONS") return res.sendStatus(200);
-    next();
-  });
-  const DATA_DIR = import_path.default.join(process.cwd(), "data");
+  applyRuntimeSecurity(app);
+  const DATA_DIR = process.env.RDL_WEB_DATA_DIR ? import_path.default.resolve(process.env.RDL_WEB_DATA_DIR) : import_path.default.join(process.cwd(), "data");
   if (!import_fs.default.existsSync(DATA_DIR)) {
     import_fs.default.mkdirSync(DATA_DIR, { recursive: true });
   }
   const LEDGER_FILE = import_path.default.join(DATA_DIR, "rdl-ledger-chain.json");
-  const genesisKeypair = await generatePQKeypair("Dilithium2", "Genesis-PostQuantum-Node-0");
-  const genesisSeed = generateRandomGrid(0.3);
-  const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
-  const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
-  const genesisBlock = {
-    height: 0,
-    previousHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
-    hash: genesisProof.hash,
-    timestamp: Date.now() - 36e5,
-    minerAddress: genesisKeypair.address,
-    transactions: [
-      {
-        txHash: "0xgen_tx_001_qbits_distribution",
-        senderAddress: "pq1q00000000000000000000000000000000000000",
-        receiverAddress: genesisKeypair.address,
-        amount: 1e6,
-        fee: 0,
-        algorithm: "Dilithium2",
-        signatureHex: genesisSignature.signatureHex,
-        conwayStatePayload: "GENESIS_QUANTUM_PATTERNS",
-        timestamp: Date.now() - 36e5,
-        status: "confirmed",
-        blockHeight: 0
-      }
-    ],
-    miningProof: genesisProof,
-    pqSignature: { ...genesisSignature, valid: true },
-    quantumDifficulty: 4.8,
-    entropyIndex: genesisProof.entropyScore
+  const createPrototypeGenesis = async () => {
+    const genesisKeypair = await generatePQKeypair("Dilithium2");
+    const genesisSeed = generateRandomGrid(0.3);
+    const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
+    const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
+    const timestamp = Date.now();
+    return {
+      height: 0,
+      previousHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+      hash: genesisProof.hash,
+      timestamp,
+      minerAddress: genesisKeypair.address,
+      transactions: [
+        {
+          txHash: "0xgenesis_local_prototype",
+          senderAddress: "pq1q00000000000000000000000000000000000000",
+          receiverAddress: genesisKeypair.address,
+          amount: 1e6,
+          fee: 0,
+          algorithm: "Dilithium2",
+          signatureHex: genesisSignature.signatureHex,
+          conwayStatePayload: "LOCAL_PROTOTYPE_GENESIS",
+          timestamp,
+          status: "simulated",
+          blockHeight: 0
+        }
+      ],
+      miningProof: genesisProof,
+      pqSignature: { ...genesisSignature, valid: true },
+      quantumDifficulty: 4.8,
+      entropyIndex: genesisProof.entropyScore
+    };
   };
   let blockchain = [];
   if (import_fs.default.existsSync(LEDGER_FILE)) {
     try {
-      blockchain = JSON.parse(import_fs.default.readFileSync(LEDGER_FILE, "utf8"));
-      console.log(`[PERSISTENCE] Loaded ${blockchain.length} blocks from persistent disk storage`);
-    } catch {
-      blockchain = [genesisBlock];
-      import_fs.default.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2));
+      const parsed = JSON.parse(import_fs.default.readFileSync(LEDGER_FILE, "utf8"));
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("empty or invalid ledger");
+      blockchain = parsed;
+      console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
+    } catch (error) {
+      console.error("[PERSISTENCE] Existing local prototype ledger is invalid; reinitializing:", error);
+      blockchain = [await createPrototypeGenesis()];
+      import_fs.default.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2), { mode: 384 });
     }
   } else {
-    blockchain = [genesisBlock];
-    import_fs.default.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2));
-    console.log(`[PERSISTENCE] Initialized persistent disk ledger at ${LEDGER_FILE}`);
+    blockchain = [await createPrototypeGenesis()];
+    import_fs.default.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2), { mode: 384 });
+    console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
   }
   const mempool = [];
   const deployedContracts = [
     {
       id: "sc_pq_escrow_001",
       name: "Post-Quantum Escrow Vault",
-      creatorAddress: genesisKeypair.address,
+      creatorAddress: blockchain[0]?.minerAddress || "local-prototype-genesis",
       code: `// Web 4.0 Quantum Escrow
 contract PostQuantumEscrow {
   state { owner: Address, balance: QBits, entropyMin: Number }
@@ -532,7 +633,7 @@ contract PostQuantumEscrow {
 }`,
       abi: ["releaseFunds()", "getVaultBalance()", "verifyPqSig()"],
       type: "Escrow",
-      state: { owner: genesisKeypair.address, lockedQBits: 5e4, minEntropy: 42.5 },
+      state: { owner: blockchain[0]?.minerAddress || "local-prototype-genesis", lockedQBits: 5e4, minEntropy: 42.5 },
       createdBlock: 0,
       conwayTriggerRule: "B3/S23 Entropy > 42.5",
       isAiAutonomous: true
@@ -540,7 +641,7 @@ contract PostQuantumEscrow {
     {
       id: "sc_conway_yield_002",
       name: "Conway Glider Yield Synthesizer",
-      creatorAddress: genesisKeypair.address,
+      creatorAddress: blockchain[0]?.minerAddress || "local-prototype-genesis",
       code: `// Web 4.0 Autonomous Glider Yield
 contract ConwayGliderYield {
   state { totalStaked: QBits, gliderCount: Number }
@@ -558,18 +659,19 @@ contract ConwayGliderYield {
       isAiAutonomous: true
     }
   ];
-  app.get("/api/health", (req, res) => {
+  app.get("/api/health", (_req, res) => {
     res.json({
       status: "ok",
       mode: "LOCAL_DEVNET_PROTOTYPE",
       time: (/* @__PURE__ */ new Date()).toISOString(),
-      persistence: "DISK_PERSISTENT",
-      ledger_path: "data/rdl-ledger-chain.json",
+      persistence: "LOCAL_FILE",
+      ledger_path: LEDGER_FILE,
       blocks_on_disk: blockchain.length,
-      active_nodes: 3
+      active_nodes: null,
+      public_network_verified: false
     });
   });
-  const handleStatus = (req, res) => {
+  const handleStatus = (_req, res) => {
     const latestBlock = blockchain[blockchain.length - 1];
     const totalTx = blockchain.reduce((sum, b) => sum + b.transactions.length, 0);
     const avgEntropy = Number(
@@ -581,28 +683,25 @@ contract ConwayGliderYield {
       quantumDifficulty: latestBlock.quantumDifficulty,
       totalTransactions: totalTx,
       pendingMempool: mempool,
-      activeNodes: 3,
+      activeNodes: null,
       averageEntropy: avgEntropy,
       tps: null,
       networkHashrate: null,
       mode: "LOCAL_DEVNET_PROTOTYPE",
+      publicNetworkVerified: false,
       persistence: {
-        storage: "DISK_PERSISTENT",
-        ledger_path: "data/rdl-ledger-chain.json",
+        storage: "LOCAL_FILE",
+        ledger_path: LEDGER_FILE,
         blocks_on_disk: blockchain.length,
-        crash_recovery: "VERIFIED_PRE_POST_TIP_EQUIVALENCE"
+        crash_recovery: "NOT_MEASURED_BY_THIS_PROCESS"
       },
       p2p_network: {
-        protocol: "RDL-HotStuff-BFT-v1",
-        active_peers: [
-          { peer_id: "node-1", address: "127.0.0.1:7101", role: "PROPOSER_SEED", status: "ACTIVE" },
-          { peer_id: "node-2", address: "127.0.0.1:7102", role: "VALIDATOR_A", status: "ACTIVE" },
-          { peer_id: "node-3", address: "127.0.0.1:7103", role: "VALIDATOR_B", status: "ACTIVE" }
-        ],
-        state_sync: "VERIFIED (ParentHash+StateRoot+HotStuffLock)",
-        quorum: "2/3 BFT Majority"
+        protocol: "RDL-HotStuff-BFT-v1 prototype",
+        active_peers: [],
+        state_sync: "NOT_MEASURED_BY_THIS_PROCESS",
+        quorum: "NOT_MEASURED_BY_THIS_PROCESS"
       },
-      statusNote: "Local development ledger telemetry only. Public Testnet/Mainnet status requires independent external evidence."
+      statusNote: "Local prototype telemetry only. Public Testnet/Mainnet status requires independently reproducible external evidence."
     };
     res.json(chainState);
   };
@@ -637,7 +736,6 @@ contract ConwayGliderYield {
         status: "pending"
       };
       return res.status(501).json({ success: false, error: "Transaction submission disabled until sender authorization and cryptographic signature verification are enforced server-side.", simulation: true });
-      res.json({ success: true, simulation: true, transaction: newTx, mempoolSize: mempool.length, statusNote: "Transaction exists only in this process memory and has not been broadcast to an external network." });
     } catch (err) {
       res.status(500).json({ error: err.message || "Failed to submit transaction" });
     }
@@ -652,7 +750,7 @@ contract ConwayGliderYield {
       const proof = await mineConwayBlock(seed, 15, 38);
       const confirmedTxs = mempool.splice(0, 10).map((tx) => ({
         ...tx,
-        status: "confirmed",
+        status: "simulated",
         blockHeight: latestBlock.height + 1
       }));
       const rewardTx = {
@@ -665,7 +763,7 @@ contract ConwayGliderYield {
         algorithm: algo,
         signatureHex: `REWARD_BLOCK_${latestBlock.height + 1}_SIG`,
         timestamp: Date.now(),
-        status: "confirmed",
+        status: "simulated",
         blockHeight: latestBlock.height + 1
       };
       confirmedTxs.unshift(rewardTx);
@@ -693,14 +791,10 @@ contract ConwayGliderYield {
       res.status(500).json({ error: err.message || "Block mining failed" });
     }
   });
-  app.post("/api/quantum/generate-keypair", async (req, res) => {
-    try {
-      const { algorithm, seedPhrase } = req.body;
-      const keypair = await generatePQKeypair(algorithm || "Dilithium2", seedPhrase);
-      res.json(keypair);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
+  app.post("/api/quantum/generate-keypair", (_req, res) => {
+    return res.status(410).json({
+      error: "server-side key generation is disabled; generate ML-DSA keys locally in a trusted client"
+    });
   });
   app.post("/api/quantum/verify-signature", async (req, res) => {
     try {
@@ -841,15 +935,6 @@ Provide security ratings, post-quantum resilience score, cellular entropy trigge
       recentClaims: faucetEngine.getRecentClaims()
     });
   });
-  app.post("/api/quantum/generate-keypair", async (req, res) => {
-    try {
-      const { algorithm, seedPhrase } = req.body;
-      const keypair = await generatePQKeypair(algorithm || "Dilithium2", seedPhrase);
-      res.json(keypair);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
   if (process.env.NODE_ENV !== "production") {
     const vite = await (0, import_vite.createServer)({
       server: { middlewareMode: true, allowedHosts: true },
@@ -858,13 +943,13 @@ Provide security ratings, post-quantum resilience score, cellular entropy trigge
     app.use(vite.middlewares);
   } else {
     const distPath = import_path.default.join(process.cwd(), "dist");
-    app.use(import_express.default.static(distPath));
+    app.use(import_express2.default.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(import_path.default.join(distPath, "index.html"));
     });
   }
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`PQ-RDL Quantum Automaton Blockchain Server running on http://localhost:${PORT}`);
+    console.log(`PQ-RDL prototype web server listening on port ${PORT}; public testnet/mainnet claims require independent deployment evidence`);
   });
 }
 startServer();
