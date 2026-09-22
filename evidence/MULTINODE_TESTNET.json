@@ -1,36 +1,31 @@
 {
   "timestamp": "2026-09-16T12:24:50.228Z",
-  "mode": "REALITY_MODE",
-  "topology": "INDEPENDENT_THREE_NODE_QUORUM",
-  "total_nodes": 3,
-  "quorum_size": 2,
+  "mode": "LOCAL_CI_EVIDENCE",
+  "topology": "SINGLE_HOST_THREE_PROCESS_TEST",
+  "total_local_processes": 3,
+  "independent_administration_verified": false,
+  "encrypted_peer_transport_verified": false,
   "nodes": [
     {
       "id": "node-1",
       "endpoint": "127.0.0.1:7101",
       "role": "PROPOSER_SEED",
-      "tipHash": "eb0cbba19f9d68fe925c058132fc5bdfad44626092ad9b06ac730558d6907b17",
-      "status": "ONLINE",
-      "operator": "operator_node-1",
-      "tls_fingerprint": "35971be6e9bb024a895582fe0e42e04848a86da550aaef0fccbfba86f99f617d"
+      "operator": "local-ci-runner",
+      "administration_scope": "SINGLE_HOST"
     },
     {
       "id": "node-2",
       "endpoint": "127.0.0.1:7102",
       "role": "VALIDATOR_A",
-      "tipHash": "eb0cbba19f9d68fe925c058132fc5bdfad44626092ad9b06ac730558d6907b17",
-      "status": "ONLINE_RECOVERED",
-      "operator": "operator_node-2",
-      "tls_fingerprint": "1779f59f4df251f6b81aeb08fb52a5d84ad4eef833c7fdf0bc576cd1aab11d24"
+      "operator": "local-ci-runner",
+      "administration_scope": "SINGLE_HOST"
     },
     {
       "id": "node-3",
       "endpoint": "127.0.0.1:7103",
       "role": "VALIDATOR_B",
-      "tipHash": "eb0cbba19f9d68fe925c058132fc5bdfad44626092ad9b06ac730558d6907b17",
-      "status": "ONLINE",
-      "operator": "operator_node-3",
-      "tls_fingerprint": "a84cfe8a8631a26c5ac192ef5c781daf48c6739b7e1a388057b2b2218d945a8b"
+      "operator": "local-ci-runner",
+      "administration_scope": "SINGLE_HOST"
     }
   ]
 }
