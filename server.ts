@@ -43,13 +43,15 @@ async function startServer() {
   applyRuntimeSecurity(app);
 
   // Initialize Persistent Disk Ledger Storage
-  const DATA_DIR = path.join(process.cwd(), 'data');
+  const DATA_DIR = process.env.RDL_WEB_DATA_DIR
+    ? path.resolve(process.env.RDL_WEB_DATA_DIR)
+    : path.join(process.cwd(), 'data');
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
   const LEDGER_FILE = path.join(DATA_DIR, 'rdl-ledger-chain.json');
 
-  const genesisKeypair = await generatePQKeypair('Dilithium2', 'Genesis-PostQuantum-Node-0');
+  const genesisKeypair = await generatePQKeypair('Dilithium2');
   const genesisSeed = generateRandomGrid(0.3);
   const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
   const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
@@ -475,17 +477,6 @@ Always structure JSON output with properties:
     });
   });
 
-  // Post-Quantum Keypair Generation
-  app.post('/api/quantum/generate-keypair', async (req, res) => {
-    try {
-      const { algorithm, seedPhrase } = req.body;
-      const keypair = await generatePQKeypair(algorithm || 'Dilithium2', seedPhrase);
-      res.json(keypair);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   // Vite Integration
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -502,7 +493,7 @@ Always structure JSON output with properties:
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`PQ-RDL Quantum Automaton Blockchain Server running on http://localhost:${PORT}`);
+    console.log(`PQ-RDL prototype web server listening on port ${PORT}; public testnet/mainnet claims require independent deployment evidence`);
   });
 }
 
