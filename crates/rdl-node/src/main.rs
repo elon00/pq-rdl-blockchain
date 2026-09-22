@@ -8,13 +8,13 @@ use std::fs;
 use std::io::Cursor;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const LEDGER_PATH: &str = "data/rdl-ledger.json";
-const IDENTITY_PATH: &str = "data/rdl-node-ed25519.key";
+const LEDGER_FILE: &str = "rdl-ledger.json";
+const IDENTITY_FILE: &str = "rdl-node-ed25519.key";
 const MAX_BLOCK_TXS: usize = 1_000;
 const MAX_MEMPOOL_TXS: usize = 10_000;
 const AUTH_DOMAIN: &[u8] = b"RDL-AUTH-v1";
@@ -26,8 +26,20 @@ const MAX_CONNECTIONS_PER_IP: usize = 8;
 const MIN_REQUEST_INTERVAL_MS: u64 = 25;
 const MAX_REQUESTS_PER_WINDOW: usize = 20;
 const RATE_WINDOW_SECS: u64 = 1;
-const TLS_CERT_PATH: &str = "data/rdl-tls-cert.pem";
-const TLS_KEY_PATH: &str = "data/rdl-tls-key.pem";
+const TLS_CERT_FILE: &str = "rdl-tls-cert.pem";
+const TLS_KEY_FILE: &str = "rdl-tls-key.pem";
+
+fn data_dir() -> PathBuf {
+    std::env::var_os("RDL_DATA_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("data"))
+}
+fn data_path(name: &str) -> PathBuf {
+    data_dir().join(name)
+}
+fn ensure_data_dir() -> std::io::Result<()> {
+    fs::create_dir_all(data_dir())
+}
 const MAX_GOSSIP_PEERS: usize = 16;
 const MAX_DISCOVERED_PEERS: usize = 64;
 const MAX_VALIDATORS: usize = 64;
@@ -94,8 +106,8 @@ fn configured_peers() -> Vec<String> {
 fn valid_peer_address(addr: &str) -> bool {
     addr.parse::<std::net::SocketAddr>().is_ok()
 }
-fn validator_set_path() -> &'static str {
-    "data/rdl-validators.json"
+fn validator_set_path() -> PathBuf {
+    data_path("rdl-validators.json")
 }
 fn load_validator_set() -> HashSet<String> {
     if let Ok(bytes) = fs::read(validator_set_path())
@@ -113,7 +125,7 @@ fn load_validator_set() -> HashSet<String> {
 fn save_validator_set(validators: &HashSet<String>) {
     let mut values: Vec<String> = validators.iter().cloned().collect();
     values.sort();
-    let _ = fs::create_dir_all("data");
+    let _ = ensure_data_dir();
     let _ = fs::write(
         validator_set_path(),
         serde_json::to_vec_pretty(&values).unwrap_or_default(),
@@ -151,11 +163,11 @@ fn deterministic_proposer(ctx: ConsensusContext, validators: &HashSet<String>) -
         Some(ids[((ctx.height + ctx.round + ctx.view) as usize) % ids.len()].clone())
     }
 }
-fn consensus_state_path() -> &'static str {
-    "data/rdl-consensus.json"
+fn consensus_state_path() -> PathBuf {
+    data_path("rdl-consensus.json")
 }
-fn lock_state_path() -> &'static str {
-    "data/rdl-lock-state.json"
+fn lock_state_path() -> PathBuf {
+    data_path("rdl-lock-state.json")
 }
 fn load_lock_state() -> LockState {
     fs::read(lock_state_path())
@@ -319,9 +331,9 @@ fn verify_vote(
     key.verify(&vote_payload(ctx, block_hash), &sig).is_ok()
 }
 fn load_peer_table() -> Vec<String> {
-    let path = "data/rdl-peers.json";
+    let path = data_path("rdl-peers.json");
     let mut peers = configured_peers();
-    if let Ok(bytes) = fs::read(path)
+    if let Ok(bytes) = fs::read(&path)
         && let Ok(saved) = serde_json::from_slice::<Vec<String>>(&bytes)
     {
         for peer in saved {
@@ -338,7 +350,7 @@ fn load_peer_table() -> Vec<String> {
 fn save_peer_table(peers: &[String]) {
     let _ = fs::create_dir_all("data");
     let _ = fs::write(
-        "data/rdl-peers.json",
+        data_path("rdl-peers.json"),
         serde_json::to_vec_pretty(peers).unwrap_or_default(),
     );
 }
@@ -611,8 +623,8 @@ fn coordinated_view_change(
     if tc.timeouts.len() > MAX_TIMEOUT_CERTIFICATES {
         return None;
     }
-    fs::create_dir_all("data").ok()?;
-    let path = format!("data/tc-{}-{}-{}.json", ctx.height, ctx.round, ctx.view);
+    ensure_data_dir().ok()?;
+    let path = data_path(&format!("tc-{}-{}-{}.json", ctx.height, ctx.round, ctx.view));
     fs::write(path, serde_json::to_vec_pretty(&tc).ok()?).ok()?;
     advance_view(ctx);
     Some(tc)
@@ -647,12 +659,12 @@ fn detect_vote_equivocation(
     })
 }
 fn persist_equivocation(e: &EquivocationEvidence) -> std::io::Result<()> {
-    let dir = "data/equivocation";
-    fs::create_dir_all(dir)?;
-    let path = format!(
-        "{}/{}-{}-{}-{}.json",
-        dir, e.height, e.round, e.view, e.validator
-    );
+    let dir = data_dir().join("equivocation");
+    fs::create_dir_all(&dir)?;
+    let path = dir.join(format!(
+        "{}-{}-{}-{}.json",
+        e.height, e.round, e.view, e.validator
+    ));
     fs::write(
         path,
         serde_json::to_vec_pretty(e).map_err(std::io::Error::other)?,
@@ -709,28 +721,30 @@ fn hash_block(block: &Block) -> [u8; 32] {
     Sha256::digest(serde_json::to_vec(block).expect("block serialization")).into()
 }
 fn load_chain() -> Vec<Block> {
-    if !Path::new(LEDGER_PATH).exists() {
+    let path = data_path(LEDGER_FILE);
+    if !path.exists() {
         return Vec::new();
     }
-    serde_json::from_slice(&fs::read(LEDGER_PATH).expect("ledger read")).expect("ledger decode")
+    serde_json::from_slice(&fs::read(path).expect("ledger read")).expect("ledger decode")
 }
 fn save_chain(chain: &[Block]) {
-    fs::create_dir_all("data").expect("ledger directory");
+    ensure_data_dir().expect("ledger directory");
     fs::write(
-        LEDGER_PATH,
+        data_path(LEDGER_FILE),
         serde_json::to_vec_pretty(chain).expect("ledger encode"),
     )
     .expect("ledger write");
 }
 fn load_or_create_identity() -> SigningKey {
-    fs::create_dir_all("data").expect("identity directory");
-    if let Ok(bytes) = fs::read(IDENTITY_PATH)
+    ensure_data_dir().expect("identity directory");
+    let identity_path = data_path(IDENTITY_FILE);
+    if let Ok(bytes) = fs::read(&identity_path)
         && let Ok(seed) = <[u8; 32]>::try_from(bytes.as_slice())
     {
         return SigningKey::from_bytes(&seed);
     }
     let key = SigningKey::generate(&mut OsRng);
-    fs::write(IDENTITY_PATH, key.to_bytes()).expect("identity write");
+    fs::write(identity_path, key.to_bytes()).expect("identity write");
     key
 }
 fn validate_block(block: &Block, previous: Option<&Block>) -> Result<(), String> {
@@ -896,17 +910,17 @@ fn read_challenge(reader: &mut BufReader<TcpStream>) -> std::io::Result<[u8; 32]
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid nonce"))
 }
 fn tls_material_present() -> bool {
-    Path::new(TLS_CERT_PATH).exists() && Path::new(TLS_KEY_PATH).exists()
+    data_path(TLS_CERT_FILE).exists() && data_path(TLS_KEY_FILE).exists()
 }
 fn load_tls_cert_chain() -> std::io::Result<Vec<rustls::pki_types::CertificateDer<'static>>> {
-    let data = fs::read(TLS_CERT_PATH)?;
+    let data = fs::read(data_path(TLS_CERT_FILE))?;
     let mut reader = Cursor::new(data);
     rustls_pemfile::certs(&mut reader)
         .collect::<Result<Vec<_>, _>>()
         .map_err(std::io::Error::other)
 }
 fn load_tls_private_key() -> std::io::Result<rustls::pki_types::PrivateKeyDer<'static>> {
-    let data = fs::read(TLS_KEY_PATH)?;
+    let data = fs::read(data_path(TLS_KEY_FILE))?;
     let mut reader = Cursor::new(data);
     rustls_pemfile::private_key(&mut reader)?
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "no private key found"))
@@ -1213,8 +1227,8 @@ fn handle_peer(
                                 .write_all(b"BLOCK_REJECTED validator_equivocation_detected\n")?;
                             continue;
                         }
-                        let qc_path = format!("data/qc-{}.json", hex_encode(&hash));
-                        fs::create_dir_all("data")?;
+                        let qc_path = data_path(&format!("qc-{}.json", hex_encode(&hash)));
+                        ensure_data_dir()?;
                         fs::write(
                             &qc_path,
                             serde_json::to_vec_pretty(&qc).map_err(std::io::Error::other)?,
