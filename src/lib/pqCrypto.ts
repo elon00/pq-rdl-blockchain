@@ -3,8 +3,21 @@ import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 import { sha256 } from '@noble/hashes/sha256';
 
 const te = new TextEncoder();
-const hex = (b: Uint8Array) => Buffer.from(b).toString('hex');
-const bytes = (h: string) => new Uint8Array(Buffer.from(h.replace(/^0x/, ''), 'hex'));
+
+const hex = (b: Uint8Array) =>
+  Array.from(b, byte => byte.toString(16).padStart(2, '0')).join('');
+
+const bytes = (h: string) => {
+  const normalized = h.replace(/^0x/, '').toLowerCase();
+  if (normalized.length % 2 !== 0 || !/^[0-9a-f]*$/.test(normalized)) {
+    throw new Error('invalid hexadecimal input');
+  }
+  const out = new Uint8Array(normalized.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = Number.parseInt(normalized.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+};
 
 export async function sha256Hex(message: string): Promise<string> {
   return hex(sha256(te.encode(message)));
