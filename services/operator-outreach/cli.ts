@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { randomUUID } from 'node:crypto';
+import { loadOutreachEnv } from './config.ts';
 import { OutreachEngine } from './engine.ts';
 import { OutreachStore } from './store.ts';
 import type { OperatorContact } from './types.ts';
+
+loadOutreachEnv();
 
 const [command, ...args] = process.argv.slice(2);
 const store = new OutreachStore();
