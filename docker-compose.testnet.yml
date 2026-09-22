@@ -11,7 +11,7 @@ services:
       RDL_DATA_DIR: /var/lib/rdl
       RDL_BOOTSTRAP_PEERS: rdl-validator-2:7002,rdl-validator-3:7003
       RDL_PRODUCTION_MODE: "false"
-    ports: ["7001:7001"]
+    ports: ["127.0.0.1:7001:7001"]
     volumes: [rdl-data-1:/var/lib/rdl]
     read_only: true
     tmpfs: ["/tmp"]
@@ -36,7 +36,7 @@ services:
       RDL_DATA_DIR: /var/lib/rdl
       RDL_BOOTSTRAP_PEERS: rdl-validator-1:7001,rdl-validator-3:7003
       RDL_PRODUCTION_MODE: "false"
-    ports: ["7002:7002"]
+    ports: ["127.0.0.1:7002:7002"]
     volumes: [rdl-data-2:/var/lib/rdl]
     read_only: true
     tmpfs: ["/tmp"]
@@ -61,7 +61,7 @@ services:
       RDL_DATA_DIR: /var/lib/rdl
       RDL_BOOTSTRAP_PEERS: rdl-validator-1:7001,rdl-validator-2:7002
       RDL_PRODUCTION_MODE: "false"
-    ports: ["7003:7003"]
+    ports: ["127.0.0.1:7003:7003"]
     volumes: [rdl-data-3:/var/lib/rdl]
     read_only: true
     tmpfs: ["/tmp"]
