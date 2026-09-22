@@ -2,43 +2,43 @@
 
 ## Project status
 
-PQ-RDL is a research/prototype project. There is currently **no production or Mainnet release with a security-support guarantee**. The default branch receives security fixes as issues are validated.
-
-Cryptographic conformance tests and CI checks are not substitutes for an independent security audit, protocol review, or deployment assessment.
+PQ-RDL is currently an operational-devnet/prototype blockchain implementation. CI, local/devnet evidence, and repository-defined gates are engineering evidence; they are not an independent security audit, public-mainnet certification, or guarantee of production security.
 
 ## Reporting a vulnerability
 
-Please avoid publishing exploitable details in a public issue.
+Do not disclose exploitable vulnerabilities, private keys, validator/operator credentials, seed material, API tokens, consensus attacks, or proof-of-concept exploits in a public issue.
 
-Preferred reporting path:
+Use GitHub private vulnerability reporting / a Security Advisory for this repository when available. Please include:
 
-1. Use GitHub's private vulnerability reporting / Security Advisory flow for this repository when it is available.
-2. If private reporting is unavailable, open a public issue containing **no sensitive exploit details** and ask the maintainer for a private reporting channel.
+- affected commit, component, and file
+- reproduction steps or a minimal proof of concept
+- realistic attack preconditions
+- expected impact on consensus, funds/accounting, node availability, privacy, or operator infrastructure
+- whether keys, credentials, or user/operator data may be exposed
+- suggested mitigation, if known
 
-Include, when possible:
+## High-priority security areas
 
-- affected commit or release;
-- affected component and configuration;
-- reproducible steps;
-- security impact;
-- proof-of-concept material that is safe to share privately;
-- suggested mitigation, if known.
+Reports are especially important for:
 
-Do not include real private keys, access tokens, operator PII, or third-party secrets.
+- consensus safety/liveness and HotStuff/BFT behavior
+- signature, ML-DSA/PQC, key-handling, and verification failures
+- token/accounting or faucet conservation bugs
+- replay, equivocation, timeout-certificate, or peer-validation flaws
+- remote-code execution, command injection, SSRF, path traversal, or unsafe deserialization
+- node/operator outreach authentication, consent, opt-out, or PII handling
+- secret exposure in source, logs, Actions artifacts, images, or Git history
+- denial-of-service or unbounded resource-consumption paths
 
-## Response and disclosure
+## Credential and key rules
 
-Reports are triaged according to reproducibility and impact. A validated issue should be remediated and retested before public technical details are disclosed. Coordinated disclosure timing may vary with severity and the availability of a safe fix.
+- Never commit validator keys, seed phrases, private keys, API tokens, operator PII, or production secrets.
+- Use dedicated keys per environment and keep devnet/testnet/mainnet material separated.
+- Rotate any credential immediately if it appears in Git history, logs, screenshots, or CI artifacts.
+- Treat example keys and local test material as non-production only.
 
-## Security boundaries
+## Production boundary
 
-Until explicitly backed by independent evidence, do not interpret repository CI as proof of:
+Before any public-mainnet or production deployment, the project should undergo deployment-specific threat modeling, independent security review, operational monitoring, incident response planning, backup/recovery testing, key-rotation procedures, release controls, and applicable legal/compliance review.
 
-- a secure public Testnet or Mainnet;
-- encrypted peer transport;
-- production-grade key custody;
-- resistance to all classical or quantum attacks;
-- an independent security audit;
-- legal or regulatory compliance.
-
-See `TESTNET_MAINNET_READINESS.md` and `MAINNET_LAUNCH_BOUNDARY.md` for promotion requirements.
+A green CI run demonstrates only the checks encoded by that CI run.
