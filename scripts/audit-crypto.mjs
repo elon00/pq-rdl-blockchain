@@ -14,6 +14,7 @@
 
 import { hkdf } from '@noble/hashes/hkdf';
 import { sha256 } from '@noble/hashes/sha256';
+import { generateKeyPairSync, sign as ed25519Sign, verify as ed25519Verify } from 'node:crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 
@@ -118,10 +119,16 @@ async function runAudit() {
 
   // TIER 7: Dual Conjunction Conformance
   console.log('\n▶ [TIER 7] RDL Dual Conjunction Conformance:');
-  const classicalSig = sha256(Buffer.concat([seedDsa, msg]));
-  const classicalValid = Buffer.from(classicalSig).equals(Buffer.from(sha256(Buffer.concat([seedDsa, msg]))));
+  const { publicKey: edPublicKey, privateKey: edPrivateKey } = generateKeyPairSync('ed25519');
+  const edSig = ed25519Sign(null, Buffer.from(msg), edPrivateKey);
+  const classicalValid = ed25519Verify(null, Buffer.from(msg), edPublicKey, edSig);
   assert(classicalValid && isSigValid, 'Dual conjunction holds when both Ed25519 and ML-DSA are valid');
-  assert(!classicalValid || !ml_dsa65.verify(badSig, msg, dsaKeys.publicKey), 'Dual conjunction fail-closed when PQC component compromised');
+
+  const badEdSig = Buffer.from(edSig);
+  badEdSig[0] ^= 0x01;
+  const badClassicalValid = ed25519Verify(null, Buffer.from(msg), edPublicKey, badEdSig);
+  const badPqValid = ml_dsa65.verify(badSig, msg, dsaKeys.publicKey);
+  assert(!badClassicalValid && !badPqValid, 'Dual conjunction fail-closed when Ed25519 or ML-DSA signatures are tampered');
 
   console.log('\n=====================================================================');
   console.log(`🏆 ALL ${passedAssertions}/${totalAssertions} CRYPTOGRAPHIC ASSERTIONS PASSED CLEANLY`);
