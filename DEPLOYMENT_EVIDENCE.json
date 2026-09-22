@@ -1,8 +1,8 @@
 {
   "timestamp": "2026-09-16T12:24:50.228Z",
-  "mode": "REALITY_MODE",
-  "verdict": "PUBLIC_TESTNET_QUALIFIED",
-  "chain_id": "RDL-TESTNET-001",
+  "mode": "LOCAL_CI_EVIDENCE",
+  "verdict": "NOT_PUBLIC_TESTNET_VERIFIED",
+  "candidate_chain_id": "RDL-TESTNET-001",
   "genesis_sha256": "d1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8",
   "evidence_files": [
     "evidence/PERSISTENT_LEDGER.json",
@@ -10,10 +10,19 @@
     "evidence/CONSENSUS.json",
     "evidence/MULTINODE_TESTNET.json"
   ],
-  "qualification_proofs": {
-    "independentAdministration": true,
-    "realStateSync": true,
-    "realTransactionSettlement": true,
-    "restartRecovery": true
-  }
+  "local_ci_observations": {
+    "persistent_state_tests": true,
+    "multi_node_local_tests": true,
+    "local_state_sync_tests": true,
+    "restart_recovery_tests": true
+  },
+  "public_testnet_requirements": {
+    "independent_administration_verified": false,
+    "independently_reachable_public_nodes_verified": false,
+    "public_state_sync_verified": false,
+    "public_transaction_settlement_verified": false,
+    "encrypted_peer_transport_verified": false,
+    "independent_security_review_completed": false
+  },
+  "note": "Repository and CI evidence is local/ephemeral evidence only. It must not be used as a Public Testnet or Mainnet launch record."
 }
