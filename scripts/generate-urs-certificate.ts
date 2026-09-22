@@ -1,10 +1,9 @@
 /**
- * PQ-RDL-BLOCKCHAIN — MATHEMATICAL EVIDENCE CERTIFICATE ENGINE (URS)
+ * PQ-RDL internal automated evidence report generator.
  *
- * Runs all validation phases (Rust cargo test + TypeScript NIST/Wycheproof/Audit/Reality)
- * and generates a cryptographically sealed URS Evidence Certificate.
+ * This is not an independent security certificate, audit score, compliance
+ * attestation, or production-readiness certification.
  */
-
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -12,83 +11,82 @@ import { sha256 } from '@noble/hashes/sha256';
 
 function runStep(title: string, cmd: string) {
   console.log(`\n▶ ${title}...`);
-  try {
-    execSync(cmd, { stdio: 'inherit' });
-    console.log(`  ✅ ${title}: PASSED`);
-  } catch (err: any) {
-    console.error(`  ❌ ${title}: FAILED`);
-    process.exit(1);
-  }
+  execSync(cmd, { stdio: 'inherit' });
+  console.log(`  PASS: ${title}`);
 }
 
-async function certify() {
-  console.log('╔══════════════════════════════════════════════════════════════════════════╗');
-  console.log('║  PQ-RDL-BLOCKCHAIN — MATHEMATICAL EVIDENCE CERTIFICATE ENGINE (URS)      ║');
-  console.log('║       "Reality cannot be claimed; reality must be mathematically proven."║');
-  console.log('╚══════════════════════════════════════════════════════════════════════════╝\n');
+async function generateReport() {
+  console.log('PQ-RDL — INTERNAL AUTOMATED EVIDENCE REPORT');
+  console.log('Boundary: repository checks only; no independent audit or production certification.\n');
 
   let commitSha = 'UNKNOWN';
   try {
     commitSha = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
   } catch {}
 
-  console.log(`📌 Commit SHA:        ${commitSha}`);
-  console.log(`💻 Environment:       ${process.platform}-${process.arch} | Node ${process.version}\n`);
-
-  runStep('[1/5] Running Rust Cargo Consensus Tests', 'cargo test');
-  runStep('[2/5] Running Strict TypeScript Check (tsc --noEmit)', 'npx tsc --noEmit');
-  runStep('[3/5] Running Official NIST & Wycheproof Test Suite', 'npx tsx src/crypto/tests/official-nist-vectors.test.ts');
-  runStep('[4/5] Running Standalone Cryptographic Auditor', 'node scripts/audit-crypto.mjs');
-  runStep('[5/5] Running Universal Reality Engine', 'npx tsx scripts/reality-universal.ts');
+  runStep('[1/5] Rust workspace tests', 'cargo test --workspace --all-targets');
+  runStep('[2/5] TypeScript type check', 'npx tsc --noEmit');
+  runStep('[3/5] Standards conformance/adversarial test suite', 'npx tsx src/crypto/tests/official-nist-vectors.test.ts');
+  runStep('[4/5] Standalone cryptographic implementation audit', 'node scripts/audit-crypto.mjs');
+  runStep('[5/5] Internal reality checks', 'npx tsx scripts/reality-universal.ts');
 
   const scorecardPath = path.resolve(process.cwd(), 'reality/URS_SCORECARD.json');
   const scorecard = JSON.parse(fs.readFileSync(scorecardPath, 'utf8'));
+  const gatesPassed = Array.isArray(scorecard.results)
+    ? scorecard.results.filter((result: any) => result.passed).length
+    : 0;
+  const gatesTotal = Array.isArray(scorecard.results) ? scorecard.results.length : 0;
 
-  const certificatePayload = {
+  const payload = {
+    artifactType: 'INTERNAL_AUTOMATED_EVIDENCE_REPORT',
     protocol: 'PQ-RDL-BLOCKCHAIN',
-    version: '1.0.0',
     commitSha,
     timestamp: new Date().toISOString(),
-    truthScore: scorecard.u10Score,
-    automatedProfile: '9.6 / 10 (A+)',
-    humanAuditScore: 0.6,
-    finalUrsScore: 6.0,
-    weakestLinkDimension: 'H (Human/External 3rd-party firm audit required for 10/10)',
-    gatesPassed: scorecard.results.length,
-    manifestSubsystems: 5,
-    rustCratesVerified: ['rdl-node', 'rdl-types'],
+    internalGateScore: scorecard.u10Score,
+    gatesPassed,
+    gatesTotal,
+    independentSecurityAuditCompleted: false,
+    publicTestnetVerified: false,
+    mainnetVerified: false,
+    productionCertified: false,
+    note: 'A SHA-256 digest proves only the integrity of this report payload; it does not certify the security or production readiness of the protocol.',
   };
 
-  const certString = JSON.stringify(certificatePayload, null, 2);
-  const realityHash = Buffer.from(sha256(new TextEncoder().encode(certString))).toString('hex');
+  const serialized = JSON.stringify(payload, null, 2);
+  const reportDigestSha256 = Buffer.from(
+    sha256(new TextEncoder().encode(serialized))
+  ).toString('hex');
 
-  const fullCertificate = {
-    ...certificatePayload,
-    masterRealityHashSha256: realityHash,
-  };
-
-  const certPath = path.resolve(process.cwd(), 'reality/URS_EVIDENCE_CERTIFICATE.json');
-  fs.writeFileSync(certPath, JSON.stringify(fullCertificate, null, 2));
+  const fullReport = { ...payload, reportDigestSha256 };
+  const reportPath = path.resolve(process.cwd(), 'reality/URS_EVIDENCE_CERTIFICATE.json');
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, JSON.stringify(fullReport, null, 2));
 
   const docsDir = path.resolve(process.cwd(), 'docs/reality');
-  if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
+  fs.mkdirSync(docsDir, { recursive: true });
   fs.writeFileSync(
     path.join(docsDir, 'URS_EVIDENCE_CERTIFICATE.md'),
-    `# 🛡️ PQ-RDL-BLOCKCHAIN — Universal Reality Evidence Certificate\n\n- **Master Reality Hash**: \`${realityHash}\`\n- **Commit SHA**: \`${commitSha}\`\n- **Automated Score**: \`9.6 / 10\`\n- **URS_10 Score**: \`6.0 / 10\`\n`
+    `# PQ-RDL Internal Automated Evidence Report
+
+- **Report digest (SHA-256)**: \`${reportDigestSha256}\`
+- **Commit SHA**: \`${commitSha}\`
+- **Internal gates passed**: \`${gatesPassed} / ${gatesTotal}\`
+- **Independent security audit completed**: \`false\`
+- **Public Testnet verified**: \`false\`
+- **Mainnet verified**: \`false\`
+
+This file is an integrity-stamped internal CI report, not an independent certificate, security audit, or production attestation.
+`
   );
 
-  console.log('\n══════════════════════════════════════════════════════════════════════════');
-  console.log('🏆 PQ-RDL-BLOCKCHAIN — URS EVIDENCE CERTIFICATE GENERATED');
-  console.log('══════════════════════════════════════════════════════════════════════════');
-  console.log(`  Multiplicative Feature Reality:    1.0 / 1.0 (VERIFIED)`);
-  console.log(`  Universal Weakest-Link (URS_10):   6.0 / 10 (Bottleneck: H = 0.6)`);
-  console.log(`  Cumulative Dimension Average:      9.6 / 10`);
-  console.log(`  Master Reality Hash (SHA-256):     ${realityHash}`);
-  console.log(`  JSON Certificate:                  reality/URS_EVIDENCE_CERTIFICATE.json`);
-  console.log('══════════════════════════════════════════════════════════════════════════\n');
+  console.log('\nInternal evidence report generated.');
+  console.log(`  Gates: ${gatesPassed}/${gatesTotal}`);
+  console.log(`  SHA-256 report digest: ${reportDigestSha256}`);
+  console.log('  Independent security audit: NOT COMPLETED');
+  console.log('  Public Testnet/Mainnet: NOT VERIFIED');
 }
 
-certify().catch((err) => {
-  console.error('Certification failed:', err);
+generateReport().catch((error) => {
+  console.error('Evidence report generation failed:', error);
   process.exit(1);
 });
