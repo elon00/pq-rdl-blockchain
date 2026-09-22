@@ -41,8 +41,12 @@ export function applyRuntimeSecurity(app: Express): void {
   const maxBodyKb = positiveInt(process.env.RDL_MAX_JSON_BODY_KB, 256, 16, 1024);
   const requestsPerMinute = positiveInt(process.env.RDL_API_REQUESTS_PER_MINUTE, 120, 10, 10_000);
 
-  if (production && simulationEnabled && adminToken.length < 32) {
-    throw new Error('RDL_ADMIN_TOKEN must be at least 32 characters when production simulation APIs are enabled');
+  if (
+    production &&
+    simulationEnabled &&
+    (adminToken.length < 32 || /^change[_-]?me/i.test(adminToken))
+  ) {
+    throw new Error('RDL_ADMIN_TOKEN must be a non-placeholder secret of at least 32 characters when production simulation APIs are enabled');
   }
 
   app.disable('x-powered-by');
