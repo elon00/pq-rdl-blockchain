@@ -2,6 +2,7 @@
 use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey};
 use rand_core::{OsRng, RngCore};
 use rdl_types::{Block, Transaction};
+use rustls::pki_types::pem::PemObject;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
@@ -922,16 +923,14 @@ fn production_mode() -> bool {
 }
 fn load_tls_cert_chain() -> std::io::Result<Vec<rustls::pki_types::CertificateDer<'static>>> {
     let data = fs::read(data_path(TLS_CERT_FILE))?;
-    let mut reader = Cursor::new(data);
-    rustls_pemfile::certs(&mut reader)
+    rustls::pki_types::CertificateDer::pem_reader_iter(Cursor::new(data))
         .collect::<Result<Vec<_>, _>>()
         .map_err(std::io::Error::other)
 }
 fn load_tls_private_key() -> std::io::Result<rustls::pki_types::PrivateKeyDer<'static>> {
     let data = fs::read(data_path(TLS_KEY_FILE))?;
-    let mut reader = Cursor::new(data);
-    rustls_pemfile::private_key(&mut reader)?
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "no private key found"))
+    rustls::pki_types::PrivateKeyDer::from_pem_reader(Cursor::new(data))
+        .map_err(std::io::Error::other)
 }
 fn validate_tls_material() -> std::io::Result<()> {
     if !tls_material_present() {
