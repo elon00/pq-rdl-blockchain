@@ -1,34 +1,73 @@
 services:
   rdl-node-1:
-    build: .
-    command: ["./target/release/rdl-node","--listen","0.0.0.0:7000"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["rdl-node", "--listen", "0.0.0.0:7000"]
     environment:
       RDL_NODE_ID: node-1
       RDL_DATA_DIR: /var/lib/rdl
       RDL_BOOTSTRAP_PEERS: rdl-node-2:7000,rdl-node-3:7000
+      RDL_PRODUCTION_MODE: "false"
     ports: ["7001:7000"]
     volumes: [rdl-node-1:/var/lib/rdl]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "rdl-node", "--ping", "127.0.0.1:7000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
+
   rdl-node-2:
-    build: .
-    command: ["./target/release/rdl-node","--listen","0.0.0.0:7000"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["rdl-node", "--listen", "0.0.0.0:7000"]
     environment:
       RDL_NODE_ID: node-2
       RDL_DATA_DIR: /var/lib/rdl
       RDL_BOOTSTRAP_PEERS: rdl-node-1:7000,rdl-node-3:7000
+      RDL_PRODUCTION_MODE: "false"
     ports: ["7002:7000"]
     volumes: [rdl-node-2:/var/lib/rdl]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "rdl-node", "--ping", "127.0.0.1:7000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
+
   rdl-node-3:
-    build: .
-    command: ["./target/release/rdl-node","--listen","0.0.0.0:7000"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["rdl-node", "--listen", "0.0.0.0:7000"]
     environment:
       RDL_NODE_ID: node-3
       RDL_DATA_DIR: /var/lib/rdl
       RDL_BOOTSTRAP_PEERS: rdl-node-1:7000,rdl-node-2:7000
+      RDL_PRODUCTION_MODE: "false"
     ports: ["7003:7000"]
     volumes: [rdl-node-3:/var/lib/rdl]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "rdl-node", "--ping", "127.0.0.1:7000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
+
 volumes:
   rdl-node-1:
   rdl-node-2:
