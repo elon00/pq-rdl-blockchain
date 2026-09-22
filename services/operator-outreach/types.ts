@@ -34,7 +34,7 @@ export interface OutreachEvent {
   operatorId: string;
   channel: Channel;
   kind: 'invite' | 'brief' | 'follow-up' | 'response' | 'call';
-  status: 'queued' | 'sent' | 'received' | 'failed' | 'skipped';
+  status: 'queued' | 'sent' | 'received' | 'failed' | 'skipped' | 'dry-run';
   subject?: string;
   body: string;
   providerMessageId?: string;
@@ -49,6 +49,7 @@ export interface OutreachState {
 
 export interface DeliveryResult {
   ok: boolean;
+  dryRun?: boolean;
   providerMessageId?: string;
   error?: string;
 }
