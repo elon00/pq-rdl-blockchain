@@ -624,7 +624,10 @@ fn coordinated_view_change(
         return None;
     }
     ensure_data_dir().ok()?;
-    let path = data_path(&format!("tc-{}-{}-{}.json", ctx.height, ctx.round, ctx.view));
+    let path = data_path(&format!(
+        "tc-{}-{}-{}.json",
+        ctx.height, ctx.round, ctx.view
+    ));
     fs::write(path, serde_json::to_vec_pretty(&tc).ok()?).ok()?;
     advance_view(ctx);
     Some(tc)
