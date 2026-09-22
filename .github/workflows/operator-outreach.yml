@@ -1,0 +1,37 @@
+name: Operator Outreach CI
+
+on:
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'services/operator-outreach/**'
+      - 'tests/operator-outreach.test.ts'
+      - 'package.json'
+      - '.github/workflows/operator-outreach.yml'
+  push:
+    branches: [master, main]
+    paths:
+      - 'services/operator-outreach/**'
+      - 'tests/operator-outreach.test.ts'
+      - 'package.json'
+      - '.github/workflows/operator-outreach.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  operator-outreach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Type check
+        run: npm run lint
+      - name: Operator outreach tests
+        run: npm run test:operator
