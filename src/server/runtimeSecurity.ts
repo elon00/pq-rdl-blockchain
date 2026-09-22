@@ -8,7 +8,8 @@ const PROTECTED_POSTS = new Set([
   '/api/tokens/transfer',
   '/api/tokens/mint',
   '/api/faucet/dispense',
-  '/api/gemini/smart-contract-copilot'
+  '/api/gemini/smart-contract-copilot',
+  '/api/automaton/step'
 ]);
 
 const SERVER_KEYGEN_PATH = '/api/quantum/generate-keypair';
@@ -74,22 +75,33 @@ export function applyRuntimeSecurity(app: Express): void {
   });
 
   const buckets = new Map<string, { startedAt: number; count: number }>();
+  let lastBucketSweep = 0;
   app.use('/api', (req, res, next) => {
     const now = Date.now();
     const key = req.ip || req.socket.remoteAddress || 'unknown';
-    let bucket = buckets.get(key);
-    if (!bucket || now - bucket.startedAt >= 60_000) {
-      bucket = { startedAt: now, count: 0 };
-      buckets.set(key, bucket);
-    }
-    bucket.count += 1;
-    if (bucket.count > requestsPerMinute) {
-      return res.status(429).json({ error: 'rate limit exceeded' });
-    }
-    if (buckets.size > 10_000) {
+
+    if (now - lastBucketSweep >= 60_000) {
       for (const [entryKey, entry] of buckets) {
         if (now - entry.startedAt >= 120_000) buckets.delete(entryKey);
       }
+      lastBucketSweep = now;
+    }
+
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      if (buckets.size >= 10_000) {
+        return res.status(429).json({ error: 'rate-limit capacity reached; retry later' });
+      }
+      bucket = { startedAt: now, count: 0 };
+      buckets.set(key, bucket);
+    } else if (now - bucket.startedAt >= 60_000) {
+      bucket = { startedAt: now, count: 0 };
+      buckets.set(key, bucket);
+    }
+
+    bucket.count += 1;
+    if (bucket.count > requestsPerMinute) {
+      return res.status(429).json({ error: 'rate limit exceeded' });
     }
     next();
   });
@@ -97,7 +109,7 @@ export function applyRuntimeSecurity(app: Express): void {
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (!production || req.method !== 'POST') return next();
 
-    const path = req.path;
+    const path = req.path.replace(/\/+$/, '') || '/';
     if (path === SERVER_KEYGEN_PATH) {
       return res.status(403).json({
         error: 'server-side private-key generation is disabled in production; generate keys in a trusted client or offline environment'
