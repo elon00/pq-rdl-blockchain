@@ -117,19 +117,24 @@ jobs:
                 ;;
             esac
 
-            echo "Observing configured remote bootstrap API."
-            REMOTE_DATA=$(curl --fail --silent --show-error --location --max-time 8 "${BOOTSTRAP%/}/api/blocks" || echo "UNREACHABLE")
-            if REMOTE_DATA="$REMOTE_DATA" node --input-type=module -e '
-              const raw = process.env.REMOTE_DATA || "";
-              const data = JSON.parse(raw);
-              if (!Array.isArray(data)) process.exit(1);
-              if (data.length && !data.every(b => Number.isInteger(b?.height) && typeof b?.hash === "string")) process.exit(1);
-            '; then
-              echo "Remote bootstrap returned a syntactically valid block-list response."
+            echo "Observing configured remote bootstrap API (max 1 MiB response)."
+            REMOTE_FILE=$(mktemp)
+            if curl --fail --silent --show-error --location --max-time 8 --max-filesize 1048576 \
+              --output "$REMOTE_FILE" "${BOOTSTRAP%/}/api/blocks" &&
+              REMOTE_FILE="$REMOTE_FILE" node --input-type=module -e '
+                const fs = await import("node:fs");
+                const raw = fs.readFileSync(process.env.REMOTE_FILE, "utf8");
+                const data = JSON.parse(raw);
+                if (!Array.isArray(data)) process.exit(1);
+                if (data.length > 10000) process.exit(1);
+                if (data.length && !data.every(b => Number.isInteger(b?.height) && b.height >= 0 && typeof b?.hash === "string" && b.hash.length <= 256)) process.exit(1);
+              '; then
+              echo "Remote bootstrap returned a bounded, syntactically valid block-list response."
               REMOTE_OBSERVED="true"
             else
-              echo "Remote bootstrap unavailable or response schema invalid."
+              echo "Remote bootstrap unavailable, oversized, or response schema invalid."
             fi
+            rm -f "$REMOTE_FILE"
           else
             echo "Repository variable RDL_BOOTSTRAP_URL is unset; remote observation remains unverified."
           fi
