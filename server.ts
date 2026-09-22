@@ -51,58 +51,64 @@ async function startServer() {
   }
   const LEDGER_FILE = path.join(DATA_DIR, 'rdl-ledger-chain.json');
 
-  const genesisKeypair = await generatePQKeypair('Dilithium2');
-  const genesisSeed = generateRandomGrid(0.3);
-  const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
-  const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
+  const createPrototypeGenesis = async (): Promise<Block> => {
+    const genesisKeypair = await generatePQKeypair('Dilithium2');
+    const genesisSeed = generateRandomGrid(0.3);
+    const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
+    const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
+    const timestamp = Date.now();
 
-  const genesisBlock: Block = {
-    height: 0,
-    previousHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-    hash: genesisProof.hash,
-    timestamp: Date.now() - 3600000,
-    minerAddress: genesisKeypair.address,
-    transactions: [
-      {
-        txHash: '0xgen_tx_001_qbits_distribution',
-        senderAddress: 'pq1q00000000000000000000000000000000000000',
-        receiverAddress: genesisKeypair.address,
-        amount: 1000000,
-        fee: 0,
-        algorithm: 'Dilithium2',
-        signatureHex: genesisSignature.signatureHex,
-        conwayStatePayload: 'GENESIS_QUANTUM_PATTERNS',
-        timestamp: Date.now() - 3600000,
-        status: 'confirmed',
-        blockHeight: 0,
-      },
-    ],
-    miningProof: genesisProof,
-    pqSignature: { ...genesisSignature, valid: true },
-    quantumDifficulty: 4.8,
-    entropyIndex: genesisProof.entropyScore,
+    return {
+      height: 0,
+      previousHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      hash: genesisProof.hash,
+      timestamp,
+      minerAddress: genesisKeypair.address,
+      transactions: [
+        {
+          txHash: '0xgenesis_local_prototype',
+          senderAddress: 'pq1q00000000000000000000000000000000000000',
+          receiverAddress: genesisKeypair.address,
+          amount: 1000000,
+          fee: 0,
+          algorithm: 'Dilithium2',
+          signatureHex: genesisSignature.signatureHex,
+          conwayStatePayload: 'LOCAL_PROTOTYPE_GENESIS',
+          timestamp,
+          status: 'confirmed',
+          blockHeight: 0,
+        },
+      ],
+      miningProof: genesisProof,
+      pqSignature: { ...genesisSignature, valid: true },
+      quantumDifficulty: 4.8,
+      entropyIndex: genesisProof.entropyScore,
+    };
   };
 
   let blockchain: Block[] = [];
   if (fs.existsSync(LEDGER_FILE)) {
     try {
-      blockchain = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
-      console.log(`[PERSISTENCE] Loaded ${blockchain.length} blocks from persistent disk storage`);
-    } catch {
-      blockchain = [genesisBlock];
-      fs.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2));
+      const parsed = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('empty or invalid ledger');
+      blockchain = parsed;
+      console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
+    } catch (error) {
+      console.error('[PERSISTENCE] Existing local prototype ledger is invalid; reinitializing:', error);
+      blockchain = [await createPrototypeGenesis()];
+      fs.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2), { mode: 0o600 });
     }
   } else {
-    blockchain = [genesisBlock];
-    fs.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2));
-    console.log(`[PERSISTENCE] Initialized persistent disk ledger at ${LEDGER_FILE}`);
+    blockchain = [await createPrototypeGenesis()];
+    fs.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2), { mode: 0o600 });
+    console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
   }
   const mempool: Transaction[] = [];
   const deployedContracts: SmartContract[] = [
     {
       id: 'sc_pq_escrow_001',
       name: 'Post-Quantum Escrow Vault',
-      creatorAddress: genesisKeypair.address,
+      creatorAddress: blockchain[0]?.minerAddress || 'local-prototype-genesis',
       code: `// Web 4.0 Quantum Escrow
 contract PostQuantumEscrow {
   state { owner: Address, balance: QBits, entropyMin: Number }
@@ -115,7 +121,7 @@ contract PostQuantumEscrow {
 }`,
       abi: ['releaseFunds()', 'getVaultBalance()', 'verifyPqSig()'],
       type: 'Escrow',
-      state: { owner: genesisKeypair.address, lockedQBits: 50000, minEntropy: 42.5 },
+      state: { owner: blockchain[0]?.minerAddress || 'local-prototype-genesis', lockedQBits: 50000, minEntropy: 42.5 },
       createdBlock: 0,
       conwayTriggerRule: 'B3/S23 Entropy > 42.5',
       isAiAutonomous: true,
@@ -123,7 +129,7 @@ contract PostQuantumEscrow {
     {
       id: 'sc_conway_yield_002',
       name: 'Conway Glider Yield Synthesizer',
-      creatorAddress: genesisKeypair.address,
+      creatorAddress: blockchain[0]?.minerAddress || 'local-prototype-genesis',
       code: `// Web 4.0 Autonomous Glider Yield
 contract ConwayGliderYield {
   state { totalStaked: QBits, gliderCount: Number }
