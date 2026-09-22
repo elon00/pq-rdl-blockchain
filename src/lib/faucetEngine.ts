@@ -9,7 +9,7 @@ export interface FaucetClaim {
   memecoinAmount: number;
   timestamp: number;
   conwayProofNonce: number;
-  status: 'CONFIRMED' | 'PENDING';
+  status: 'SIMULATED' | 'PENDING';
 }
 
 export interface FaucetStats {
@@ -26,7 +26,7 @@ export class FaucetEngine {
   private pending = new Set<string>();
 
   constructor(private readonly tokens: TokenEngine = tokenEngine) {}
-  private readonly COOLDOWN_MS = 60 * 1000; // 60-second cooldown per address for testnet rate limiting
+  private readonly COOLDOWN_MS = 60 * 1000; // Local demo cooldown; not a production abuse-control system
 
   public async dispense(
     recipientAddress: string,
@@ -53,14 +53,14 @@ export class FaucetEngine {
     let memecoinAmount = 0;
 
     if (dropType === 'ALL' || dropType === 'NATIVE') {
-      nativeCoins = 50; // 50 RDL / QBits for network gas & transactions
+      nativeCoins = 50; // Local demo accounting units
     }
     if (dropType === 'ALL' || dropType === 'STABLECOIN') {
-      stablecoinAmount = 1000; // 1,000 RDL-USD
+      stablecoinAmount = 1000; // Local demo accounting units
 
     }
     if (dropType === 'ALL' || dropType === 'MEMECOIN') {
-      memecoinAmount = 10000000; // 10,000,000 RDL-MEME
+      memecoinAmount = 10000000; // Local demo accounting units
 
     }
 
@@ -98,7 +98,7 @@ export class FaucetEngine {
         memecoinAmount,
         timestamp: now,
         conwayProofNonce: conwayNonce,
-        status: 'CONFIRMED',
+        status: 'SIMULATED',
       };
 
       this.claims.unshift(claim);
