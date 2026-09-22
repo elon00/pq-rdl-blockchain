@@ -15,14 +15,14 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, chainState, activeWallet, onOpenWalletModal }) => {
   const navItems = [
     { id: 'dashboard', label: 'Network & Overview', icon: Activity },
-    { id: 'faucet', label: 'Testnet Faucet', icon: Droplets },
-    { id: 'swap', label: 'RDL Swap (DEX)', icon: ArrowRightLeft },
-    { id: 'tokens', label: 'Token Factory & Launchpad', icon: Coins },
-    { id: 'conway', label: 'Conway Consensus Miner', icon: Cpu },
+    { id: 'faucet', label: 'Demo Faucet', icon: Droplets },
+    { id: 'swap', label: 'AMM Simulator', icon: ArrowRightLeft },
+    { id: 'tokens', label: 'Token Demo Lab', icon: Coins },
+    { id: 'conway', label: 'Conway Proof Simulator', icon: Cpu },
     { id: 'wallet', label: 'Post-Quantum Wallet', icon: Wallet },
     { id: 'explorer', label: 'Block Explorer', icon: Boxes },
     { id: 'contracts', label: 'Web 4.0 AI Smart Contracts', icon: Code2 },
-    { id: 'nodes', label: 'Peer Mesh & Validators', icon: Share2 },
+    { id: 'nodes', label: 'Peer Mesh Simulator', icon: Share2 },
     { id: 'developer', label: 'Developer Platform & RPC', icon: Terminal },
   ];
 
@@ -31,13 +31,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, chainSt
       <div className="bg-gradient-to-r from-slate-950 via-cyan-950/40 to-slate-950 px-4 py-1 text-xs border-b border-cyan-500/10 flex items-center justify-between text-slate-400">
         <div className="flex items-center gap-4 min-w-0 pq-horizontal-scroll whitespace-nowrap">
           <div className="flex items-center gap-1.5 text-cyan-400 font-mono shrink-0">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>PQ-RDL Web 4.0 — Operational Devnet / Testnet Candidate (Chain: RDL-TESTNET-001)</span>
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span>PQ-RDL — Prototype / CI-verified local devnet; public testnet not verified</span>
           </div>
           <span className="text-slate-600 shrink-0">|</span>
           <span className="font-mono shrink-0">Height: <strong className="text-slate-200">{chainState?.height ?? 0}</strong></span>
           <span className="text-slate-600 shrink-0">|</span>
-          <span className="font-mono shrink-0">Crypto: <strong className="text-cyan-300">Dilithium / Falcon / SPHINCS+</strong></span>
+          <span className="font-mono shrink-0">Crypto: <strong className="text-cyan-300">ML-DSA-65 implementation</strong></span>
           <span className="text-slate-600 shrink-0">|</span>
           <span className="font-mono shrink-0">Consensus: <strong className="text-purple-300">Conway Proof-of-Automaton</strong></span>
           <span className="text-slate-600 shrink-0">|</span>
@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, chainSt
         </div>
         <div className="flex items-center gap-3 shrink-0 ml-3">
           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] bg-cyan-950/80 border border-cyan-500/30 px-2 py-0.5 rounded text-cyan-300 font-mono">
-            <Zap className="w-3 h-3 text-cyan-400" /> {chainState?.tps ?? 1840} TPS
+            <Zap className="w-3 h-3 text-cyan-400" /> {chainState?.tps !== null && chainState?.tps !== undefined ? `${chainState.tps} TPS` : 'TPS not measured'}
           </span>
         </div>
       </div>
@@ -57,7 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, chainSt
           </div>
           <div>
             <div className="flex items-center gap-2"><h1 className="font-bold text-lg tracking-wide text-white font-mono bg-gradient-to-r from-cyan-300 via-teal-200 to-purple-300 bg-clip-text text-transparent">PQ-RDL</h1><span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-900/50 border border-purple-500/30 text-purple-300 font-mono font-semibold">Web 4.0</span></div>
-            <p className="text-[11px] text-slate-400 font-mono">Post-Quantum Conway Automaton Chain</p>
+            <p className="text-[11px] text-slate-400 font-mono">PQC + consensus research prototype</p>
           </div>
         </div>
 
