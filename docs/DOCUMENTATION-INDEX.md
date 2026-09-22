@@ -9,6 +9,7 @@ Version 1.0
 - `TESTNET-SPECIFICATION.md` — public-testnet requirements and evidence model.
 - `MAINNET-SPECIFICATION.md` — production/mainnet readiness requirements.
 - `NODE-OPERATOR-GUIDE.md` — node/validator operating standards.
+- `OPERATOR_OUTREACH_AUTOMATION.md` — consent-aware node-operator recruitment, briefing, follow-up, voice/email gateway, and response workflow.
 - `TOKENOMICS.md` — unlimited maximum supply and issuance/reward policy.
 - `GOVERNANCE-DAO.md` — intended DAO/governance framework.
 - `CONSENSUS-SPECIFICATION.md` — target PoS+BFT consensus design.
