@@ -57,6 +57,14 @@ The intended verification flow is:
 
 `Environment → Truth → Lint/Type Checks → Production Build`
 
+## Node operators
+
+- [Node Operator Guide](./docs/NODE-OPERATOR-GUIDE.md)
+- [Cloud Node Setup](./docs/CLOUD_NODE_SETUP.md)
+- [Operator Outreach Automation](./docs/OPERATOR_OUTREACH_AUTOMATION.md)
+
+The outreach subsystem supports consent-aware invitations, technical briefings, optional voice-call gateways, follow-ups, response classification, opt-out suppression, and an auditable local operator pipeline. Delivery is dry-run until external gateways are explicitly configured.
+
 ## Governance
 
 See [RDL_CONSTITUTION.md](./RDL_CONSTITUTION.md) for the RDL Constitution and Reality Charter.
