@@ -1,4 +1,5 @@
 import express from 'express';
+import { applyRuntimeSecurity } from './src/server/runtimeSecurity';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
@@ -39,14 +40,7 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  app.use(express.json({ limit: '10mb' }));
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
-    next();
-  });
+  applyRuntimeSecurity(app);
 
   // Initialize Persistent Disk Ledger Storage
   const DATA_DIR = path.join(process.cwd(), 'data');
@@ -243,7 +237,6 @@ contract ConwayGliderYield {
       };
 
       return res.status(501).json({ success: false, error: 'Transaction submission disabled until sender authorization and cryptographic signature verification are enforced server-side.', simulation: true });
-      res.json({ success: true, simulation: true, transaction: newTx, mempoolSize: mempool.length, statusNote: 'Transaction exists only in this process memory and has not been broadcast to an external network.' });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Failed to submit transaction' });
     }
