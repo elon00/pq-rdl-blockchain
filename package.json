@@ -16,7 +16,7 @@
     "audit:crypto": "node scripts/audit-crypto.mjs",
     "reality:universal": "tsx scripts/reality-universal.ts",
     "reality:certify": "tsx scripts/generate-urs-certificate.ts",
-    "test": "npm run check:truth && npm run test:integrity && npm run test:cargo && npm run test:nist && npm run audit:crypto && npm run reality:universal && npm run build",
+    "test": "npm run check:truth && npm run test:integrity && npm run test:operator && npm run test:cargo && npm run test:nist && npm run audit:crypto && npm run reality:universal && npm run build",
     "qmoosa:finish": "node scripts/qmoosa-reality-finisher.mjs",
     "rdl:finish": "node scripts/rdl-network-finisher.mjs",
     "testnet:genesis-hash": "node scripts/testnet-genesis-hash.mjs",
@@ -31,7 +31,15 @@
     "testnet:cluster": "docker compose -f docker-compose.testnet.yml up -d",
     "testnet:cluster:down": "docker compose -f docker-compose.testnet.yml down",
     "qualify:testnet": "node scripts/qualify-testnet-1click.mjs",
-    "test:integrity": "node --import tsx --test tests/token-integrity.test.ts"
+    "test:integrity": "node --import tsx --test tests/token-integrity.test.ts",
+    "test:operator": "node --import tsx --test tests/operator-outreach.test.ts",
+    "operator:add": "tsx services/operator-outreach/cli.ts add",
+    "operator:list": "tsx services/operator-outreach/cli.ts list",
+    "operator:invite": "tsx services/operator-outreach/cli.ts invite",
+    "operator:brief": "tsx services/operator-outreach/cli.ts brief",
+    "operator:followup": "tsx services/operator-outreach/cli.ts followup",
+    "operator:response": "tsx services/operator-outreach/cli.ts response",
+    "operator:server": "tsx services/operator-outreach/server.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
