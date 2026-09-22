@@ -144,21 +144,22 @@ contract ConwayGliderYield {
 
   // API Routes
   
-  // Health & Status
-  app.get('/api/health', (req, res) => {
+  // Health & Status. This endpoint reports only what this process can directly observe.
+  app.get('/api/health', (_req, res) => {
     res.json({
       status: 'ok',
       mode: 'LOCAL_DEVNET_PROTOTYPE',
       time: new Date().toISOString(),
-      persistence: 'DISK_PERSISTENT',
-      ledger_path: 'data/rdl-ledger-chain.json',
+      persistence: 'LOCAL_FILE',
+      ledger_path: LEDGER_FILE,
       blocks_on_disk: blockchain.length,
-      active_nodes: 3
+      active_nodes: null,
+      public_network_verified: false
     });
   });
 
-  // Get Chain Status & Network Metrics
-  const handleStatus = (req: any, res: any) => {
+  // Local prototype status; no synthetic public-network telemetry.
+  const handleStatus = (_req: any, res: any) => {
     const latestBlock = blockchain[blockchain.length - 1];
     const totalTx = blockchain.reduce((sum, b) => sum + b.transactions.length, 0);
     const avgEntropy = Number(
@@ -171,28 +172,25 @@ contract ConwayGliderYield {
       quantumDifficulty: latestBlock.quantumDifficulty,
       totalTransactions: totalTx,
       pendingMempool: mempool,
-      activeNodes: 3,
+      activeNodes: null,
       averageEntropy: avgEntropy,
       tps: null,
       networkHashrate: null,
       mode: 'LOCAL_DEVNET_PROTOTYPE',
+      publicNetworkVerified: false,
       persistence: {
-        storage: 'DISK_PERSISTENT',
-        ledger_path: 'data/rdl-ledger-chain.json',
+        storage: 'LOCAL_FILE',
+        ledger_path: LEDGER_FILE,
         blocks_on_disk: blockchain.length,
-        crash_recovery: 'VERIFIED_PRE_POST_TIP_EQUIVALENCE'
+        crash_recovery: 'NOT_MEASURED_BY_THIS_PROCESS'
       },
       p2p_network: {
-        protocol: 'RDL-HotStuff-BFT-v1',
-        active_peers: [
-          { peer_id: 'node-1', address: '127.0.0.1:7101', role: 'PROPOSER_SEED', status: 'ACTIVE' },
-          { peer_id: 'node-2', address: '127.0.0.1:7102', role: 'VALIDATOR_A', status: 'ACTIVE' },
-          { peer_id: 'node-3', address: '127.0.0.1:7103', role: 'VALIDATOR_B', status: 'ACTIVE' }
-        ],
-        state_sync: 'VERIFIED (ParentHash+StateRoot+HotStuffLock)',
-        quorum: '2/3 BFT Majority'
+        protocol: 'RDL-HotStuff-BFT-v1 prototype',
+        active_peers: [],
+        state_sync: 'NOT_MEASURED_BY_THIS_PROCESS',
+        quorum: 'NOT_MEASURED_BY_THIS_PROCESS'
       },
-      statusNote: 'Local development ledger telemetry only. Public Testnet/Mainnet status requires independent external evidence.',
+      statusNote: 'Local prototype telemetry only. Public Testnet/Mainnet status requires independently reproducible external evidence.',
     };
 
     res.json(chainState);
