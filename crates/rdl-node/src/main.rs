@@ -915,6 +915,11 @@ fn read_challenge(reader: &mut BufReader<TcpStream>) -> std::io::Result<[u8; 32]
 fn tls_material_present() -> bool {
     data_path(TLS_CERT_FILE).exists() && data_path(TLS_KEY_FILE).exists()
 }
+fn production_mode() -> bool {
+    std::env::var("RDL_PRODUCTION_MODE")
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
 fn load_tls_cert_chain() -> std::io::Result<Vec<rustls::pki_types::CertificateDer<'static>>> {
     let data = fs::read(data_path(TLS_CERT_FILE))?;
     let mut reader = Cursor::new(data);
@@ -1260,13 +1265,13 @@ fn handle_peer(
     Ok(())
 }
 fn run_listener(addr: &str) -> std::io::Result<()> {
-    validate_tls_material()?;
-    if !tls_material_present() {
+    if production_mode() {
         return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "TLS certificate/key required for listener; refusing plaintext reality-mode listener",
+            std::io::ErrorKind::Unsupported,
+            "RDL_PRODUCTION_MODE is blocked: peer traffic is authenticated but not yet wrapped in encrypted rustls streams",
         ));
     }
+    validate_tls_material()?;
     let listener = TcpListener::bind(addr)?;
     listener.set_nonblocking(true)?;
     let chain = Arc::new(Mutex::new(load_chain()));
@@ -1288,7 +1293,7 @@ fn run_listener(addr: &str) -> std::io::Result<()> {
         (String, String),
     >::new()));
     println!(
-        "RDL secure-transport-gated node listening on {}; TLS material validated",
+        "RDL authenticated plaintext DEVNET node listening on {}; certificate material (if present) is validated but does not encrypt transport",
         addr
     );
     loop {
@@ -1357,10 +1362,10 @@ fn run_listener(addr: &str) -> std::io::Result<()> {
     }
 }
 fn request(addr: &str, message: &str) -> std::io::Result<String> {
-    if !tls_material_present() {
+    if production_mode() {
         return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "TLS certificate/key required by reality-mode client",
+            std::io::ErrorKind::Unsupported,
+            "RDL_PRODUCTION_MODE is blocked until encrypted peer transport is implemented",
         ));
     }
     validate_tls_material()?;
@@ -1444,7 +1449,7 @@ fn main() {
     save_chain(&chain);
     println!("RDL Node v0.1.0 — challenge-authenticated development peer foundation");
     println!(
-        "STATUS: challenge-response authentication, optional peer allowlist, bounded frames, socket timeouts, connection concurrency limits, per-IP caps, per-connection request limits, request pacing and shared identity-aware rate limiting, TLS material gating, bounded transaction admission, and bootstrap-peer propagation, validator authorization, and identity-bound quorum certificates, height/round/view-bound votes, deterministic proposer selection, signed timeout certificates, quorum-gated view changes, and persistent proposal safety locks implemented; encrypted rustls streams and adversarial Byzantine testing remain pending; signed vote equivocation evidence detection is implemented."
+        "STATUS: DEVNET ONLY. Challenge-response authentication, optional peer allowlist, bounded frames, socket timeouts, connection concurrency limits, per-IP caps, per-connection request limits, request pacing and shared identity-aware rate limiting, bounded transaction admission, bootstrap-peer propagation, validator authorization, identity-bound quorum certificates, height/round/view-bound votes, deterministic proposer selection, signed timeout certificates, quorum-gated view changes, persistent proposal safety locks, and signed vote equivocation evidence detection are implemented. Peer traffic is not yet wrapped in encrypted rustls streams, so RDL_PRODUCTION_MODE fails closed."
     );
 }
 
