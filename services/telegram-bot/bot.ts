@@ -131,14 +131,14 @@ export class TelegramNodeBot {
     return `🏛️ *PQ-RDL Web4 — Telegram Cloud Node Controller*
 Welcome, *${username}*!
 
-You are connected to the post-quantum Conway Automaton blockchain testnet (*Chain: RDL-TESTNET-001*).
+This bot currently exposes a local/devnet simulation surface for the PQ-RDL prototype. It is not evidence of a public testnet connection.
 
 *Available Commands:*
-• \`/status\` — View live node health, BFT view, peers & entropy.
-• \`/faucet <rdl_address>\` — Claim free testnet tokens (50 RDL + 1K rUSD + 10M RLD).
+• \`/status\` — View local bot/devnet simulation status.
+• \`/faucet <rdl_address>\` — Generate a local faucet simulation receipt.
 • \`/balance <rdl_address>\` — Check wallet balances across all tokens.
-• \`/mine\` — Trigger Conway cellular automaton mining round.
-• \`/block\` — Inspect latest mined block header & SHA-256 anchor.
+• \`/mine\` — Run a local Conway proof simulation.
+• \`/block\` — Inspect the bundled demo block fixture.
 • \`/tokens\` — List all registered L1 tokens & stablecoins.
 • \`/help\` — Display this command menu.
 
@@ -155,7 +155,7 @@ https://elon00.github.io/pq-rdl-blockchain/`;
 • *Chain ID*: \`RDL-TESTNET-001\`
 • *Consensus*: HotStuff BFT + Conway Cellular Automaton
 • *Post-Quantum Cryptography*: NIST FIPS 204 (ML-DSA-65) & FIPS 203 (ML-KEM-768)
-• *Node State*: Active & Syncing (Cloud Node Runner)
+• *Node State*: Local bot simulation; public-network synchronization is not verified
 • *Active Tokens*: ${tokens.length} tokens
 • *Faucet Treasury*: ${stats.totalNativeDispensed} RDL Dispensed (${stats.totalDispensations} total claims)`;
   }
@@ -173,7 +173,7 @@ https://elon00.github.io/pq-rdl-blockchain/`;
     }
 
     const claim = result.claim!;
-    return `🎉 *Testnet Starter Pack Dispensed!*
+    return `🎉 *Local Faucet Simulation Completed!*
 *Recipient*: \`${claim.recipientAddress.slice(0, 16)}...\`
 *Amount*:
   • *50 RDL* (Native Gas)
@@ -181,7 +181,7 @@ https://elon00.github.io/pq-rdl-blockchain/`;
   • *10,000,000 RLD* (RDL Meme Coin)
 *Transaction Hash*: \`${claim.txHash.slice(0, 24)}...\`
 *Entropy Nonce*: \`${claim.conwayProofNonce}\`
-*Status*: 🟢 Confirmed on \`RDL-TESTNET-001\``;
+*Status*: 🟡 Local simulation receipt only — not settled on a public testnet`;
   }
 
   private handleBalance(address?: string): string {
@@ -210,24 +210,24 @@ https://elon00.github.io/pq-rdl-blockchain/`;
       const grid = generateRandomGrid(0.25);
       const proof = await mineConwayBlock(grid, 8, 30);
       const { entropy } = computeGridEntropy(grid);
-      const keypair = await generatePQKeypair('Dilithium2', 'Telegram-Cloud-Miner');
+      const keypair = await generatePQKeypair('Dilithium2');
       const sig = await signPQPayload(`BLOCK_MINE_${proof.hash}`, keypair);
 
-      return `⛏️ *Conway Automaton Block Mined!*
+      return `⛏️ *Conway Automaton Proof Simulation Completed!*
 • *Block Hash*: \`${proof.hash.slice(0, 26)}...\`
 • *Target Score*: \`${proof.entropyScore.toFixed(2)}\`
 • *Cellular Entropy*: \`${entropy.toFixed(2)}\`
 • *Generations Computed*: \`${proof.generationsRun}\`
 • *PQ Miner*: \`${keypair.publicKeyHex.slice(0, 24)}...\`
 • *Lattice Sig*: \`${sig.signatureHex.slice(0, 32)}...\`
-• *Status*: 🟢 Validated via Proof-of-Automaton`;
+• *Status*: 🟡 Local proof simulation only — not committed to a public blockchain`;
     } catch (err: any) {
       return `❌ *Mining Error*: ${err.message}`;
     }
   }
 
   private getLatestBlockMessage(): string {
-    return `📦 *Latest Testnet Block*
+    return `📦 *Bundled Demo Block Fixture*
 • *Height*: \`104\`
 • *Chain ID*: \`RDL-TESTNET-001\`
 • *Block Hash*: \`0x9b7a42ec71df89c56b829...d1ba8eb5\`
@@ -238,7 +238,7 @@ https://elon00.github.io/pq-rdl-blockchain/`;
 
   private getTokensMessage(): string {
     const tokens = tokenEngine.getTokens();
-    let msg = `🪙 *Registered Testnet Tokens (${tokens.length})*\n\n`;
+    let msg = `🪙 *Local Demo Token Registry (${tokens.length})*\n\n`;
     tokens.forEach(t => {
       msg += `• *${t.name}* (\`${t.symbol}\`) — ${t.type}\n`;
       msg += `  Supply: \`${t.totalSupply.toLocaleString()}\` | Decimals: ${t.decimals}\n`;
