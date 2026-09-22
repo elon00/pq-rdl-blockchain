@@ -2,47 +2,51 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "protocol": "PQ-RDL-BLOCKCHAIN",
   "version": "1.0.0",
-  "description": "Post-Quantum Resistant Distributed Ledger (PQ-RDL) sovereign blockchain protocol featuring Rust consensus crates and pure-TS lattice cryptographic verification.",
+  "description": "Research/prototype manifest for PQ-RDL Rust consensus and post-quantum cryptographic implementations.",
   "truthTaxonomy": {
-    "zeroSimulation": true,
     "failClosed": true,
-    "dualConjunction": true,
-    "weakestLinkLaw": "URS_10 = min(E, I, O, V, R, C, P, F, A, H) * 10"
+    "localSimulationExplicit": true,
+    "publicNetworkEvidenceRequired": true
   },
   "subsystems": [
     {
       "name": "rdl-native-consensus-node",
-      "status": "production-verified",
+      "status": "prototype-tested",
       "engine": "Rust (crates/rdl-node)",
-      "signatureScheme": "Ed25519-Dalek + SHA256"
+      "productionTransportReady": false
     },
     {
       "name": "nist-fips-203-ml-kem-768",
-      "status": "production-verified",
+      "status": "algorithm-conformance-tested",
       "publicKeyBytes": 1184,
       "ciphertextBytes": 1088,
-      "sharedSecretBytes": 32,
-      "implicitRejectionFips203Section73": true
+      "sharedSecretBytes": 32
     },
     {
       "name": "nist-fips-204-ml-dsa-65",
-      "status": "production-verified",
+      "status": "algorithm-conformance-tested",
       "publicKeyBytes": 1952,
       "secretKeyBytes": 4032,
       "signatureBytes": 3309,
-      "securityLevel": "NIST Level 3"
+      "securityCategory": "NIST ML-DSA-65 parameter set"
     },
     {
       "name": "rdl-dual-hybrid-transaction-conjunction",
-      "status": "production-verified",
+      "status": "implementation-tested",
       "formula": "Ed25519_valid AND ML_DSA_65_valid AND commitment_match",
-      "failClosed": true
+      "independentAudit": false
     },
     {
       "name": "state-commitment-anchor",
-      "status": "production-verified",
+      "status": "implementation-tested",
       "hashFunction": "SHA-256",
       "outputLengthBytes": 32
     }
-  ]
+  ],
+  "productionBoundary": {
+    "publicTestnetVerified": false,
+    "mainnetVerified": false,
+    "encryptedPeerTransportImplemented": false,
+    "independentSecurityReviewCompleted": false
+  }
 }
