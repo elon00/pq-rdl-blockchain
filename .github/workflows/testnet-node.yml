@@ -122,10 +122,15 @@ jobs:
             if REMOTE_DATA="$REMOTE_DATA" node --input-type=module -e '
               const raw = process.env.REMOTE_DATA || "";
               const data = JSON.parse(raw);
-              if (!Array.isArray(data)) process.exit(1);
-              if (data.length && !data.every(b => Number.isInteger(b?.height) && typeof b?.hash === "string")) process.exit(1);
+              if (!Array.isArray(data) || data.length < 1) process.exit(1);
+              if (!data.every(b =>
+                Number.isInteger(b?.height) &&
+                b.height >= 0 &&
+                typeof b?.hash === "string" &&
+                b.hash.trim().length > 0
+              )) process.exit(1);
             '; then
-              echo "Remote bootstrap returned a syntactically valid block-list response."
+              echo "Remote bootstrap returned at least one schema-valid block."
               REMOTE_OBSERVED="true"
             else
               echo "Remote bootstrap unavailable or response schema invalid."
