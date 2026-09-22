@@ -22,6 +22,7 @@ async function withServer(run: (baseUrl: string) => Promise<void>) {
   applyRuntimeSecurity(app);
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.post('/api/tokens/create', (_req, res) => res.json({ mutated: true }));
+  app.post('/api/automaton/step', (_req, res) => res.json({ mutated: true }));
   app.post('/api/quantum/generate-keypair', (_req, res) => res.json({ privateKey: 'should-not-run' }));
   const server = createServer(app);
   await new Promise<void>((resolve, reject) => {
@@ -64,6 +65,26 @@ test('production defaults to read-only simulation mutations', async () => {
       assert.equal(response.status, 503);
       const body = await response.json() as { mode?: string };
       assert.equal(body.mode, 'READ_ONLY_PRODUCTION_PREVIEW');
+    });
+  } finally {
+    restoreEnv(env);
+  }
+});
+
+test('protected production paths cannot bypass controls with a trailing slash', async () => {
+  const env = snapshotEnv(keys);
+  try {
+    process.env.NODE_ENV = 'production';
+    delete process.env.RDL_ENABLE_SIMULATION_API;
+    await withServer(async baseUrl => {
+      for (const path of ['/api/tokens/create/', '/api/automaton/step/']) {
+        const response = await fetch(`${baseUrl}${path}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: '{}'
+        });
+        assert.equal(response.status, 503);
+      }
     });
   } finally {
     restoreEnv(env);
