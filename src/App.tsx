@@ -27,7 +27,7 @@ const INITIAL_GENESIS_BLOCK: Block = {
       amount: 1000000,
       fee: 0,
       algorithm: 'Dilithium2',
-      signatureHex: 'DIL2_GENESIS_SIGNATURE_PAYLOAD_VALIDATED',
+      signatureHex: 'DEMO_FIXTURE_NOT_A_CRYPTOGRAPHIC_SIGNATURE',
       conwayStatePayload: 'GENESIS_QUANTUM_PATTERNS',
       timestamp: 1726400000000,
       status: 'confirmed',
@@ -44,11 +44,11 @@ const INITIAL_GENESIS_BLOCK: Block = {
   },
   pqSignature: {
     algorithm: 'Dilithium2',
-    signatureHex: 'DIL2_GENESIS_SIG_HEX',
-    publicKeyHex: 'DIL2_PK_GENESIS',
-    hashMessage: 'GENESIS_BLOCK_0',
+    signatureHex: 'DEMO_FIXTURE_NOT_A_CRYPTOGRAPHIC_SIGNATURE',
+    publicKeyHex: 'DEMO_FIXTURE_PUBLIC_KEY_NOT_REAL',
+    hashMessage: 'DEMO_FIXTURE',
     timestamp: 1726400000000,
-    valid: true,
+    valid: false,
   },
   quantumDifficulty: 4.8,
   entropyIndex: 42.8,
@@ -65,7 +65,7 @@ const INITIAL_CHAIN_STATE: ChainState = {
   tps: null,
   networkHashrate: null,
   mode: 'DEMONSTRATION_IN_MEMORY',
-  statusNote: 'Metrics derived from local state and Testnet Genesis hash.',
+  statusNote: 'Bundled local demonstration fixture. Public-network status and metrics are not verified.',
 };
 
 const INITIAL_CONTRACTS: SmartContract[] = [
@@ -149,23 +149,7 @@ export default function App() {
     } catch {
       // Static mode fallback
     }
-    const simulatedTx: Transaction = {
-      txHash: `0xtx_sim_${Date.now().toString(16)}`,
-      senderAddress: txData.senderAddress || 'pq1q_sender',
-      receiverAddress: txData.receiverAddress || 'pq1q_receiver',
-      amount: txData.amount || 10,
-      fee: txData.fee || 0.001,
-      algorithm: txData.algorithm || 'Dilithium2',
-      signatureHex: txData.signatureHex || 'SIMULATED_SIG',
-      conwayStatePayload: txData.conwayStatePayload || 'BROWSER_TX',
-      timestamp: Date.now(),
-      status: 'pending',
-    };
-    setChainState((prev) => prev ? {
-      ...prev,
-      pendingMempool: [...prev.pendingMempool, simulatedTx],
-    } : null);
-    return true;
+    return false;
   };
 
   const handleDeployContract = async (contractData: {name:string;code:string;type:any;conwayTriggerRule:string;}) => {
@@ -214,8 +198,8 @@ export default function App() {
       </main>
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center font-mono text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div>PQ-RDL Web 4.0 Blockchain Protocol • Post-Quantum Cryptography & Conway Automaton AI</div>
-          <div className="flex items-center gap-3 text-[11px] text-slate-400"><span className="text-cyan-400">Dilithium / Falcon / SPHINCS+</span><span>•</span><span className="text-purple-400">Proof-of-Automaton</span></div>
+          <div>PQ-RDL prototype • ML-DSA-65 cryptography experiments & Conway automaton simulation</div>
+          <div className="flex items-center gap-3 text-[11px] text-slate-400"><span className="text-cyan-400">ML-DSA-65 (FIPS 204 implementation)</span><span>•</span><span className="text-purple-400">Proof-of-Automaton</span></div>
         </div>
       </footer>
     </div>
