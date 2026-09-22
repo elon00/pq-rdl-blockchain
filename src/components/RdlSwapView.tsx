@@ -98,7 +98,7 @@ export const RdlSwapView: React.FC<RdlSwapViewProps> = ({
     }
 
     setIsSwapping(true);
-    setStatusMessage({ type: 'info', text: 'Signing AMM swap transaction with Post-Quantum Lattice Secret Key...' });
+    setStatusMessage({ type: 'info', text: 'Running local constant-product AMM calculation...' });
 
     setTimeout(() => {
       // Execute swap state update
@@ -114,7 +114,7 @@ export const RdlSwapView: React.FC<RdlSwapViewProps> = ({
 
       setStatusMessage({
         type: 'success',
-        text: `✅ Swap Confirmed! Swapped ${fromAmount} ${fromToken} for ${estimatedOutput.toLocaleString()} ${toToken} on RDL AMM DEX. Tx: 0xswap_${Math.random().toString(16).slice(2, 12)}`,
+        text: `✅ AMM simulation completed: ${fromAmount} ${fromToken} → ${estimatedOutput.toLocaleString()} ${toToken}. No blockchain transaction was submitted.`,
       });
       setIsSwapping(false);
     }, 600);
@@ -127,18 +127,18 @@ export const RdlSwapView: React.FC<RdlSwapViewProps> = ({
         <div className="relative z-10 space-y-3 max-w-4xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-950/80 border border-purple-500/40 text-purple-300 text-xs font-mono">
             <ArrowRightLeft className="w-4 h-4 text-purple-400" />
-            <span>RDL Swap — Post-Quantum Constant Product AMM DEX</span>
+            <span>RDL Constant-Product AMM Simulator</span>
           </div>
 
           <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white font-mono leading-tight">
-            RDL Decentralized Exchange (DEX) <br />
+            AMM Exchange Simulation <br />
             <span className="bg-gradient-to-r from-purple-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">
               Swap RDL Native, rUSD Stablecoin & RLD Meme Coin
             </span>
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed">
-            Execute decentralized token swaps on <strong className="text-purple-300">RDL-TESTNET-001</strong> with automated constant-product liquidity pools (<span className="text-cyan-300 font-mono">x • y = k</span>) protected by NIST Post-Quantum lattice cryptography.
+            Explore constant-product pool math (<span className="text-cyan-300 font-mono">x • y = k</span>) using local in-memory fixtures. This screen is not a deployed DEX and does not settle transactions on a public network.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono">
@@ -146,7 +146,7 @@ export const RdlSwapView: React.FC<RdlSwapViewProps> = ({
               LP Fee: 0.3%
             </span>
             <span className="px-3 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
-              Algorithm: Dilithium2 / Falcon-512
+              Settlement: local simulation only
             </span>
             <span className="px-3 py-1 rounded bg-emerald-950 border border-emerald-500/30 text-emerald-300">
               Slippage Tolerance: 0.5%
@@ -182,7 +182,7 @@ export const RdlSwapView: React.FC<RdlSwapViewProps> = ({
               <ArrowRightLeft className="w-5 h-5 text-purple-400" />
               <h3 className="font-bold text-white text-sm">Instant Swap</h3>
             </div>
-            <span className="text-[11px] text-slate-400">AMM V1 • Testnet</span>
+            <span className="text-[11px] text-slate-400">AMM demo • in-memory</span>
           </div>
 
           <form onSubmit={handleSwap} className="space-y-4">
@@ -268,7 +268,7 @@ export const RdlSwapView: React.FC<RdlSwapViewProps> = ({
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500 hover:opacity-90 font-bold text-slate-950 cursor-pointer shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Zap className="w-4 h-4" />
-              <span>{isSwapping ? 'Executing Post-Quantum Swap...' : `Swap ${fromToken} to ${toToken}`}</span>
+              <span>{isSwapping ? 'Running Simulation...' : `Swap ${fromToken} to ${toToken}`}</span>
             </button>
           </form>
         </div>
@@ -278,9 +278,9 @@ export const RdlSwapView: React.FC<RdlSwapViewProps> = ({
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">
               <Layers className="w-5 h-5 text-emerald-400" />
-              <h3 className="font-bold text-white text-sm">Active AMM Liquidity Pools</h3>
+              <h3 className="font-bold text-white text-sm">Demo Liquidity Pool Fixtures</h3>
             </div>
-            <span className="text-[11px] text-emerald-400 font-bold">3 Verified Pools</span>
+            <span className="text-[11px] text-emerald-400 font-bold">3 Demo Pools</span>
           </div>
 
           <div className="space-y-3">
