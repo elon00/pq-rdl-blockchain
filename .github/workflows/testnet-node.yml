@@ -174,7 +174,7 @@ jobs:
         id: evidence_pr
         continue-on-error: true
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(evidence): update cloud validator attestation (Gate R6)"
