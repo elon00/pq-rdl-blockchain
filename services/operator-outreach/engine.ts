@@ -53,10 +53,20 @@ export class OutreachEngine {
       results.push(e);
     }
 
-    contact.stage = 'invited';
-    contact.lastContactAt = new Date().toISOString();
-    contact.updatedAt = contact.lastContactAt;
-    await this.store.upsertOperator(contact);
+    if (results.length === 0) {
+      const skipped = event(contact.id, 'email', 'invite', 'no enabled delivery channel');
+      skipped.status = 'skipped';
+      skipped.error = 'no email address and no enabled voice route';
+      await this.store.appendEvent(skipped);
+      return [skipped];
+    }
+
+    if (results.some(x => x.status === 'sent')) {
+      contact.stage = 'invited';
+      contact.lastContactAt = new Date().toISOString();
+      contact.updatedAt = contact.lastContactAt;
+      await this.store.upsertOperator(contact);
+    }
     return results;
   }
 
