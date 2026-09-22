@@ -26,7 +26,7 @@ jobs:
         run: node scripts/start-and-finish-everything.mjs
       - name: Upload verification evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qmoosa-verification-${{ github.run_number }}
           path: |

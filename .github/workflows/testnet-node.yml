@@ -163,7 +163,7 @@ jobs:
           echo "Generated evidence files in evidence/"
 
       - name: 📤 Upload Cloud Validator Evidence Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cloud-validator-evidence-${{ github.run_id }}
           path: evidence/
