@@ -2,21 +2,37 @@ import { randomUUID } from 'node:crypto';
 import { OutreachStore } from './store.ts';
 import { briefing, followUp, invitation, voiceBrief } from './templates.ts';
 import { placeCall, sendEmail } from './providers.ts';
-import type { OperatorContact, OutreachEvent } from './types.ts';
+import { getMinContactIntervalMs } from './config.ts';
+import type { DeliveryResult, OperatorContact, OutreachEvent } from './types.ts';
 
-const MIN_INTERVAL_MS = Number(process.env.OPERATOR_MIN_CONTACT_INTERVAL_HOURS || 48) * 60 * 60 * 1000;
+export class OperatorNotFoundError extends Error {
+  constructor(operatorId: string) {
+    super(`operator not found: ${operatorId}`);
+    this.name = 'OperatorNotFoundError';
+  }
+}
 
 function canContact(contact: OperatorContact): { ok: boolean; reason?: string } {
   if (!contact.consent) return { ok: false, reason: 'consent=false' };
   if (contact.stage === 'do-not-contact' || contact.stage === 'declined') return { ok: false, reason: `stage=${contact.stage}` };
-  if (contact.lastContactAt && Date.now() - Date.parse(contact.lastContactAt) < MIN_INTERVAL_MS) {
-    return { ok: false, reason: 'contact interval has not elapsed' };
+  if (contact.lastContactAt) {
+    const timestamp = Date.parse(contact.lastContactAt);
+    if (!Number.isFinite(timestamp)) return { ok: false, reason: 'invalid lastContactAt' };
+    if (Date.now() - timestamp < getMinContactIntervalMs()) {
+      return { ok: false, reason: 'contact interval has not elapsed' };
+    }
   }
   return { ok: true };
 }
 
 function event(operatorId: string, channel: OutreachEvent['channel'], kind: OutreachEvent['kind'], body: string, subject?: string): OutreachEvent {
   return { id: randomUUID(), operatorId, channel, kind, status: 'queued', body, subject, createdAt: new Date().toISOString() };
+}
+
+function applyDelivery(event: OutreachEvent, result: DeliveryResult): void {
+  event.status = result.dryRun ? 'dry-run' : (result.ok ? 'sent' : 'failed');
+  event.providerMessageId = result.providerMessageId;
+  event.error = result.error;
 }
 
 export class OutreachEngine {
@@ -35,20 +51,14 @@ export class OutreachEngine {
     if (contact.email) {
       const t = invitation(contact);
       const e = event(contact.id, 'email', 'invite', t.body, t.subject);
-      const r = await sendEmail(contact, t.subject, t.body);
-      e.status = r.ok ? 'sent' : 'failed';
-      e.providerMessageId = r.providerMessageId;
-      e.error = r.error;
+      applyDelivery(e, await sendEmail(contact, t.subject, t.body));
       await this.store.appendEvent(e);
       results.push(e);
     }
 
     if (contact.phone && process.env.OPERATOR_ENABLE_VOICE === 'true') {
       const e = event(contact.id, 'voice', 'call', voiceBrief(contact));
-      const r = await placeCall(contact, e.body);
-      e.status = r.ok ? 'sent' : 'failed';
-      e.providerMessageId = r.providerMessageId;
-      e.error = r.error;
+      applyDelivery(e, await placeCall(contact, e.body));
       await this.store.appendEvent(e);
       results.push(e);
     }
@@ -78,11 +88,8 @@ export class OutreachEngine {
       e.status = 'skipped';
       e.error = allowed.reason;
     } else {
-      const r = await sendEmail(contact, t.subject, t.body);
-      e.status = r.ok ? 'sent' : 'failed';
-      e.providerMessageId = r.providerMessageId;
-      e.error = r.error;
-      if (r.ok) {
+      applyDelivery(e, await sendEmail(contact, t.subject, t.body));
+      if (e.status === 'sent') {
         contact.stage = 'briefed';
         contact.lastContactAt = new Date().toISOString();
         contact.updatedAt = contact.lastContactAt;
@@ -101,11 +108,8 @@ export class OutreachEngine {
       e.status = 'skipped';
       e.error = allowed.reason;
     } else {
-      const r = await sendEmail(contact, t.subject, t.body);
-      e.status = r.ok ? 'sent' : 'failed';
-      e.providerMessageId = r.providerMessageId;
-      e.error = r.error;
-      if (r.ok) {
+      applyDelivery(e, await sendEmail(contact, t.subject, t.body));
+      if (e.status === 'sent') {
         contact.lastContactAt = new Date().toISOString();
         contact.updatedAt = contact.lastContactAt;
         await this.store.upsertOperator(contact);
@@ -119,12 +123,9 @@ export class OutreachEngine {
     if (process.env.OPERATOR_AUTO_REPLY !== 'true' || !contact.email || !contact.consent) return;
     const t = briefing(contact);
     const e = event(contact.id, 'email', 'response', t.body, `Re: ${t.subject}`);
-    const r = await sendEmail(contact, e.subject || t.subject, t.body);
-    e.status = r.ok ? 'sent' : 'failed';
-    e.providerMessageId = r.providerMessageId;
-    e.error = r.error;
+    applyDelivery(e, await sendEmail(contact, e.subject || t.subject, t.body));
     await this.store.appendEvent(e);
-    if (r.ok) {
+    if (e.status === 'sent') {
       contact.stage = 'briefed';
       contact.lastContactAt = new Date().toISOString();
       contact.updatedAt = contact.lastContactAt;
@@ -135,11 +136,11 @@ export class OutreachEngine {
   async recordResponse(operatorId: string, body: string): Promise<OperatorContact> {
     const state = await this.store.load();
     const contact = state.operators.find(x => x.id === operatorId);
-    if (!contact) throw new Error('operator not found');
+    if (!contact) throw new OperatorNotFoundError(operatorId);
 
     const normalized = body.toLowerCase();
-    const isOptOut = /unsubscribe|\bstop\b|do not contact|opt out/.test(normalized);
-    const isDecline = /not interested|no thanks|no thank you|decline|do not want/.test(normalized);
+    const isOptOut = /\b(?:unsubscribe|stop)\b|do not contact|opt[- ]?out/.test(normalized);
+    const isDecline = /\bnot interested\b|\bno thanks\b|\bno thank you\b|\bdecline\b|\bdo not want\b/.test(normalized);
     const isInterested = /\binterested\b|\byes\b|\bbrief\b|tell me more|run a node/.test(normalized);
 
     if (isOptOut) {
