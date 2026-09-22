@@ -119,8 +119,8 @@ jobs:
 
             echo "Observing configured remote bootstrap API (max 1 MiB response)."
             REMOTE_FILE=$(mktemp)
-            if curl --fail --silent --show-error --location --max-time 8 --max-filesize 1048576 \
-              --output "$REMOTE_FILE" "${BOOTSTRAP%/}/api/blocks" &&
+            if curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+              --max-time 8 --max-filesize 1048576 --output "$REMOTE_FILE" "${BOOTSTRAP%/}/api/blocks" &&
               REMOTE_FILE="$REMOTE_FILE" node --input-type=module -e '
                 const fs = await import("node:fs");
                 const raw = fs.readFileSync(process.env.REMOTE_FILE, "utf8");
