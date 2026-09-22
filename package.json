@@ -16,7 +16,7 @@
     "audit:crypto": "node scripts/audit-crypto.mjs",
     "reality:universal": "tsx scripts/reality-universal.ts",
     "reality:certify": "tsx scripts/generate-urs-certificate.ts",
-    "test": "npm run check:truth && npm run test:integrity && npm run test:operator && npm run test:cargo && npm run test:nist && npm run audit:crypto && npm run reality:universal && npm run build",
+    "test": "npm run check:truth && npm run test:integrity && npm run test:operator && npm run test:security && npm run test:cargo && npm run test:nist && npm run audit:crypto && npm run reality:universal && npm run build",
     "qmoosa:finish": "node scripts/qmoosa-reality-finisher.mjs",
     "rdl:finish": "node scripts/rdl-network-finisher.mjs",
     "testnet:genesis-hash": "node scripts/testnet-genesis-hash.mjs",
@@ -39,7 +39,8 @@
     "operator:brief": "tsx services/operator-outreach/cli.ts brief",
     "operator:followup": "tsx services/operator-outreach/cli.ts followup",
     "operator:response": "tsx services/operator-outreach/cli.ts response",
-    "operator:server": "tsx services/operator-outreach/server.ts"
+    "operator:server": "tsx services/operator-outreach/server.ts",
+    "test:security": "node --import tsx --test tests/runtime-security.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
