@@ -46,7 +46,7 @@ export const FaucetView: React.FC<FaucetViewProps> = ({
     }
 
     setIsDispensing(true);
-    setStatusMessage({ type: 'info', text: 'Validating Conway Proof-of-Automaton entropy and preparing post-quantum drop...' });
+    setStatusMessage({ type: 'info', text: 'Preparing local in-memory faucet simulation...' });
 
     try {
       const result = await faucetEngine.dispense(targetAddress, dropType);
@@ -56,7 +56,7 @@ export const FaucetView: React.FC<FaucetViewProps> = ({
         if (onFaucetClaimed) onFaucetClaimed(result.claim);
         setStatusMessage({
           type: 'success',
-          text: `🎉 Faucet Drop Confirmed! 50 RDL, ${result.claim.stablecoinAmount.toLocaleString()} RDL-USD, and ${result.claim.memecoinAmount.toLocaleString()} RDL-MEME credited to ${targetAddress.slice(0, 16)}... Tx: ${result.claim.txHash.slice(0, 18)}...`,
+          text: `🎉 Local faucet simulation completed for ${targetAddress.slice(0, 16)}... Receipt: ${result.claim.txHash.slice(0, 18)}... No public-testnet settlement occurred.`,
         });
       } else {
         setStatusMessage({ type: 'error', text: result.error || 'Faucet dispensation failed.' });
@@ -75,29 +75,29 @@ export const FaucetView: React.FC<FaucetViewProps> = ({
         <div className="relative z-10 space-y-3 max-w-4xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-950/80 border border-teal-500/40 text-teal-300 text-xs font-mono">
             <Droplets className="w-4 h-4 text-teal-400" />
-            <span>RDL Testnet Public Faucet Dispenser</span>
+            <span>Local Faucet Simulator</span>
           </div>
 
           <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white font-mono leading-tight">
-            Free Devnet & Testnet Faucet <br />
+            Local Token Faucet Demo <br />
             <span className="bg-gradient-to-r from-teal-400 via-cyan-300 to-amber-400 bg-clip-text text-transparent">
-              Claim Free Native RDL, RDL Stablecoin & RDL Meme Coin
+              Exercise In-Memory Token Accounting
             </span>
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed">
-            Get instant free testnet coins on <strong className="text-teal-300">RDL-TESTNET-001</strong> to pay for gas, test smart contracts, execute transfers, or experiment with Conway cellular automaton mining.
+            Generate local demonstration balances to exercise the UI and accounting logic. These values are not public-testnet assets and have no external settlement or monetary value.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono">
             <span className="px-3 py-1 rounded bg-slate-900 border border-teal-500/30 text-teal-300">
-              Chain ID: RDL-TESTNET-001
+              Candidate label: RDL-TESTNET-001 (not public)
             </span>
             <span className="px-3 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
-              Rate Limit: 1 request / 60 seconds
+              In-memory cooldown: 1 request / 60 seconds
             </span>
             <span className="px-3 py-1 rounded bg-emerald-950 border border-emerald-500/30 text-emerald-300">
-              Cost: 100% Free
+              Demo only
             </span>
           </div>
         </div>
@@ -253,7 +253,7 @@ export const FaucetView: React.FC<FaucetViewProps> = ({
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500 hover:opacity-90 font-bold text-slate-950 cursor-pointer shadow-lg shadow-teal-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Droplets className="w-4 h-4" />
-              <span>{isDispensing ? 'Dispensing Testnet Coins...' : 'Dispense Free Testnet Drop'}</span>
+              <span>{isDispensing ? 'Running Local Demo...' : 'Run Local Faucet Simulation'}</span>
             </button>
           </form>
         </div>
@@ -263,7 +263,7 @@ export const FaucetView: React.FC<FaucetViewProps> = ({
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4 font-mono text-xs">
             <h4 className="font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
               <ShieldCheck className="w-4 h-4 text-teal-400" />
-              <span>Testnet Faucet Treasury Status</span>
+              <span>Local Demo Faucet State</span>
             </h4>
 
             <div className="space-y-3">
@@ -286,7 +286,7 @@ export const FaucetView: React.FC<FaucetViewProps> = ({
             </div>
 
             <div className="p-3 rounded-xl bg-teal-950/30 border border-teal-500/20 text-[11px] text-teal-200/90 leading-relaxed">
-              💡 <strong>Proof-of-Automaton Protection</strong>: Faucet requests are backed by deterministic nonces verified through Conway's cellular automaton entropy rules to prevent Sybil bot exhaustion while keeping claims completely free.
+              💡 <strong>Cooldown behavior</strong>: This demo uses an in-memory 60-second per-address cooldown. It is not a Sybil-resistant production faucet or abuse-prevention system.
             </div>
           </div>
         </div>
@@ -296,7 +296,7 @@ export const FaucetView: React.FC<FaucetViewProps> = ({
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4 font-mono text-xs">
         <h4 className="font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
           <Clock className="w-4 h-4 text-slate-400" />
-          <span>Recent Testnet Faucet Dispensations</span>
+          <span>Recent Local Faucet Simulations</span>
         </h4>
 
         {recentClaims.length === 0 ? (
@@ -306,7 +306,7 @@ export const FaucetView: React.FC<FaucetViewProps> = ({
             <table className="w-full text-left">
               <thead>
                 <tr className="text-slate-400 border-b border-slate-800">
-                  <th className="pb-2">Tx Hash</th>
+                  <th className="pb-2">Demo Receipt</th>
                   <th className="pb-2">Recipient Address</th>
                   <th className="pb-2">Native RDL</th>
                   <th className="pb-2">RDL-USD</th>
