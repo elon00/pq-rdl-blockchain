@@ -86,10 +86,34 @@ async function startServer() {
     fs.renameSync(tempPath, LEDGER_FILE);
   };
 
+  const isFiniteNumber = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value);
+
+  const isValidPersistedBlock = (value: unknown): value is Block => {
+    if (!value || typeof value !== 'object') return false;
+    const block = value as Partial<Block>;
+    return Number.isInteger(block.height) &&
+      Number(block.height) >= 0 &&
+      typeof block.previousHash === 'string' &&
+      block.previousHash.length > 0 &&
+      typeof block.hash === 'string' &&
+      block.hash.length > 0 &&
+      isFiniteNumber(block.timestamp) &&
+      typeof block.minerAddress === 'string' &&
+      block.minerAddress.length > 0 &&
+      Array.isArray(block.transactions) &&
+      Boolean(block.miningProof && typeof block.miningProof === 'object') &&
+      Boolean(block.pqSignature && typeof block.pqSignature === 'object') &&
+      isFiniteNumber(block.quantumDifficulty) &&
+      isFiniteNumber(block.entropyIndex);
+  };
+
   let blockchain: Block[] = [];
   try {
-    const parsed = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
-    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('empty or invalid ledger');
+    const parsed: unknown = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
+    if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every(isValidPersistedBlock)) {
+      throw new Error('empty or schema-invalid ledger');
+    }
     blockchain = parsed;
     console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
   } catch (error: any) {
@@ -101,6 +125,7 @@ async function startServer() {
     console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
   }
   const mempool: Transaction[] = [];
+  let miningInProgress = false;
   const deployedContracts: SmartContract[] = [
     {
       id: 'sc_pq_escrow_001',
@@ -245,8 +270,18 @@ contract ConwayGliderYield {
     }
   });
 
-  // Mine a New Post-Quantum Conway Block
+  // Mine a New Post-Quantum Conway Block.
+  // The local prototype intentionally allows only one mining mutation at a time so
+  // concurrent requests cannot derive competing blocks from the same chain tip.
   app.post('/api/blockchain/mine', async (req, res) => {
+    if (miningInProgress) {
+      return res.status(409).json({
+        error: 'another local mining operation is already in progress',
+        retryable: true,
+      });
+    }
+
+    miningInProgress = true;
     try {
       const { minerAddress, seedGrid, algorithm } = req.body;
       const algo = algorithm || 'Dilithium2';
@@ -255,35 +290,36 @@ contract ConwayGliderYield {
       const seed = seedGrid && Array.isArray(seedGrid) ? seedGrid : generateRandomGrid(0.28);
 
       const latestBlock = blockchain[blockchain.length - 1];
+      const nextHeight = latestBlock.height + 1;
       const proof = await mineConwayBlock(seed, 15, 38);
 
-      // Confirm transactions from mempool
-      const confirmedTxs: Transaction[] = mempool.splice(0, 10).map((tx) => ({
+      // Do not remove mempool entries until the next ledger snapshot is durably written.
+      const mempoolBatch = mempool.slice(0, 10);
+      const confirmedTxs: Transaction[] = mempoolBatch.map((tx) => ({
         ...tx,
         status: 'simulated',
-        blockHeight: latestBlock.height + 1,
+        blockHeight: nextHeight,
       }));
 
-      // Add mining reward transaction
       const rewardTx: Transaction = {
-        txHash: `0xreward_${await sha256Hex(`REWARD_${latestBlock.height + 1}_${Date.now()}`)}`,
+        txHash: `0xreward_${await sha256Hex(`REWARD_${nextHeight}_${Date.now()}`)}`,
         senderAddress: 'pq1q00000000000000000000000000000000000000',
         receiverAddress: minerAddress || minerKeypair.address,
-        amount: 50, // 50 QBits reward
+        amount: 50,
         fee: 0,
         algorithm: algo,
-        signatureHex: `REWARD_BLOCK_${latestBlock.height + 1}_SIG`,
+        signatureHex: `REWARD_BLOCK_${nextHeight}_SIG`,
         timestamp: Date.now(),
         status: 'simulated',
-        blockHeight: latestBlock.height + 1,
+        blockHeight: nextHeight,
       };
 
       confirmedTxs.unshift(rewardTx);
 
-      const signature = await signPQPayload(`BLOCK_${latestBlock.height + 1}_${proof.hash}`, minerKeypair);
+      const signature = await signPQPayload(`BLOCK_${nextHeight}_${proof.hash}`, minerKeypair);
 
       const newBlock: Block = {
-        height: latestBlock.height + 1,
+        height: nextHeight,
         previousHash: latestBlock.hash,
         hash: proof.hash,
         timestamp: Date.now(),
@@ -295,16 +331,23 @@ contract ConwayGliderYield {
         entropyIndex: proof.entropyScore,
       };
 
-      blockchain.push(newBlock);
-      try {
-        persistLedger(blockchain);
-      } catch (e) {
-        console.error('Failed to persist block to disk:', e);
-      }
+      const nextChain = [...blockchain, newBlock];
+      persistLedger(nextChain);
+      blockchain = nextChain;
+      mempool.splice(0, mempoolBatch.length);
 
-      res.json({ success: true, block: newBlock, chainHeight: blockchain.length, persistedOnDisk: true, statusNote: 'Block mined with Conway cellular automata and persisted to disk ledger.' });
+      res.json({
+        success: true,
+        block: newBlock,
+        chainHeight: blockchain.length,
+        persistedOnDisk: true,
+        statusNote: 'Block mined with Conway cellular automata and atomically persisted to the local disk ledger.',
+      });
     } catch (err: any) {
+      console.error('Block mining failed:', err);
       res.status(500).json({ error: err.message || 'Block mining failed' });
+    } finally {
+      miningInProgress = false;
     }
   });
 
