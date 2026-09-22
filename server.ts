@@ -75,7 +75,7 @@ async function startServer() {
           signatureHex: genesisSignature.signatureHex,
           conwayStatePayload: 'LOCAL_PROTOTYPE_GENESIS',
           timestamp,
-          status: 'confirmed',
+          status: 'simulated',
           blockHeight: 0,
         },
       ],
@@ -263,7 +263,7 @@ contract ConwayGliderYield {
       // Confirm transactions from mempool
       const confirmedTxs: Transaction[] = mempool.splice(0, 10).map((tx) => ({
         ...tx,
-        status: 'confirmed',
+        status: 'simulated',
         blockHeight: latestBlock.height + 1,
       }));
 
@@ -277,7 +277,7 @@ contract ConwayGliderYield {
         algorithm: algo,
         signatureHex: `REWARD_BLOCK_${latestBlock.height + 1}_SIG`,
         timestamp: Date.now(),
-        status: 'confirmed',
+        status: 'simulated',
         blockHeight: latestBlock.height + 1,
       };
 
