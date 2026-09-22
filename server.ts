@@ -305,15 +305,11 @@ contract ConwayGliderYield {
     }
   });
 
-  // Generate PQ Keypair
-  app.post('/api/quantum/generate-keypair', async (req, res) => {
-    try {
-      const { algorithm, seedPhrase } = req.body;
-      const keypair = await generatePQKeypair(algorithm || 'Dilithium2', seedPhrase);
-      res.json(keypair);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
+  // Secret keys must never be generated or returned by the server.
+  app.post('/api/quantum/generate-keypair', (_req, res) => {
+    return res.status(410).json({
+      error: 'server-side key generation is disabled; generate ML-DSA keys locally in a trusted client'
+    });
   });
 
   // Verify PQ Signature
