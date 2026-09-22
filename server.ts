@@ -134,6 +134,7 @@ async function startServer() {
     console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
   }
   const mempool: Transaction[] = [];
+  let miningInProgress = false;
   const deployedContracts: SmartContract[] = [
     {
       id: 'sc_pq_escrow_001',
@@ -278,8 +279,18 @@ contract ConwayGliderYield {
     }
   });
 
-  // Mine a New Post-Quantum Conway Block
+  // Mine a New Post-Quantum Conway Block.
+  // Local mining mutations are serialized so concurrent requests cannot derive
+  // competing blocks from the same chain tip.
   app.post('/api/blockchain/mine', async (req, res) => {
+    if (miningInProgress) {
+      return res.status(409).json({
+        error: 'another local mining operation is already in progress',
+        retryable: true,
+      });
+    }
+
+    miningInProgress = true;
     try {
       const { minerAddress, seedGrid, algorithm } = req.body;
       const algo = algorithm || 'Dilithium2';
@@ -288,35 +299,36 @@ contract ConwayGliderYield {
       const seed = seedGrid && Array.isArray(seedGrid) ? seedGrid : generateRandomGrid(0.28);
 
       const latestBlock = blockchain[blockchain.length - 1];
+      const nextHeight = latestBlock.height + 1;
       const proof = await mineConwayBlock(seed, 15, 38);
 
-      // Confirm transactions from mempool
-      const confirmedTxs: Transaction[] = mempool.splice(0, 10).map((tx) => ({
+      // Read but do not remove mempool entries until persistence succeeds.
+      const mempoolBatch = mempool.slice(0, 10);
+      const confirmedTxs: Transaction[] = mempoolBatch.map((tx) => ({
         ...tx,
         status: 'simulated',
-        blockHeight: latestBlock.height + 1,
+        blockHeight: nextHeight,
       }));
 
-      // Add mining reward transaction
       const rewardTx: Transaction = {
-        txHash: `0xreward_${await sha256Hex(`REWARD_${latestBlock.height + 1}_${Date.now()}`)}`,
+        txHash: `0xreward_${await sha256Hex(`REWARD_${nextHeight}_${Date.now()}`)}`,
         senderAddress: 'pq1q00000000000000000000000000000000000000',
         receiverAddress: minerAddress || minerKeypair.address,
-        amount: 50, // 50 QBits reward
+        amount: 50,
         fee: 0,
         algorithm: algo,
-        signatureHex: `REWARD_BLOCK_${latestBlock.height + 1}_SIG`,
+        signatureHex: `REWARD_BLOCK_${nextHeight}_SIG`,
         timestamp: Date.now(),
         status: 'simulated',
-        blockHeight: latestBlock.height + 1,
+        blockHeight: nextHeight,
       };
 
       confirmedTxs.unshift(rewardTx);
 
-      const signature = await signPQPayload(`BLOCK_${latestBlock.height + 1}_${proof.hash}`, minerKeypair);
+      const signature = await signPQPayload(`BLOCK_${nextHeight}_${proof.hash}`, minerKeypair);
 
       const newBlock: Block = {
-        height: latestBlock.height + 1,
+        height: nextHeight,
         previousHash: latestBlock.hash,
         hash: proof.hash,
         timestamp: Date.now(),
@@ -336,6 +348,8 @@ contract ConwayGliderYield {
         throw new Error(`failed to persist new block: ${error instanceof Error ? error.message : String(error)}`);
       }
 
+      mempool.splice(0, mempoolBatch.length);
+
       res.json({
         success: true,
         block: newBlock,
@@ -345,6 +359,8 @@ contract ConwayGliderYield {
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Block mining failed' });
+    } finally {
+      miningInProgress = false;
     }
   });
 
