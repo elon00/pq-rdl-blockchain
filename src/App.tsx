@@ -30,7 +30,7 @@ const INITIAL_GENESIS_BLOCK: Block = {
       signatureHex: 'DEMO_FIXTURE_NOT_A_CRYPTOGRAPHIC_SIGNATURE',
       conwayStatePayload: 'GENESIS_QUANTUM_PATTERNS',
       timestamp: 1726400000000,
-      status: 'confirmed',
+      status: 'simulated',
       blockHeight: 0,
     },
   ],
