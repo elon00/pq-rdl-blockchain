@@ -17,7 +17,12 @@ function collectSourceFiles(root) {
   return result;
 }
 
-const scanFiles = ["README.md", "server.ts", ...collectSourceFiles("src")];
+const scanFiles = [
+  "README.md",
+  "server.ts",
+  ...collectSourceFiles("src"),
+  ...collectSourceFiles("services"),
+];
 const forbidden = [
   { pattern: /activeNodes\s*:\s*148\b/, reason: "hard-coded active-node metric" },
   { pattern: /tps\s*:\s*1840\b/, reason: "hard-coded TPS metric" },
@@ -25,7 +30,15 @@ const forbidden = [
   { pattern: /(?:NIST\s+Level\s*[0-9]|security\s+level)\b[^\n]{0,120}CRYSTALS-Dilithium/i, reason: "unsupported legacy PQC security claim" },
   { pattern: /\b(?:[1-9][0-9]{2,}|[1-9][0-9]{3,})\s*(?:TPS|transactions?\s+per\s+second)\b/i, reason: "unsupported measured TPS claim" },
   { pattern: /\b(?:[1-9][0-9]{2,})\s+(?:active\s+nodes?|validators?)\b/i, reason: "unsupported live-node count" },
-  { pattern: /\b(?:[1-9][0-9]?\.?[0-9]*)\s*QFLOPS\b/i, reason: "unsupported network hashrate claim" }
+  { pattern: /\b(?:[1-9][0-9]?\.?[0-9]*)\s*QFLOPS\b/i, reason: "unsupported network hashrate claim" },
+  { pattern: /\b1840\s*TPS\b/i, reason: "fabricated TPS fallback" },
+  { pattern: /\b3\s+Verified\s+Pools\b/i, reason: "synthetic pools presented as verified" },
+  { pattern: /Confirmed\s+on\s+[`'"]?RDL-TESTNET-001/i, reason: "local simulation presented as public-testnet settlement" },
+  { pattern: /Transaction\s+propagated\s+to\s+100%[^\n]{0,80}184ms/i, reason: "synthetic propagation metric" },
+  { pattern: /TLS\s+Handshake[^\n]{0,80}PASS/i, reason: "plaintext authenticated transport presented as TLS" },
+  { pattern: /Security\s+Guarantee\s*:/i, reason: "unaudited cryptographic implementation presented as a guarantee" },
+  { pattern: /status\s*:\s*['"]CONFIRMED['"]/i, reason: "in-memory simulation state presented as confirmed settlement" },
+  { pattern: /\bPUBLIC\s+TESTNET\s+VERIFIED\b/i, reason: "public-testnet claim requires independent deployment evidence" }
 ];
 
 let failed = false;

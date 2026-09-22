@@ -43,7 +43,7 @@ async function runRealityEngine() {
     'Claim Freeze & Manifest Registration',
     manifestExists,
     manifestExists ? 1.0 : 0.0,
-    manifestExists ? 'Audited Manifest: Registered subsystems with explicit truth taxonomy' : 'Missing REALITY_MANIFEST.json'
+    manifestExists ? 'Manifest present with explicit prototype/production boundaries' : 'Missing REALITY_MANIFEST.json'
   );
 
   // Gate 2: Simulation Scanner
@@ -126,25 +126,35 @@ async function runRealityEngine() {
     'NIST FIPS 203 ML-KEM-768 & §7.3 Implicit Rejection',
     gate7Ok,
     gate7Ok ? 1.0 : 0.0,
-    gate7Ok ? 'ML-KEM-768 KEX converged (1184B pk, 1088B ct, 32B ss); FIPS 203 §7.3 leaks 0 oracle bits' : 'KEM operations failed'
+    gate7Ok ? 'ML-KEM-768 round-trip succeeded and a tampered ciphertext produced a different 32-byte decapsulation result' : 'KEM operations failed'
   );
 
-  // Gate 8: Consensus Engine & Devnet Health
+  // Gate 8: Consensus source registration.
+  // The full cargo test/clippy/fmt suite is enforced separately by repository CI.
+  const rustWorkspacePresent =
+    fs.existsSync(path.resolve(process.cwd(), 'Cargo.toml')) &&
+    fs.existsSync(path.resolve(process.cwd(), 'crates/rdl-node/src/main.rs')) &&
+    fs.existsSync(path.resolve(process.cwd(), 'crates/rdl-types/src/lib.rs'));
   recordGate(
     8,
-    'RDL Native Node Consensus Health (Rust Crates)',
-    true,
-    1.0,
-    'crates/rdl-node and crates/rdl-types verified via cargo test (8/8 unit tests passed)'
+    'RDL Native Consensus Source Registration',
+    rustWorkspacePresent,
+    rustWorkspacePresent ? 1.0 : 0.0,
+    rustWorkspacePresent
+      ? 'Rust workspace and consensus/type crates are present; CI separately executes cargo fmt/check/test/clippy'
+      : 'Rust consensus workspace files are missing'
   );
 
-  // Gate 9: Reproducibility & KAT Vector Verification
+  // Gate 9: Internal reproducibility profile derived from checks actually run above.
+  const reproducibilityOk = gate5Ok && gate7Ok && addrOk && commitOk;
   recordGate(
     9,
-    'Reproducibility & NIST/RFC Test Vector Verification',
-    true,
-    1.0,
-    'RFC 5869, SHA-256, FIPS 203 & FIPS 204 KAT invariants verified'
+    'Internal Cryptographic Reproducibility Profile',
+    reproducibilityOk,
+    reproducibilityOk ? 1.0 : 0.0,
+    reproducibilityOk
+      ? 'Current-process ML-DSA, ML-KEM, address and commitment invariants reproduced'
+      : 'One or more internal cryptographic invariants failed'
   );
 
   // Gate 10: Multiplicative Reality & Universal 10/10 Law Calculation
@@ -165,7 +175,8 @@ async function runRealityEngine() {
   console.log(`  Total Reality Gates:       ${results.filter((r) => r.passed).length} / 10 PASSED`);
   console.log(`  Weakest-Link Gate Score:   ${u10Score.toFixed(1)} / 10`);
   console.log(`  Universal 10/10 Law:       ${allPassed ? 'PASSED (Internal Profile)' : 'FAILED'}`);
-  console.log('  URS Verdict:               🟢 EVIDENCE-BASED PQC PROTOCOL VERIFIED');
+  console.log(`  URS Verdict:               ${allPassed ? 'INTERNAL IMPLEMENTATION CHECKS PASSED' : 'INTERNAL CHECKS FAILED'}`);
+  console.log('  External Boundary:         NOT an audit, Public Testnet verification, or production certification');
 
   const outDir = path.resolve(process.cwd(), 'reality');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });

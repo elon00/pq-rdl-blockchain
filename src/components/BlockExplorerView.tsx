@@ -42,13 +42,13 @@ export const BlockExplorerView: React.FC<BlockExplorerViewProps> = ({ blocks }) 
         <div>
           <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-semibold">
             <Boxes className="w-4 h-4 text-cyan-400" />
-            <span>Immutable Post-Quantum Ledger</span>
+            <span>Local Prototype Ledger</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold font-mono text-white">
             Web 4.0 Block Explorer
           </h2>
           <p className="text-slate-400 text-xs">
-            Inspect post-quantum block signatures, transactions, and Conway automaton cell states.
+            Inspect local prototype block fixtures, signatures, transactions, and Conway automaton cell states. Public-network immutability is not implied.
           </p>
         </div>
 
@@ -177,7 +177,7 @@ export const BlockExplorerView: React.FC<BlockExplorerViewProps> = ({ blocks }) 
 
                       {/* Transaction Ledger Table inside Block */}
                       <div className="space-y-2">
-                        <div className="text-slate-300 font-bold">Confirmed Transactions ({block.transactions.length}):</div>
+                        <div className="text-slate-300 font-bold">Local Block Transactions ({block.transactions.length}):</div>
                         <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-x-auto">
                           <table className="w-full text-left text-[11px]">
                             <thead>

@@ -37,7 +37,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
   const [burnRate, setBurnRate] = useState<number>(1.5);
   const [memeLore, setMemeLore] = useState<string>('Deflationary quantum automaton meme coin powered by Conway living lattices.');
   
-  // Transfer / Mint / Faucet states
+  // Simulate Transfer / Mint / Faucet states
   const [selectedTokenForTransfer, setSelectedTokenForTransfer] = useState<Token | null>(null);
   const [transferRecipient, setTransferRecipient] = useState<string>('');
   const [transferAmount, setTransferAmount] = useState<number>(100);
@@ -92,7 +92,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
     if (onTokenDeployed) onTokenDeployed(newToken);
     setStatusMessage({
       type: 'success',
-      text: `🚀 Token ${newToken.symbol} (${newToken.name}) deployed successfully on RDL Testnet! Contract: ${newToken.contractAddress}`,
+      text: `🧪 Token ${newToken.symbol} (${newToken.name}) created in the local demo registry. Demo identifier: ${newToken.contractAddress}`,
     });
   };
 
@@ -110,7 +110,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
       const burnNote = result.burnedAmount ? ` (${result.burnedAmount} ${token.symbol} burned via Conway deflation)` : '';
       setStatusMessage({
         type: 'success',
-        text: `✅ Transferred ${result.transferredAmount} ${token.symbol} to ${transferRecipient.slice(0, 14)}...${burnNote}`,
+        text: `✅ Local accounting simulation transferred ${result.transferredAmount} ${token.symbol} to ${transferRecipient.slice(0, 14)}...${burnNote}`,
       });
       setSelectedTokenForTransfer(null);
     } else {
@@ -118,7 +118,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
     }
   };
 
-  // Claim Faucet
+  // Demo Faucet
   const handleClaimFaucet = (token: Token) => {
     const recipient = activeWallet ? activeWallet.address : 'pq1dil2genesis00000000000000000000000000000';
     const amountToClaim = token.type === 'STABLECOIN' ? 1000 : 10000000;
@@ -128,7 +128,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
       refreshTokens();
       setStatusMessage({
         type: 'success',
-        text: `🎉 Faucet Claimed! ${result.amountClaimed.toLocaleString()} ${token.symbol} deposited to ${recipient.slice(0, 14)}...`,
+        text: `🎉 Local demo faucet updated ${result.amountClaimed.toLocaleString()} ${token.symbol} for ${recipient.slice(0, 14)}...`,
       });
     } else {
       setStatusMessage({ type: 'error', text: result.error || 'Faucet claim failed.' });
@@ -144,7 +144,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
       refreshTokens();
       setStatusMessage({
         type: 'success',
-        text: `💎 Minted ${mintAmount.toLocaleString()} new ${token.symbol}! New total supply: ${result.newTotalSupply?.toLocaleString()}`,
+        text: `🧪 Local demo mint updated ${token.symbol}; demo total supply: ${result.newTotalSupply?.toLocaleString()}`,
       });
     } else {
       setStatusMessage({ type: 'error', text: result.error || 'Minting failed.' });
@@ -171,10 +171,10 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
     setTimeout(() => {
       let replyText = '';
       if (/stable|usdt|usdc|peg|dollar|euro|gold/i.test(prompt)) {
-        replyText = `[${selectedAiModel}] For an RDL Post-Quantum Sovereign Stablecoin:
-• Backing Architecture: Dilithium-authenticated algorithmic treasury escrow.
-• Reserve Oracle: Automated pricing peg at $1.00 USD with Conway Shannon entropy dampening.
-• Unlimited/Dynamic Minting: Enabled via collateral deposits into the post-quantum vault.`;
+        replyText = `[${selectedAiModel}] For a prototype stablecoin design exercise:
+• Demo Architecture: configurable in-memory treasury/accounting fields; no external reserves are proven.
+• Demo Peg Parameter: configurable $1.00 reference value; no production oracle is connected.
+• Demo Minting: local state can model dynamic supply; no collateral-deposit verification is implemented.`;
         setSelectedTokenType('STABLECOIN');
         setTokenName('Quantum Global USD');
         setTokenSymbol('QUSD');
@@ -185,7 +185,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
         replyText = `[${selectedAiModel}] For a Web 4.0 Conway Cellular Automaton Meme Coin:
 • Viral Deflation: 2.5% burn rate on every peer transfer.
 • Living Tokenomics: Supply contractions tied to Conway B3/S23 pulsar & glider generation.
-• Lattice Defense: Zero vulnerability to Shor's quantum factoring attack.`;
+• PQC Note: ML-DSA is designed for post-quantum security assumptions; this demo is not an independent security proof.`;
         setSelectedTokenType('MEMECOIN');
         setTokenName('Super Quantum Glider');
         setTokenSymbol('GLIDER');
@@ -193,7 +193,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
         setIsUnlimitedSupply(false);
         setBurnRate(2.5);
       } else {
-        replyText = `[${selectedAiModel}] Analyzed request for "${prompt}". The RDL-20 Token Standard implements post-quantum lattice invariants with optional Conway cellular automaton evolution. You can deploy this token directly below with one click.`;
+        replyText = `[${selectedAiModel}] Analyzed request for "${prompt}". The RDL-20 Token Standard implements post-quantum lattice invariants with optional Conway cellular automaton evolution. You can configure this token in the local demo registry below.`;
       }
 
       setChatHistory((prev) => [
@@ -217,19 +217,19 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
         <div className="relative z-10 space-y-3 max-w-4xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-xs font-mono">
             <Coins className="w-4 h-4 text-cyan-400" />
-            <span>Web 4.0 Token Launchpad & Multi-Model AI Agentics Hub</span>
+            <span>Token Design & Accounting Simulation Lab</span>
           </div>
 
           <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white font-mono leading-tight">
-            Post-Quantum Token Launchpad <br />
+            Prototype Token Lab <br />
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-amber-400 bg-clip-text text-transparent">
               Stablecoins, Unlimited-Supply Meme Coins & Conway Automaton AI
             </span>
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed">
-            Deploy RDL-20 post-quantum tokens on the <strong className="text-cyan-300">RDL-TESTNET-001</strong> blockchain.
-            Architect sovereign <strong className="text-emerald-400">Algorithmic Stablecoins</strong> pegged to real-world assets or launch high-velocity <strong className="text-amber-400">Cellular Deflationary Meme Coins</strong> with living Conway automaton mechanics.
+            Create in-memory token/accounting fixtures for UI and invariant testing.
+            Stablecoin peg, reserve, mint, burn, and Conway parameters on this screen are simulation fields and do not prove backing, deployment, or market value.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono">
@@ -527,7 +527,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
               className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:opacity-90 font-bold text-slate-950 cursor-pointer shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2"
             >
               <Zap className="w-4 h-4" />
-              <span>Deploy Token to RDL Testnet (Lattice Verified)</span>
+              <span>Create Token in Local Demo Registry</span>
             </button>
           </form>
         </div>
@@ -540,11 +540,11 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
             <div className="flex items-center gap-2">
               <Coins className="w-5 h-5 text-amber-400" />
               <h3 className="font-bold text-white font-mono text-base">
-                Active Testnet Tokens & Sovereign Assets ({tokens.length})
+                Local Demo Token Fixtures ({tokens.length})
               </h3>
             </div>
             <p className="text-slate-400 font-mono text-xs">
-              Live RDL-20 tokens deployed with deterministic state tracking on chain ID <span className="text-cyan-400">RDL-TESTNET-001</span>.
+              In-memory token fixtures for deterministic accounting tests. They are not deployed public-network assets.
             </p>
           </div>
           <button
@@ -597,12 +597,12 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
                   {token.type === 'STABLECOIN' && (
                     <>
                       <div className="flex justify-between text-slate-400">
-                        <span>Pegged Asset:</span>
+                        <span>Demo Peg Parameter:</span>
                         <span className="text-emerald-400 font-bold">{token.pegCurrency} (${token.oraclePriceUsd?.toFixed(2)})</span>
                       </div>
                       <div className="flex justify-between text-slate-400">
-                        <span>Reserve Ratio:</span>
-                        <span className="text-emerald-300 font-bold">{token.reserveRatio ?? 100}% Backed</span>
+                        <span>Configured Demo Reserve Ratio:</span>
+                        <span className="text-emerald-300 font-bold">{token.reserveRatio ?? 100}%</span>
                       </div>
                     </>
                   )}
@@ -654,7 +654,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
                     onClick={() => handleMint(token)}
                     className="w-full py-1 rounded bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/30 text-purple-300 text-[10px] cursor-pointer"
                   >
-                    + Mint 50,000 More (Unlimited Supply)
+                    + Simulate Mint 50,000
                   </button>
                 )}
               </div>
@@ -714,7 +714,7 @@ export const TokenLaunchpadView: React.FC<TokenLaunchpadViewProps> = ({
                 onClick={() => handleTransfer(selectedTokenForTransfer)}
                 className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold cursor-pointer"
               >
-                Sign & Execute Transfer (Dilithium2)
+                Apply Local Accounting Transfer
               </button>
             </div>
           </div>

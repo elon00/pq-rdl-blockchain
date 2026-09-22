@@ -30,30 +30,24 @@ export const DeveloperView: React.FC = () => {
     setTimeout(() => setCopiedSnippet(null), 2000);
   };
 
-  const tsCode = `import { mlDsaEngine } from './crypto/pqc/ml-dsa';
-import { rdlHybridSigner } from './crypto/rdl/rdl-hybrid-signer';
+  const tsCode = `import { generatePQKeypair, signPQPayload, verifyPQSignature } from './src/lib/pqCrypto';
 
-// 1. Generate NIST FIPS 204 ML-DSA-65 Keypair
-const keypair = mlDsaEngine.keygen();
-console.log('Public Key (1,952 bytes):', keypair.publicKeyHex);
+// Local ML-DSA-65 demonstration. Secret keys stay in this process/browser.
+const keypair = await generatePQKeypair('Dilithium2');
+const payload = 'RDL_LOCAL_SIGNATURE_DEMO';
+const signature = await signPQPayload(payload, keypair);
+const valid = await verifyPQSignature(payload, signature, keypair.publicKeyHex);
+console.log({ address: keypair.address, valid });
 
-// 2. Sign Transaction with Dual Hybrid Conjunction (Ed25519 + ML-DSA-65)
-const message = new TextEncoder().encode('RDL_TRANSFER_50_COINS');
-const hybridSig = rdlHybridSigner.signTransaction(message, edPrivKey, keypair.secretKey);
+// Public-network transaction submission is intentionally disabled until
+// server-side authorization/signature validation and deployment evidence exist.`;
 
-// 3. Broadcast to RDL Testnet RPC
-const response = await fetch('https://elon00.github.io/pq-rdl-blockchain/api/blockchain/transaction', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ sender: keypair.commitmentHash, signature: hybridSig }),
-});`;
-
-  const curlCode = `# Claim Free Testnet Coins (50 RDL + 1,000 rUSD + 10M RLD)
+  const curlCode = `# Run local faucet simulation (no public-network assets)
 curl -X POST http://localhost:3000/api/faucet/dispense \\
   -H "Content-Type: application/json" \\
   -d '{"recipientAddress":"pq1dil2testnet0000000000000000000000000000","dropType":"ALL"}'
 
-# Query Chain Status & Genesis Hash
+# Query local prototype status
 curl http://localhost:3000/api/blockchain/status`;
 
   const qualifyWinCode = `:: Windows Double-Click (Novice 1-Click Execution)
@@ -64,16 +58,16 @@ curl http://localhost:3000/api/blockchain/status`;
 # Or via npm:
 npm run qualify:testnet`;
 
-  const gcpCode = `# 1-Click Google Cloud Shell Launch (Zero Cost / Free VM)
+  const gcpCode = `# Google Cloud Shell prototype launch (provider terms/billing may apply)
 git clone https://github.com/elon00/pq-rdl-blockchain.git
 cd pq-rdl-blockchain
 ./deploy/cloudshell-direct-node.sh`;
 
-  const tgCode = `# Start Telegram Cloud Node & Faucet Controller
+  const tgCode = `# Start Telegram demo bot
 export TELEGRAM_BOT_TOKEN="YOUR_BOT_FATHER_TOKEN"
 npm run telegram:bot`;
 
-  const dockerCode = `# Launch 3-Node BFT Testnet Cluster + RPC + Telegram Bot
+  const dockerCode = `# Launch local 3-node devnet/testnet-candidate stack + web UI + Telegram demo bot
 npm run testnet:cluster`;
 
   return (
@@ -83,35 +77,35 @@ npm run testnet:cluster`;
         <div className="relative z-10 space-y-3 max-w-4xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-xs font-mono">
             <Terminal className="w-4 h-4 text-cyan-400" />
-            <span>RDL Developer Platform & JSON-RPC Gateway</span>
+            <span>PQ-RDL Prototype Developer Surface</span>
           </div>
 
           <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white font-mono leading-tight">
             Developer Documentation & APIs <br />
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-purple-400 bg-clip-text text-transparent">
-              Build on Web 4.0 Post-Quantum Conway Blockchain
+              Build & Test the PQ-RDL Prototype
             </span>
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed font-sans">
-            Comprehensive JSON-RPC endpoints, 1-Click Testnet Qualifier, Google Cloud deployment, GitHub Actions cloud runners, Telegram Bot node controllers, and NIST FIPS 203/204 wire invariants for <strong className="text-cyan-300">RDL-TESTNET-001</strong>.
+            Local prototype APIs, CI qualification tooling, cloud deployment examples, a Telegram simulation bot, and FIPS 203/204 algorithm invariants. Public Testnet is not verified.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
             <span className="px-3 py-1 rounded bg-slate-900 border border-cyan-500/30 text-cyan-300">
-              Chain ID: RDL-TESTNET-001
+              Candidate Chain Label: RDL-TESTNET-001
             </span>
             <span className="px-3 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
               Genesis SHA-256: d1ba8eb5003434c0...
             </span>
             <span className="px-3 py-1 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300 font-bold">
-              Status: 🟡 PUBLIC TESTNET CANDIDATE (CI Multi-Node Qualified)
+              Status: 🟡 LOCAL/CI DEVNET VERIFIED — PUBLIC TESTNET NOT VERIFIED
             </span>
           </div>
         </div>
       </div>
 
-      {/* 1-Click Testnet Live Qualifier & Reality Evidence Section */}
+      {/* 1-Click Local/CI Qualification & Evidence Section */}
       <div className="bg-gradient-to-br from-slate-900 via-emerald-950/20 to-slate-950 border border-emerald-500/30 rounded-2xl p-6 space-y-4 shadow-xl shadow-emerald-950/20">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/20 pb-4">
           <div className="flex items-center gap-3">
@@ -120,13 +114,13 @@ npm run testnet:cluster`;
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-white font-bold text-base">1-Click Testnet Qualification Pipeline</h3>
+                <h3 className="text-white font-bold text-base">1-Click Local/CI Qualification Pipeline</h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500/30">
                   Bountyhunter OS CI Baseline
                 </span>
               </div>
               <p className="text-slate-400 text-xs mt-0.5">
-                Novice-friendly 1-click execution: multi-node boot, P2P handshake, real PQ tx, block mining, 3-node state sync & disk crash recovery. External multi-cloud nodes required for full public verification.
+                Local/CI checks cover multi-node boot, authenticated peer exchange, signed transactions, block/state flows, synchronization, and recovery. These checks do not establish independent public-testnet operation.
               </p>
             </div>
           </div>
@@ -134,7 +128,7 @@ npm run testnet:cluster`;
           <div className="flex items-center gap-2">
             <span className="px-3 py-1.5 rounded-lg bg-amber-950/80 border border-amber-500/50 text-amber-300 font-bold text-xs flex items-center gap-1.5">
               <Check className="w-4 h-4 text-amber-400" />
-              <span>TESTNET CANDIDATE (CI QUALIFIED)</span>
+              <span>LOCAL/CI DEVNET CHECKS</span>
             </span>
           </div>
         </div>
@@ -143,13 +137,13 @@ npm run testnet:cluster`;
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
           {[
             { step: '1. Multi-Node', desc: 'Nodes 1, 2, 3 Boot', status: 'PASS' },
-            { step: '2. TLS Handshake', desc: 'Mutual Challenge Auth', status: 'PASS' },
+            { step: '2. Peer Auth', desc: 'Signed Challenge Auth (plaintext transport)', status: 'PASS' },
             { step: '3. Dual Hybrid Tx', desc: 'Ed25519 ∧ ML-DSA-65', status: 'PASS' },
             { step: '4. PoA Mining', desc: 'Conway Entropy Matrix', status: 'PASS' },
             { step: '5. P2P State Sync', desc: '3 Nodes Converged', status: 'PASS' },
             { step: '6. Crash Recovery', desc: 'Persistent Disk Check', status: 'PASS' },
-            { step: '7. Evidence Bundle', desc: '5 Audited JSON Files', status: 'PASS' },
-            { step: '8. Reality Gate', desc: 'QMoosa Certified', status: 'PASS' },
+            { step: '7. Evidence Bundle', desc: 'Generated Local Evidence JSON', status: 'PASS' },
+            { step: '8. Reality Gate', desc: 'Local CI Gate', status: 'PASS' },
           ].map((s) => (
             <div key={s.step} className="p-3 bg-slate-950/80 rounded-xl border border-emerald-500/20 space-y-1">
               <div className="flex items-center justify-between text-[11px]">
@@ -245,12 +239,12 @@ npm run testnet:cluster`;
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-cyan-400 font-bold text-sm">
                 <Cloud className="w-4 h-4" />
-                <span>Google Cloud (GCP)</span>
+                <span>Google Cloud Deployment Example</span>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-500/30">Always Free</span>
+              <span className="px-2 py-0.5 rounded text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-500/30">Provider-dependent</span>
             </div>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              Deploy on Google Cloud Shell (100% free with Cloudflare Edge tunnel) or provision an Always-Free <code className="text-cyan-300">e2-micro</code> GCE instance via Terraform.
+              Use Cloud Shell or a VM as a prototype deployment target. Availability, billing, quotas, and external tunnel behavior depend on the cloud provider and your account.
             </p>
             <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-cyan-300 overflow-x-auto text-[10px]">
               {gcpCode}
@@ -271,12 +265,12 @@ npm run testnet:cluster`;
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
                 <Github className="w-4 h-4" />
-                <span>GitHub Cloud Nodes</span>
+                <span>GitHub CI Validators</span>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] bg-purple-950 text-purple-300 border border-purple-500/30">Actions & Codespaces</span>
             </div>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              Run automated cloud consensus rounds via GitHub Actions runner (<code className="text-purple-300">testnet-node.yml</code>) or launch a 1-click cloud validator in Codespaces.
+              Run ephemeral CI validator checks via GitHub Actions or use Codespaces for interactive development. These are not independently administered public validators.
             </p>
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2 text-[10px] text-slate-300">
               <div>• <strong>Workflow</strong>: <code className="text-purple-300">.github/workflows/testnet-node.yml</code></div>
@@ -306,7 +300,7 @@ npm run testnet:cluster`;
               <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/30">Bot API</span>
             </div>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              Control nodes, claim faucet drops (<code className="text-emerald-300">/faucet</code>), mine Conway blocks (<code className="text-emerald-300">/mine</code>), and query balances directly from Telegram.
+              Run Telegram demo commands for local faucet/accounting and Conway proof simulations. The bot does not prove public-chain settlement or validator control.
             </p>
             <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-emerald-300 overflow-x-auto text-[10px]">
               {tgCode}
@@ -340,11 +334,11 @@ npm run testnet:cluster`;
             {[
               { method: 'GET', path: '/api/blockchain/status', desc: 'Returns block height, latest hash, quantum difficulty, and entropy.' },
               { method: 'GET', path: '/api/blockchain/blocks', desc: 'Returns full block history with Conway automaton mining proofs.' },
-              { method: 'POST', path: '/api/blockchain/transaction', desc: 'Submit post-quantum signed transaction to mempool.' },
-              { method: 'POST', path: '/api/blockchain/mine', desc: 'Mine next block solving Conway entropy matrix generation.' },
+              { method: 'POST', path: '/api/blockchain/transaction', desc: 'Production submission is disabled until server-side authorization/signature verification is enforced.' },
+              { method: 'POST', path: '/api/blockchain/mine', desc: 'Run a local prototype block-generation simulation (production mutations disabled by default).' },
               { method: 'GET', path: '/api/tokens', desc: 'List all RDL-20 tokens (rUSD, RLD, and custom tokens).' },
-              { method: 'POST', path: '/api/tokens/create', desc: 'Deploy new Stablecoin or Meme Coin with optional unlimited supply.' },
-              { method: 'POST', path: '/api/faucet/dispense', desc: 'Dispense free testnet coins (RDL, rUSD, RLD) with cooldown.' },
+              { method: 'POST', path: '/api/tokens/create', desc: 'Create a local demo token/accounting fixture (production mutations disabled by default).' },
+              { method: 'POST', path: '/api/faucet/dispense', desc: 'Run local demo faucet accounting with an in-memory cooldown.' },
               { method: 'GET', path: '/api/faucet/status', desc: 'Query faucet reserves and recent dispensation telemetry.' },
             ].map((ep) => (
               <div key={ep.path} className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
@@ -393,7 +387,7 @@ npm run testnet:cluster`;
             <div className="flex items-center justify-between">
               <span className="font-bold text-white text-sm flex items-center gap-2">
                 <Server className="w-4 h-4 text-cyan-400" />
-                <span>Docker Testnet Cluster (3 Nodes)</span>
+                <span>Docker Local Devnet/Testnet-Candidate Stack (3 Nodes)</span>
               </span>
               <button
                 onClick={() => handleCopy(dockerCode, 'docker')}

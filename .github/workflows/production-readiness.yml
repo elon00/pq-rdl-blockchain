@@ -1,0 +1,94 @@
+name: Production Readiness CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: TypeScript and runtime security tests
+        run: |
+          npm run lint
+          npm run test:security
+          npm run test:operator
+
+      - name: Rust quality gates
+        run: |
+          cargo fmt --all -- --check
+          cargo check --workspace --all-targets
+          cargo test --workspace --all-targets
+          cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Validate Compose manifests
+        run: |
+          docker compose config >/dev/null
+          docker compose -f docker-compose.testnet.yml config >/dev/null
+
+      - name: Build hardened images
+        run: |
+          docker build -t pq-rdl-node-ci -f Dockerfile .
+          docker build -t pq-rdl-web-ci -f Dockerfile.web .
+
+      - name: Verify Rust production mode fails closed
+        run: |
+          set +e
+          OUTPUT=$(docker run --rm -e RDL_PRODUCTION_MODE=true pq-rdl-node-ci rdl-node --listen 127.0.0.1:7000 2>&1)
+          STATUS=$?
+          set -e
+          echo "$OUTPUT"
+          test "$STATUS" -ne 0
+          echo "$OUTPUT" | grep -q "RDL_PRODUCTION_MODE is blocked"
+
+      - name: Start production web image
+        run: |
+          docker run -d --name pq-rdl-web-ci             -p 3100:3000             -e NODE_ENV=production             -e APP_URL=http://127.0.0.1:3100             -e RDL_CORS_ALLOWED_ORIGINS=http://127.0.0.1:3100             -e RDL_ENABLE_SIMULATION_API=false             pq-rdl-web-ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3100/api/health >/tmp/rdl-health.json; then
+              cat /tmp/rdl-health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs pq-rdl-web-ci
+          exit 1
+
+      - name: Probe production HTTP safety boundary
+        run: |
+          KEYGEN_STATUS=$(curl -sS -o /tmp/keygen.json -w '%{http_code}'             -X POST -H 'Content-Type: application/json' -d '{}'             http://127.0.0.1:3100/api/quantum/generate-keypair)
+          test "$KEYGEN_STATUS" = "403"
+
+          MUTATION_STATUS=$(curl -sS -o /tmp/mutation.json -w '%{http_code}'             -X POST -H 'Content-Type: application/json' -d '{}'             http://127.0.0.1:3100/api/tokens/create)
+          test "$MUTATION_STATUS" = "503"
+
+          HEALTH=$(curl -fsS http://127.0.0.1:3100/api/health)
+          echo "$HEALTH" | grep -q '"public_network_verified":false'
+
+      - name: Web container logs
+        if: always()
+        run: docker logs pq-rdl-web-ci 2>/dev/null || true
+
+      - name: Stop web container
+        if: always()
+        run: docker rm -f pq-rdl-web-ci 2>/dev/null || true

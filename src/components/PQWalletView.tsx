@@ -18,7 +18,7 @@ import {
   Flame
 } from 'lucide-react';
 import { PQAlgorithm, PQKeypair, PQSignature, Transaction } from '../types';
-import { generatePQKeypair } from '../lib/pqCrypto';
+import { generatePQKeypair, signPQPayload, verifyPQSignature } from '../lib/pqCrypto';
 import { tokenEngine } from '../lib/tokenEngine';
 import { faucetEngine } from '../lib/faucetEngine';
 
@@ -34,7 +34,6 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
   onSendTransaction,
 }) => {
   const [selectedAlgo, setSelectedAlgo] = useState<PQAlgorithm>('Dilithium2');
-  const [customSeed, setCustomSeed] = useState<string>('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Send Form State
@@ -58,26 +57,10 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  // Generate new keypair
+  // Generate keys only in the browser. Secret key material is never requested from the server.
   const handleGenerateKeypair = async () => {
     try {
-      const res = await fetch('/api/quantum/generate-keypair', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ algorithm: selectedAlgo, seedPhrase: customSeed }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.address) {
-          onWalletGenerated(data);
-          return;
-        }
-      }
-    } catch {
-      // Fallback to client-side pure post-quantum generator
-    }
-    try {
-      const localKeypair = await generatePQKeypair(selectedAlgo, customSeed || undefined);
+      const localKeypair = await generatePQKeypair(selectedAlgo);
       onWalletGenerated(localKeypair);
     } catch (err: any) {
       console.error('Keypair generation error:', err);
@@ -93,40 +76,25 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
     setSendTxStatus('Signing payload with Post-Quantum secret key...');
 
     try {
-      // Sign payload
       const payloadString = `${activeWallet.address}:${receiverAddress}:${amount}:${Date.now()}`;
-      
-      const sigRes = await fetch('/api/quantum/verify-signature', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          payload: payloadString,
-          signature: {
-            algorithm: activeWallet.algorithm,
-            signatureHex: `SIG_${activeWallet.algorithm.toUpperCase().replace('-', '_')}_${Math.random().toString(16).substring(2)}`,
-            publicKeyHex: activeWallet.publicKeyHex,
-            hashMessage: payloadString,
-            timestamp: Date.now(),
-            valid: true,
-          },
-          publicKeyHex: activeWallet.publicKeyHex,
-        }),
-      });
+      const signature = await signPQPayload(payloadString, activeWallet);
+      const locallyValid = await verifyPQSignature(payloadString, signature, activeWallet.publicKeyHex);
+      if (!locallyValid) throw new Error('locally generated ML-DSA signature failed verification');
 
       const success = await onSendTransaction({
         senderAddress: activeWallet.address,
         receiverAddress,
         amount: Number(amount),
         algorithm: activeWallet.algorithm,
-        signatureHex: `SIG_${activeWallet.algorithm.toUpperCase().replace('-', '_')}_${Math.random().toString(16).substring(2)}`,
+        signatureHex: signature.signatureHex,
         conwayStatePayload: conwayPayload,
       });
 
       if (success) {
-        setSendTxStatus('Post-Quantum Transaction Submitted to Mempool!');
+        setSendTxStatus('Signed transaction accepted by the configured prototype API.');
         setReceiverAddress('');
       } else {
-        setSendTxStatus('Transaction submission failed.');
+        setSendTxStatus('Signed locally with ML-DSA-65, but network submission is disabled/unavailable.');
       }
     } catch (err: any) {
       setSendTxStatus(`Send Error: ${err.message}`);
@@ -135,19 +103,11 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
     }
   };
 
-  // Sign Payload Test
+  // Sign Payload Test with the real ML-DSA implementation.
   const handleSignTest = async () => {
     if (!activeWallet) return;
     try {
-      const sigHex = `SIG_${activeWallet.algorithm.toUpperCase().replace('-', '_')}_${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`;
-      const sigObj: PQSignature = {
-        algorithm: activeWallet.algorithm,
-        signatureHex: sigHex,
-        publicKeyHex: activeWallet.publicKeyHex,
-        hashMessage: testPayload,
-        timestamp: Date.now(),
-        valid: true,
-      };
+      const sigObj = await signPQPayload(testPayload, activeWallet);
       setSignedResult(sigObj);
       setVerifyStatus(null);
     } catch (err: any) {
@@ -155,22 +115,12 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
     }
   };
 
-  // Verify Signature Test
+  // Verify locally so secret key material never leaves the browser.
   const handleVerifyTest = async () => {
     if (!activeWallet || !signedResult) return;
     try {
-      const res = await fetch('/api/quantum/verify-signature', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          payload: testPayload,
-          signature: signedResult,
-          publicKeyHex: activeWallet.publicKeyHex,
-        }),
-      });
-      const data = await res.json();
-      setVerifyStatus(data.valid);
-    } catch (err: any) {
+      setVerifyStatus(await verifyPQSignature(testPayload, signedResult, activeWallet.publicKeyHex));
+    } catch {
       setVerifyStatus(false);
     }
   };
@@ -188,7 +138,7 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
             Post-Quantum Wallet & Signatures
           </h2>
           <p className="text-slate-400 text-xs">
-            Generate Dilithium, Falcon, or SPHINCS+ keypairs resistant to quantum computers.
+            Generate and test ML-DSA-65 keys locally in your browser. This is a cryptographic prototype, not an audited wallet product.
           </p>
         </div>
 
@@ -211,39 +161,16 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
               <span>Quantum Algorithm Selection</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {(['Dilithium2', 'Falcon-512', 'SPHINCS+'] as PQAlgorithm[]).map((algo) => (
-                <button
-                  key={algo}
-                  onClick={() => setSelectedAlgo(algo)}
-                  className={`p-3 rounded-xl text-left border font-mono transition-all cursor-pointer ${
-                    selectedAlgo === algo
-                      ? 'bg-cyan-950/60 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-950/40'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <div className="font-bold text-xs">{algo}</div>
-                  <div className="text-[10px] text-slate-400 mt-1">
-                    {algo === 'Dilithium2' && 'Module Lattice'}
-                    {algo === 'Falcon-512' && 'NTRU Lattice Compact'}
-                    {algo === 'SPHINCS+' && 'Stateless Hash Tree'}
-                  </div>
-                </button>
-              ))}
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => setSelectedAlgo('Dilithium2')}
+                className="p-3 rounded-xl text-left border font-mono bg-cyan-950/60 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-950/40"
+              >
+                <div className="font-bold text-xs">ML-DSA-65 (compatibility label: Dilithium2)</div>
+                <div className="text-[10px] text-slate-400 mt-1">NIST FIPS 204 module-lattice signature implementation</div>
+              </button>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-mono text-slate-300">
-                Optional Seed Phrase Mnemonic:
-              </label>
-              <input
-                type="text"
-                value={customSeed}
-                onChange={(e) => setCustomSeed(e.target.value)}
-                placeholder="e.g. quantum-lattice-conway-matrix-entropy-42"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
+            <p className="text-[10px] text-slate-500">Deterministic seed phrases are intentionally disabled; key generation uses CSPRNG entropy.</p>
           </div>
 
           {/* Active Wallet Details Box */}
@@ -282,13 +209,13 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
                     <Coins className="w-4 h-4" />
                     <span>Post-Quantum Wallet Balances</span>
                   </div>
-                  <span className="text-[10px] text-slate-500">Chain: RDL-TESTNET-001</span>
+                  <span className="text-[10px] text-slate-500">Local demo balances</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                   <div className="bg-slate-900/80 p-2.5 rounded-lg border border-cyan-500/20">
                     <div className="text-[11px] text-slate-400">Native Gas (RDL)</div>
-                    <div className="text-sm font-bold text-cyan-300">250.00 RDL</div>
+                    <div className="text-sm font-bold text-cyan-300">Not connected</div>
                   </div>
                   <div className="bg-slate-900/80 p-2.5 rounded-lg border border-emerald-500/20">
                     <div className="text-[11px] text-slate-400">RDL Stablecoin</div>
@@ -312,7 +239,7 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
                       setFaucetClaimStatus('Requesting 50 RDL + 1,000 RDL-USD + 10M RDL-MEME...');
                       const res = await faucetEngine.dispense(activeWallet.address, 'ALL');
                       if (res.success) {
-                        setFaucetClaimStatus('🎉 Testnet Drop Received: +50 RDL, +1,000 RDL-USD, +10M RDL-MEME!');
+                        setFaucetClaimStatus('🎉 Local demo balances updated; no public-testnet settlement occurred.');
                         setWalletRefreshTrigger(prev => prev + 1);
                       } else {
                         setFaucetClaimStatus(`⚠️ ${res.error}`);
@@ -321,7 +248,7 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
                     className="w-full py-2 px-3 rounded-lg bg-teal-950/80 hover:bg-teal-900 border border-teal-500/40 text-teal-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
                   >
                     <Droplets className="w-3.5 h-3.5 text-teal-400" />
-                    <span>Claim Free Testnet Starter Pack (Faucet)</span>
+                    <span>Run Local Demo Faucet</span>
                   </button>
                   {faucetClaimStatus && (
                     <div className="text-[11px] text-teal-300 mt-1.5 text-center">
@@ -341,14 +268,14 @@ export const PQWalletView: React.FC<PQWalletViewProps> = ({
 
               {/* Private Key Hex */}
               <div className="space-y-1">
-                <div className="text-xs font-mono text-slate-400">Secret Key Representation:</div>
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-[11px] text-red-300 break-all max-h-20 overflow-y-auto scrollbar-thin">
-                  {activeWallet.privateKeyHex}
+                <div className="text-xs font-mono text-slate-400">Secret Key:</div>
+                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-[11px] text-red-300">
+                  Held only in this browser session for the demo; it is not rendered or sent to the server.
                 </div>
               </div>
 
               <div className="text-[11px] font-mono text-slate-400 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-                Security Guarantee: <strong className="text-cyan-300">{activeWallet.securityLevel}</strong>
+                Implementation status: <strong className="text-cyan-300">{activeWallet.securityLevel}</strong>
               </div>
             </div>
           ) : (

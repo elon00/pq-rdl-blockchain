@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+dist
+target
+data
+.env
+.env.*
+!.env.example
+*.log
+coverage
+evidence
+*.pem
+*.key
+.DS_Store

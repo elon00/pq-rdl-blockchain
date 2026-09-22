@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       bootstrap_url:
-        description: 'Live Public Bootstrap URL (e.g. Cloudflare tunnel)'
+        description: 'Optional public bootstrap URL for remote-sync observation'
         required: false
-        default: 'https://fee-protecting-removal-dicke.trycloudflare.com'
+        default: ''
       require_remote_sync:
         description: 'Require strict remote sync to pass (true/false)'
         required: false
@@ -60,7 +60,7 @@ jobs:
         id: validator
         run: |
           set -euo pipefail
-          BOOTSTRAP="${{ github.event.inputs.bootstrap_url || 'https://fee-protecting-removal-dicke.trycloudflare.com' }}"
+          BOOTSTRAP="${{ github.event.inputs.bootstrap_url || '' }}"
           REQUIRE_REMOTE="${{ github.event.inputs.require_remote_sync || 'false' }}"
           RUNNER_IP=$(curl -sSL --max-time 5 https://ifconfig.me || echo "GITHUB_AZURE_RUNNER")
           echo "Detected Runner Cloud Public IP: $RUNNER_IP"
@@ -109,21 +109,24 @@ jobs:
           fi
           
           # --- REMOTE BOOTSTRAP CHECK ---
-          echo "Connecting to remote bootstrap over public internet: $BOOTSTRAP"
-          REMOTE_DATA=$(curl -sSL --max-time 8 --doh-url https://cloudflare-dns.com/dns-query "${BOOTSTRAP}/api/blocks" || curl -sSL --max-time 8 "${BOOTSTRAP}/api/blocks" || echo "UNREACHABLE")
-          
           SYNC_SUCCESS="false"
-          if [[ "$REMOTE_DATA" == *"height"* ]]; then
-            echo "Remote bootstrap reached successfully over public internet!"
-            echo "$REMOTE_DATA" > "data/rdl-ledger.json"
-            SYNC_SUCCESS="true"
-          else
-            echo "⚠️ Remote bootstrap unreachable or offline ($BOOTSTRAP)."
-            if [ "$REQUIRE_REMOTE" = "true" ]; then
-              echo "❌ Strict remote sync required by workflow input; failing closed."
-              kill -15 $VAL_PID_RECOVER 2>/dev/null || true
-              exit 1
+          if [ -n "$BOOTSTRAP" ]; then
+            echo "Observing optional remote bootstrap over public internet: $BOOTSTRAP"
+            REMOTE_DATA=$(curl -sSL --max-time 8 "${BOOTSTRAP}/api/blocks" || echo "UNREACHABLE")
+            if [[ "$REMOTE_DATA" == *"height"* ]]; then
+              echo "Remote bootstrap response observed."
+              echo "$REMOTE_DATA" > "data/rdl-ledger.json"
+              SYNC_SUCCESS="true"
+            else
+              echo "Remote bootstrap unavailable or response did not contain expected block data."
             fi
+          else
+            echo "No remote bootstrap URL supplied; remote sync remains unverified."
+          fi
+          if [ "$REQUIRE_REMOTE" = "true" ] && [ "$SYNC_SUCCESS" != "true" ]; then
+            echo "Strict remote sync required; failing closed."
+            kill -15 $VAL_PID_RECOVER 2>/dev/null || true
+            exit 1
           fi
           
           # Clean up running node
@@ -136,7 +139,7 @@ jobs:
             "cloud_provider": "GitHub Actions (Microsoft Azure Cloud Runner)",
             "runner_public_ip": "$RUNNER_IP",
             "runner_os": "ubuntu-latest (Linux)",
-            "status": "VALIDATOR_ONLINE",
+            "status": "EPHEMERAL_VALIDATOR_TEST_COMPLETED",
             "remote_bootstrap_url": "$BOOTSTRAP",
             "remote_sync_verified": $SYNC_SUCCESS,
             "port": 7102,
@@ -145,16 +148,22 @@ jobs:
             "tip_hash": "$TIP_POST",
             "tip_height": $HEIGHT_POST,
             "pqc_standards": ["NIST FIPS 204 (ML-DSA-65)", "Ed25519"],
-            "bft_role": "INDEPENDENT_REMOTE_VALIDATOR_A"
+            "bft_role": "EPHEMERAL_CI_VALIDATOR"
           }
           EOF
 
+          if [ "$SYNC_SUCCESS" = "true" ]; then
+            R6_VERDICT="CI_VALIDATOR_REMOTE_SYNC_OBSERVED"
+          else
+            R6_VERDICT="LOCAL_CI_VALIDATOR_PASS_REMOTE_UNVERIFIED"
+          fi
           cat <<EOF > evidence/R6_GATE_RESULT.json
           {
             "gate": "R6",
-            "verdict": "VERIFIED PASS",
+            "verdict": "$R6_VERDICT",
             "crash_recovery_verified": $CRASH_RECOVERY_VERIFIED,
-            "remote_sync_verified": $SYNC_SUCCESS,
+            "remote_sync_observed": $SYNC_SUCCESS,
+            "independent_public_testnet_verified": false,
             "tip_parity": true,
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           }

@@ -1,5 +1,5 @@
 /**
- * PQ-RDL-BLOCKCHAIN — OFFICIAL NIST & WYCHEPROOF TEST SUITE
+ * PQ-RDL-BLOCKCHAIN — STANDARDS CONFORMANCE & ADVERSARIAL TEST SUITE
  *
  * Verifies standard cryptographic test vectors and invariant properties:
  * 1. RFC 5869 HKDF-SHA256 Known Answer Test
@@ -8,7 +8,7 @@
  * 4. NIST FIPS 203 ML-KEM-768 Wire Invariants (1184B pk, 2400B sk, 1088B ct, 32B ss)
  * 5. FIPS 203 §7.3 Implicit Rejection
  * 6. NIST FIPS 204 ML-DSA-65 Digital Signatures (1952B pk, 3309B sig)
- * 7. Project Wycheproof Negative & Adversarial Bit-flip Rejection
+ * 7. Adversarial negative and bit-flip rejection checks
  * 8. RDL Dual Hybrid Transaction Conjunction (Ed25519 ∧ ML-DSA-65)
  */
 
@@ -24,7 +24,7 @@ function assert(condition: boolean, msg: string) {
 
 async function runRdlNistTestSuite() {
   console.log('=====================================================================');
-  console.log('🛡️ PQ-RDL-BLOCKCHAIN // OFFICIAL NIST & WYCHEPROOF TEST SUITE');
+  console.log('🛡️ PQ-RDL-BLOCKCHAIN // STANDARDS CONFORMANCE & ADVERSARIAL TEST SUITE');
   console.log('=====================================================================\n');
 
   // 1. RFC 5869 HKDF-SHA256 Known Answer Test
@@ -83,14 +83,14 @@ async function runRdlNistTestSuite() {
   assert(mlDsaEngine.verify(sig, msg, dsaKeys.publicKey), 'Signature must verify');
   console.log('  ✅ ML-DSA-65 genuine signature verified (3,309 bytes)');
 
-  // 7. Project Wycheproof Negative Tests
-  console.log('\n[7/8] Project Wycheproof Negative & Adversarial Tests:');
+  // 7. Adversarial negative tests (Wycheproof-style methodology; no imported Wycheproof corpus)
+  console.log('\n[7/8] Adversarial Negative Tests:');
   const badSig = new Uint8Array(sig);
   badSig[0] ^= 0x01;
   assert(!mlDsaEngine.verify(badSig, msg, dsaKeys.publicKey), 'Corrupted signature must reject');
   const alteredMsg = new TextEncoder().encode('PQ-RDL Block #1001 - Corrupted State');
   assert(!mlDsaEngine.verify(sig, alteredMsg, dsaKeys.publicKey), 'Altered message must reject');
-  console.log('  ✅ Wycheproof: Bit-flip tampering strictly rejected');
+  console.log('  ✅ Bit-flip tampering strictly rejected');
 
   // 8. RDL Dual Hybrid Transaction Conjunction
   console.log('\n[8/8] RDL Dual Hybrid Transaction Conjunction (Ed25519 ∧ ML-DSA-65):');
@@ -107,7 +107,7 @@ async function runRdlNistTestSuite() {
   console.log('  ✅ Fail-Closed Security: Partial signature tampering strictly rejected');
 
   console.log('\n=====================================================================');
-  console.log('🏆 ALL 8 PQ-RDL NIST, WYCHEPROOF & HYBRID CONJUNCTION TESTS PASSED');
+  console.log('🏆 ALL 8 PQ-RDL CONFORMANCE, ADVERSARIAL & HYBRID TESTS PASSED');
   console.log('=====================================================================\n');
 }
 
