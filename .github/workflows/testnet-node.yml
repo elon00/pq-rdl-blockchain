@@ -3,12 +3,8 @@ name: PQ-RDL Cloud Testnet Node Runner (Gate R6)
 on:
   workflow_dispatch:
     inputs:
-      bootstrap_url:
-        description: 'Optional public bootstrap URL for remote-sync observation'
-        required: false
-        default: ''
       require_remote_sync:
-        description: 'Require strict remote sync to pass (true/false)'
+        description: 'Require configured remote bootstrap observation to pass (true/false)'
         required: false
         default: 'false'
   schedule:
@@ -36,13 +32,13 @@ jobs:
 
     steps:
       - name: 📥 Checkout PQ-RDL Blockchain
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: 🦀 Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: 📦 Setup Node.js Runtime (Node 22 LTS)
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
@@ -56,12 +52,13 @@ jobs:
       - name: 🧪 Execute Consensus & BFT Safety Tests
         run: cargo test --workspace --all-targets
 
-      - name: 🌐 Detect Cloud Public IP & Run Live Validator
+      - name: 🌐 Detect Cloud Public IP & Run Ephemeral Validator
         id: validator
+        env:
+          BOOTSTRAP: ${{ vars.RDL_BOOTSTRAP_URL }}
+          REQUIRE_REMOTE: ${{ github.event.inputs.require_remote_sync || 'false' }}
         run: |
           set -euo pipefail
-          BOOTSTRAP="${{ github.event.inputs.bootstrap_url || '' }}"
-          REQUIRE_REMOTE="${{ github.event.inputs.require_remote_sync || 'false' }}"
           RUNNER_IP=$(curl -sSL --max-time 5 https://ifconfig.me || echo "GITHUB_AZURE_RUNNER")
           echo "Detected Runner Cloud Public IP: $RUNNER_IP"
           
@@ -108,23 +105,41 @@ jobs:
             exit 1
           fi
           
-          # --- REMOTE BOOTSTRAP CHECK ---
-          SYNC_SUCCESS="false"
-          if [ -n "$BOOTSTRAP" ]; then
-            echo "Observing optional remote bootstrap over public internet: $BOOTSTRAP"
-            REMOTE_DATA=$(curl -sSL --max-time 8 "${BOOTSTRAP}/api/blocks" || echo "UNREACHABLE")
-            if [[ "$REMOTE_DATA" == *"height"* ]]; then
-              echo "Remote bootstrap response observed."
-              echo "$REMOTE_DATA" > "data/rdl-ledger.json"
-              SYNC_SUCCESS="true"
+          # --- OPTIONAL REMOTE BOOTSTRAP OBSERVATION ---
+          REMOTE_OBSERVED="false"
+          if [ -n "${BOOTSTRAP:-}" ]; then
+            case "$BOOTSTRAP" in
+              https://*) ;;
+              *)
+                echo "Configured RDL_BOOTSTRAP_URL must use HTTPS."
+                kill -15 $VAL_PID_RECOVER 2>/dev/null || true
+                exit 1
+                ;;
+            esac
+
+            echo "Observing configured remote bootstrap API (max 1 MiB response)."
+            REMOTE_FILE=$(mktemp)
+            if curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+              --max-time 8 --max-filesize 1048576 --output "$REMOTE_FILE" "${BOOTSTRAP%/}/api/blocks" &&
+              REMOTE_FILE="$REMOTE_FILE" node --input-type=module -e '
+                const fs = await import("node:fs");
+                const raw = fs.readFileSync(process.env.REMOTE_FILE, "utf8");
+                const data = JSON.parse(raw);
+                if (!Array.isArray(data)) process.exit(1);
+                if (data.length > 10000) process.exit(1);
+                if (data.length && !data.every(b => Number.isInteger(b?.height) && b.height >= 0 && typeof b?.hash === "string" && b.hash.length <= 256)) process.exit(1);
+              '; then
+              echo "Remote bootstrap returned a bounded, syntactically valid block-list response."
+              REMOTE_OBSERVED="true"
             else
-              echo "Remote bootstrap unavailable or response did not contain expected block data."
+              echo "Remote bootstrap unavailable, oversized, or response schema invalid."
             fi
+            rm -f "$REMOTE_FILE"
           else
-            echo "No remote bootstrap URL supplied; remote sync remains unverified."
+            echo "Repository variable RDL_BOOTSTRAP_URL is unset; remote observation remains unverified."
           fi
-          if [ "$REQUIRE_REMOTE" = "true" ] && [ "$SYNC_SUCCESS" != "true" ]; then
-            echo "Strict remote sync required; failing closed."
+          if [ "$REQUIRE_REMOTE" = "true" ] && [ "$REMOTE_OBSERVED" != "true" ]; then
+            echo "Strict remote observation required; failing closed."
             kill -15 $VAL_PID_RECOVER 2>/dev/null || true
             exit 1
           fi
@@ -141,7 +156,7 @@ jobs:
             "runner_os": "ubuntu-latest (Linux)",
             "status": "EPHEMERAL_VALIDATOR_TEST_COMPLETED",
             "remote_bootstrap_url": "$BOOTSTRAP",
-            "remote_sync_verified": $SYNC_SUCCESS,
+            "remote_bootstrap_observed": $REMOTE_OBSERVED,
             "port": 7102,
             "tls_fingerprint": "$TLS_FP",
             "crash_recovery_verified": $CRASH_RECOVERY_VERIFIED,
@@ -152,8 +167,8 @@ jobs:
           }
           EOF
 
-          if [ "$SYNC_SUCCESS" = "true" ]; then
-            R6_VERDICT="CI_VALIDATOR_REMOTE_SYNC_OBSERVED"
+          if [ "$REMOTE_OBSERVED" = "true" ]; then
+            R6_VERDICT="CI_VALIDATOR_REMOTE_API_OBSERVED"
           else
             R6_VERDICT="LOCAL_CI_VALIDATOR_PASS_REMOTE_UNVERIFIED"
           fi
@@ -162,7 +177,7 @@ jobs:
             "gate": "R6",
             "verdict": "$R6_VERDICT",
             "crash_recovery_verified": $CRASH_RECOVERY_VERIFIED,
-            "remote_sync_observed": $SYNC_SUCCESS,
+            "remote_bootstrap_observed": $REMOTE_OBSERVED,
             "independent_public_testnet_verified": false,
             "tip_parity": true,
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -172,7 +187,7 @@ jobs:
           echo "Generated evidence files in evidence/"
 
       - name: 📤 Upload Cloud Validator Evidence Artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: cloud-validator-evidence-${{ github.run_id }}
           path: evidence/
@@ -183,7 +198,7 @@ jobs:
         id: evidence_pr
         continue-on-error: true
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(evidence): update cloud validator attestation (Gate R6)"

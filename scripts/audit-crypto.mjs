@@ -1,14 +1,14 @@
 /**
  * PQ-RDL-BLOCKCHAIN — STANDALONE CRYPTOGRAPHIC AUDITOR
  *
- * Runs 23 standalone cryptographic assertions:
+ * Runs 24 standalone cryptographic assertions:
  * - RFC 5869 HKDF-SHA256 KAT
  * - RDL SHA-256 Address derivation
  * - SHA-256 Ledger State Commitment Invariants
  * - NIST FIPS 203 ML-KEM-768 lattice execution
  * - FIPS 203 §7.3 Implicit Rejection
  * - NIST FIPS 204 ML-DSA-65 digital signatures
- * - Wycheproof negative bit-flip tamper rejection
+ * - Adversarial negative signature/key rejection
  * - RDL Dual Hybrid Conjunction conformance
  */
 
@@ -19,7 +19,7 @@ import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 
 let passedAssertions = 0;
-const totalAssertions = 23;
+const totalAssertions = 24;
 
 function assert(condition, description) {
   if (!condition) {
@@ -92,13 +92,13 @@ async function runAudit() {
   const isSigValid = ml_dsa65.verify(sig, msg, dsaKeys.publicKey);
   assert(isSigValid === true, 'ML-DSA-65 genuine signature verified successfully');
 
-  // TIER 6: Wycheproof Negative Tests
-  console.log('\n▶ [TIER 6] Wycheproof Negative & Adversarial Tests:');
+  // TIER 6: Adversarial Negative Tests
+  console.log('\n▶ [TIER 6] Adversarial Negative Tests:');
   const badSig = new Uint8Array(sig);
   badSig[0] ^= 0x01;
-  assert(!ml_dsa65.verify(badSig, msg, dsaKeys.publicKey), 'Wycheproof: Bit-flipped signature rejected cleanly');
+  assert(!ml_dsa65.verify(badSig, msg, dsaKeys.publicKey), 'Bit-flipped signature rejected cleanly');
   const alteredMsg = new TextEncoder().encode('PQ-RDL Distributed Ledger Invariant Tampered');
-  assert(!ml_dsa65.verify(sig, alteredMsg, dsaKeys.publicKey), 'Wycheproof: Altered message rejected cleanly');
+  assert(!ml_dsa65.verify(sig, alteredMsg, dsaKeys.publicKey), 'Altered message rejected cleanly');
   const truncatedSig = sig.slice(0, 3000);
   let truncatedSigRejected = false;
   try {
@@ -106,7 +106,7 @@ async function runAudit() {
   } catch {
     truncatedSigRejected = true;
   }
-  assert(truncatedSigRejected, 'Wycheproof: Truncated signature rejected cleanly');
+  assert(truncatedSigRejected, 'Truncated signature rejected cleanly');
 
   const malformedPk = dsaKeys.publicKey.slice(0, 1000);
   let malformedPkRejected = false;
@@ -115,7 +115,7 @@ async function runAudit() {
   } catch {
     malformedPkRejected = true;
   }
-  assert(malformedPkRejected, 'Wycheproof: Malformed public key size rejected cleanly');
+  assert(malformedPkRejected, 'Malformed public key size rejected cleanly');
 
   // TIER 7: Dual Conjunction Conformance
   console.log('\n▶ [TIER 7] RDL Dual Conjunction Conformance:');
@@ -128,7 +128,8 @@ async function runAudit() {
   badEdSig[0] ^= 0x01;
   const badClassicalValid = ed25519Verify(null, Buffer.from(msg), edPublicKey, badEdSig);
   const badPqValid = ml_dsa65.verify(badSig, msg, dsaKeys.publicKey);
-  assert(!badClassicalValid && !badPqValid, 'Dual conjunction fail-closed when Ed25519 or ML-DSA signatures are tampered');
+  assert(!badClassicalValid && isSigValid, 'Dual conjunction rejects tampered Ed25519 while ML-DSA remains valid');
+  assert(classicalValid && !badPqValid, 'Dual conjunction rejects tampered ML-DSA while Ed25519 remains valid');
 
   console.log('\n=====================================================================');
   console.log(`🏆 ALL ${passedAssertions}/${totalAssertions} CRYPTOGRAPHIC ASSERTIONS PASSED CLEANLY`);
