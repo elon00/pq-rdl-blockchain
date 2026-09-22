@@ -3,12 +3,8 @@ name: PQ-RDL Cloud Testnet Node Runner (Gate R6)
 on:
   workflow_dispatch:
     inputs:
-      bootstrap_url:
-        description: 'Optional public bootstrap URL for remote-sync observation'
-        required: false
-        default: ''
       require_remote_sync:
-        description: 'Require strict remote sync to pass (true/false)'
+        description: 'Require configured remote bootstrap observation to pass (true/false)'
         required: false
         default: 'false'
   schedule:
@@ -56,12 +52,13 @@ jobs:
       - name: 🧪 Execute Consensus & BFT Safety Tests
         run: cargo test --workspace --all-targets
 
-      - name: 🌐 Detect Cloud Public IP & Run Live Validator
+      - name: 🌐 Detect Cloud Public IP & Run Ephemeral Validator
         id: validator
+        env:
+          BOOTSTRAP: ${{ vars.RDL_BOOTSTRAP_URL }}
+          REQUIRE_REMOTE: ${{ github.event.inputs.require_remote_sync || 'false' }}
         run: |
           set -euo pipefail
-          BOOTSTRAP="${{ github.event.inputs.bootstrap_url || '' }}"
-          REQUIRE_REMOTE="${{ github.event.inputs.require_remote_sync || 'false' }}"
           RUNNER_IP=$(curl -sSL --max-time 5 https://ifconfig.me || echo "GITHUB_AZURE_RUNNER")
           echo "Detected Runner Cloud Public IP: $RUNNER_IP"
           
@@ -108,23 +105,36 @@ jobs:
             exit 1
           fi
           
-          # --- REMOTE BOOTSTRAP CHECK ---
-          SYNC_SUCCESS="false"
-          if [ -n "$BOOTSTRAP" ]; then
-            echo "Observing optional remote bootstrap over public internet: $BOOTSTRAP"
-            REMOTE_DATA=$(curl -sSL --max-time 8 "${BOOTSTRAP}/api/blocks" || echo "UNREACHABLE")
-            if [[ "$REMOTE_DATA" == *"height"* ]]; then
-              echo "Remote bootstrap response observed."
-              echo "$REMOTE_DATA" > "data/rdl-ledger.json"
-              SYNC_SUCCESS="true"
+          # --- OPTIONAL REMOTE BOOTSTRAP OBSERVATION ---
+          REMOTE_OBSERVED="false"
+          if [ -n "${BOOTSTRAP:-}" ]; then
+            case "$BOOTSTRAP" in
+              https://*) ;;
+              *)
+                echo "Configured RDL_BOOTSTRAP_URL must use HTTPS."
+                kill -15 $VAL_PID_RECOVER 2>/dev/null || true
+                exit 1
+                ;;
+            esac
+
+            echo "Observing configured remote bootstrap API."
+            REMOTE_DATA=$(curl --fail --silent --show-error --location --max-time 8 "${BOOTSTRAP%/}/api/blocks" || echo "UNREACHABLE")
+            if REMOTE_DATA="$REMOTE_DATA" node --input-type=module -e '
+              const raw = process.env.REMOTE_DATA || "";
+              const data = JSON.parse(raw);
+              if (!Array.isArray(data)) process.exit(1);
+              if (data.length && !data.every(b => Number.isInteger(b?.height) && typeof b?.hash === "string")) process.exit(1);
+            '; then
+              echo "Remote bootstrap returned a syntactically valid block-list response."
+              REMOTE_OBSERVED="true"
             else
-              echo "Remote bootstrap unavailable or response did not contain expected block data."
+              echo "Remote bootstrap unavailable or response schema invalid."
             fi
           else
-            echo "No remote bootstrap URL supplied; remote sync remains unverified."
+            echo "Repository variable RDL_BOOTSTRAP_URL is unset; remote observation remains unverified."
           fi
-          if [ "$REQUIRE_REMOTE" = "true" ] && [ "$SYNC_SUCCESS" != "true" ]; then
-            echo "Strict remote sync required; failing closed."
+          if [ "$REQUIRE_REMOTE" = "true" ] && [ "$REMOTE_OBSERVED" != "true" ]; then
+            echo "Strict remote observation required; failing closed."
             kill -15 $VAL_PID_RECOVER 2>/dev/null || true
             exit 1
           fi
@@ -141,7 +151,7 @@ jobs:
             "runner_os": "ubuntu-latest (Linux)",
             "status": "EPHEMERAL_VALIDATOR_TEST_COMPLETED",
             "remote_bootstrap_url": "$BOOTSTRAP",
-            "remote_sync_verified": $SYNC_SUCCESS,
+            "remote_bootstrap_observed": $REMOTE_OBSERVED,
             "port": 7102,
             "tls_fingerprint": "$TLS_FP",
             "crash_recovery_verified": $CRASH_RECOVERY_VERIFIED,
@@ -152,8 +162,8 @@ jobs:
           }
           EOF
 
-          if [ "$SYNC_SUCCESS" = "true" ]; then
-            R6_VERDICT="CI_VALIDATOR_REMOTE_SYNC_OBSERVED"
+          if [ "$REMOTE_OBSERVED" = "true" ]; then
+            R6_VERDICT="CI_VALIDATOR_REMOTE_API_OBSERVED"
           else
             R6_VERDICT="LOCAL_CI_VALIDATOR_PASS_REMOTE_UNVERIFIED"
           fi
@@ -162,7 +172,7 @@ jobs:
             "gate": "R6",
             "verdict": "$R6_VERDICT",
             "crash_recovery_verified": $CRASH_RECOVERY_VERIFIED,
-            "remote_sync_observed": $SYNC_SUCCESS,
+            "remote_bootstrap_observed": $REMOTE_OBSERVED,
             "independent_public_testnet_verified": false,
             "tip_parity": true,
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
