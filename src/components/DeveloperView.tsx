@@ -136,19 +136,19 @@ npm run testnet:cluster`;
         {/* 8-Stage Qualification Pipeline Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
           {[
-            { step: '1. Multi-Node', desc: 'Nodes 1, 2, 3 Boot', status: 'PASS' },
-            { step: '2. Peer Auth', desc: 'Signed Challenge Auth (plaintext transport)', status: 'PASS' },
-            { step: '3. Dual Hybrid Tx', desc: 'Ed25519 ∧ ML-DSA-65', status: 'PASS' },
-            { step: '4. PoA Mining', desc: 'Conway Entropy Matrix', status: 'PASS' },
-            { step: '5. P2P State Sync', desc: '3 Nodes Converged', status: 'PASS' },
-            { step: '6. Crash Recovery', desc: 'Persistent Disk Check', status: 'PASS' },
-            { step: '7. Evidence Bundle', desc: 'Generated Local Evidence JSON', status: 'PASS' },
-            { step: '8. Reality Gate', desc: 'Local CI Gate', status: 'PASS' },
+            { step: '1. Multi-Node', desc: 'Nodes 1, 2, 3 Boot' },
+            { step: '2. Peer Auth', desc: 'Signed Challenge Auth (plaintext transport)' },
+            { step: '3. Dual Hybrid Tx', desc: 'Ed25519 ∧ ML-DSA-65' },
+            { step: '4. PoA Mining', desc: 'Conway Entropy Matrix' },
+            { step: '5. P2P State Sync', desc: '3 Nodes Converged' },
+            { step: '6. Crash Recovery', desc: 'Persistent Disk Check' },
+            { step: '7. Evidence Bundle', desc: 'Generated Local Evidence JSON' },
+            { step: '8. Reality Gate', desc: 'Local CI Gate' },
           ].map((s) => (
-            <div key={s.step} className="p-3 bg-slate-950/80 rounded-xl border border-emerald-500/20 space-y-1">
+            <div key={s.step} className="p-3 bg-slate-950/80 rounded-xl border border-amber-500/20 space-y-1">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-white font-bold">{s.step}</span>
-                <span className="text-[10px] text-emerald-400 font-bold">🟢 {s.status}</span>
+                <span className="text-[10px] text-amber-300 font-bold">VERIFY IN CI</span>
               </div>
               <div className="text-[10px] text-slate-400">{s.desc}</div>
             </div>

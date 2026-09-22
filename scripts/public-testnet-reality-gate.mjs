@@ -2,16 +2,26 @@
 /**
  * PQ-RDL Public Testnet promotion gate.
  *
- * This gate accepts only evidence explicitly scoped as independently administered,
- * externally reachable public infrastructure. Localhost, single-host CI, generated
- * operator aliases, and ephemeral CI runners cannot satisfy promotion.
+ * Repository-controlled evidence alone is never sufficient for promotion. A passing
+ * result requires live attestations from at least two distinct public HTTPS hosts
+ * and independently identified operators, supplied at runtime through
+ * RDL_PUBLIC_TESTNET_ATTESTATION_URLS.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { isIP } from 'node:net';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-function readJson(file) {
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function resolveRepoPath(relativePath) {
+  return path.resolve(ROOT, relativePath);
+}
+
+function readJson(relativePath) {
   try {
-    return JSON.parse(readFileSync(file, 'utf8'));
+    return JSON.parse(readFileSync(resolveRepoPath(relativePath), 'utf8'));
   } catch {
     return null;
   }
@@ -24,18 +34,130 @@ function isNonPlaceholder(value) {
     !/(TODO|TBD|PLACEHOLDER|EXAMPLE|NOT[_ -]?VERIFIED|SIMULATION|DEMO|FAKE)/i.test(normalized);
 }
 
-function isPublicEndpoint(value) {
-  if (!isNonPlaceholder(value)) return false;
+function normalizeHost(hostname) {
+  return hostname.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
+}
+
+function isReservedIpv4(host) {
+  const parts = host.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return true;
+  }
+  const [a, b, c] = parts;
+  return a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0 && c === 0) ||
+    (a === 192 && b === 0 && c === 2) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113) ||
+    a >= 224;
+}
+
+function isReservedIpv6(host) {
+  const normalized = host.toLowerCase();
+  if (normalized === '::' || normalized === '::1') return true;
+  if (/^f[cd][0-9a-f]{2}:/i.test(normalized)) return true; // fc00::/7 unique-local
+  if (/^fe[89ab][0-9a-f]:/i.test(normalized)) return true; // fe80::/10 link-local
+  if (/^ff/i.test(normalized)) return true; // multicast
+  if (/^2001:db8:/i.test(normalized)) return true; // documentation
+  if (/^::ffff:/i.test(normalized)) {
+    const mapped = normalized.slice('::ffff:'.length);
+    return isIP(mapped) === 4 ? isReservedIpv4(mapped) : true;
+  }
+  return false;
+}
+
+function parsePublicUrl(value) {
+  if (!isNonPlaceholder(value)) return null;
   try {
     const url = new URL(value.includes('://') ? value : `tcp://${value}`);
-    const host = url.hostname.toLowerCase();
-    if (!host || ['localhost', '0.0.0.0', '::1'].includes(host)) return false;
-    if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host)) return false;
-    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
-    return true;
+    const host = normalizeHost(url.hostname);
+    if (!host || host === 'localhost' || host === '0.0.0.0') return null;
+
+    const ipVersion = isIP(host);
+    if (ipVersion === 4 && isReservedIpv4(host)) return null;
+    if (ipVersion === 6 && isReservedIpv6(host)) return null;
+
+    return url;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isPublicEndpoint(value) {
+  return Boolean(parsePublicUrl(value));
+}
+
+function isPublicPeerEndpoint(value) {
+  const url = parsePublicUrl(value);
+  if (!url) return false;
+  if (!['tls:', 'quic:'].includes(url.protocol)) return false;
+  return Boolean(url.port && Number(url.port) > 0 && Number(url.port) <= 65535);
+}
+
+function isPublicHttpsEndpoint(value) {
+  const url = parsePublicUrl(value);
+  return Boolean(url && url.protocol === 'https:');
+}
+
+async function fetchExternalAttestations(genesisSha256) {
+  const configured = (process.env.RDL_PUBLIC_TESTNET_ATTESTATION_URLS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
+
+  const urls = configured.filter(isPublicHttpsEndpoint);
+  const valid = [];
+
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, {
+        headers: { accept: 'application/json' },
+        redirect: 'error',
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!response.ok) continue;
+
+      const body = await response.json();
+      const parsedUrl = new URL(url);
+      const attestationValid =
+        body?.mode === 'INDEPENDENT_PUBLIC_ATTESTATION' &&
+        body?.network === 'PQ-RDL' &&
+        body?.genesis_sha256 === genesisSha256 &&
+        isNonPlaceholder(body?.operator) &&
+        body?.encrypted_peer_transport_verified === true &&
+        body?.public_state_sync_verified === true &&
+        body?.public_transaction_settlement_verified === true &&
+        body?.restart_recovery_verified === true;
+
+      if (attestationValid) {
+        valid.push({
+          host: normalizeHost(parsedUrl.hostname),
+          operator: body.operator.trim(),
+          url,
+        });
+      }
+    } catch {
+      // Fail closed: unreachable, redirected, malformed, or timed-out attestations are ignored.
+    }
+  }
+
+  const distinctHosts = new Set(valid.map(item => item.host));
+  const distinctOperators = new Set(valid.map(item => item.operator));
+
+  return {
+    configuredCount: configured.length,
+    validCount: valid.length,
+    distinctHostCount: distinctHosts.size,
+    distinctOperatorCount: distinctOperators.size,
+    verified: valid.length >= 2 && distinctHosts.size >= 2 && distinctOperators.size >= 2,
+  };
 }
 
 const files = {
@@ -58,17 +180,19 @@ function check(name, present, reason, details = {}) {
 }
 
 for (const [name, file] of Object.entries(files)) {
+  const absolutePath = resolveRepoPath(file);
   check(
     `${name}File`,
-    existsSync(file) && data[name] && typeof data[name] === 'object',
-    `${file} must exist and contain valid JSON`,
+    existsSync(absolutePath) && data[name] && typeof data[name] === 'object',
+    `${file} must exist inside the repository root and contain valid JSON`,
     { path: file }
   );
 }
 
 let genesisSha256 = null;
-if (existsSync(files.genesis)) {
-  genesisSha256 = createHash('sha256').update(readFileSync(files.genesis)).digest('hex');
+const genesisPath = resolveRepoPath(files.genesis);
+if (existsSync(genesisPath)) {
+  genesisSha256 = createHash('sha256').update(readFileSync(genesisPath)).digest('hex');
 }
 check(
   'genesisHash',
@@ -80,11 +204,11 @@ check(
 const bootstrapEndpoints = Array.isArray(data.manifest?.bootstrap_endpoints)
   ? data.manifest.bootstrap_endpoints
   : [];
-const publicBootstraps = bootstrapEndpoints.filter(isPublicEndpoint);
+const publicBootstraps = bootstrapEndpoints.filter(isPublicPeerEndpoint);
 check(
   'publicBootstrapEndpoints',
   publicBootstraps.length >= 2,
-  'at least two real, externally reachable bootstrap endpoints are required',
+  'at least two externally reachable encrypted P2P bootstrap endpoints (tls:// or quic://) are required',
   { count: publicBootstraps.length }
 );
 
@@ -96,6 +220,14 @@ const operators = new Set(
     .filter(isNonPlaceholder)
 );
 
+const externalAttestations = await fetchExternalAttestations(genesisSha256);
+check(
+  'externalIndependentAttestations',
+  externalAttestations.verified,
+  'at least two live public HTTPS attestations from distinct hosts and independently identified operators are required at runtime',
+  externalAttestations
+);
+
 check(
   'independentEvidenceScope',
   data.multi?.mode === 'INDEPENDENT_PUBLIC_EVIDENCE' &&
@@ -103,39 +235,43 @@ check(
     data.persistent?.mode === 'INDEPENDENT_PUBLIC_EVIDENCE' &&
     data.consensus?.mode === 'INDEPENDENT_PUBLIC_EVIDENCE' &&
     data.deployment?.mode === 'INDEPENDENT_PUBLIC_EVIDENCE',
-  'all promotion evidence must explicitly identify independent public scope'
+  'all repository evidence must explicitly identify independent public scope'
 );
 
 check(
   'independentAdministration',
-  data.multi?.independent_administration_verified === true &&
+  externalAttestations.verified &&
+    data.multi?.independent_administration_verified === true &&
     publicNodes.length >= 2 &&
     operators.size >= 2,
-  'at least two public nodes must be controlled by distinct independently identified operators',
+  'repository claims require corroboration by external attestations and at least two independently identified public node operators',
   { publicNodeCount: publicNodes.length, distinctOperatorCount: operators.size }
 );
 
 check(
   'multiMachinePhysicalSeparation',
-  publicNodes.length >= 2 &&
+  externalAttestations.verified &&
+    publicNodes.length >= 2 &&
     new Set(publicNodes.map(node => node.endpoint || node.address)).size >= 2,
-  'at least two distinct non-loopback public endpoints are required'
+  'at least two distinct non-loopback public endpoints plus external corroboration are required'
 );
 
 check(
   'encryptedPeerTransport',
-  data.multi?.encrypted_peer_transport_verified === true &&
+  externalAttestations.verified &&
+    data.multi?.encrypted_peer_transport_verified === true &&
     data.p2p?.encrypted_transport === true,
-  'encrypted peer transport must be implemented and verified on the public deployment'
+  'encrypted peer transport must be implemented, repository-recorded, and externally corroborated'
 );
 
 const publicSync = data.p2p?.state_sync;
 check(
   'publicStateSync',
-  publicSync?.public_network_verified === true &&
+  externalAttestations.verified &&
+    publicSync?.public_network_verified === true &&
     publicSync?.tip_hash_consensus === true &&
     Number(publicSync?.blocks_synchronized) >= 1,
-  'independently administered public nodes must reproduce state synchronization'
+  'public state synchronization must be repository-recorded and externally corroborated'
 );
 
 const settledTransactions = Array.isArray(data.persistent?.publicly_verified_transactions)
@@ -143,28 +279,31 @@ const settledTransactions = Array.isArray(data.persistent?.publicly_verified_tra
   : [];
 check(
   'publicTransactionSettlement',
-  data.persistent?.public_transaction_settlement_verified === true &&
+  externalAttestations.verified &&
+    data.persistent?.public_transaction_settlement_verified === true &&
     Number(data.persistent?.current_block_height) >= 1 &&
     settledTransactions.length >= 1,
-  'at least one externally reproducible public transaction/state transition is required'
+  'public settlement requires at least one recorded transaction and external corroboration'
 );
 
 const recovery = data.consensus?.crash_recovery;
 check(
   'publicRestartRecovery',
-  recovery?.publicly_verified === true &&
+  externalAttestations.verified &&
+    recovery?.publicly_verified === true &&
     isNonPlaceholder(recovery?.pre_restart_tip_hash) &&
     recovery?.pre_restart_tip_hash === recovery?.post_restart_tip_hash,
-  'restart/recovery must be reproduced on independently administered public infrastructure'
+  'restart/recovery must be recorded and externally corroborated on independently administered infrastructure'
 );
 
 check(
   'deploymentAttestation',
-  data.deployment?.verdict === 'PUBLIC_TESTNET_VERIFIED' &&
+  externalAttestations.verified &&
+    data.deployment?.verdict === 'PUBLIC_TESTNET_VERIFIED' &&
     data.deployment?.public_testnet_requirements?.independent_administration_verified === true &&
     data.deployment?.public_testnet_requirements?.encrypted_peer_transport_verified === true &&
     data.deployment?.public_testnet_requirements?.public_transaction_settlement_verified === true,
-  'deployment attestation must explicitly satisfy public-testnet promotion requirements'
+  'deployment attestation must satisfy public-testnet requirements and be corroborated externally'
 );
 
 const missing = checks.filter(item => !item.present).map(item => item.name);
@@ -176,10 +315,13 @@ const report = {
   genesis_sha256: genesisSha256,
   checks,
   missing,
-  rule: 'Single-host, loopback, simulated, or ephemeral CI evidence can never promote PQ-RDL to Public Testnet.',
+  rule: 'Repository-controlled, single-host, loopback, simulated, or ephemeral CI evidence can never by itself promote PQ-RDL to Public Testnet.',
 };
 
-writeFileSync('qmoosa-public-testnet-reality-report.json', JSON.stringify(report, null, 2));
+writeFileSync(
+  resolveRepoPath('qmoosa-public-testnet-reality-report.json'),
+  JSON.stringify(report, null, 2)
+);
 console.log('\nPQ-RDL PUBLIC TESTNET REALITY GATE:', report.verdict);
 
 if (!verified) {
