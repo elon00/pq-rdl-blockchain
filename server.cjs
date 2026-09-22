@@ -144,8 +144,18 @@ var import_dotenv = __toESM(require("dotenv"), 1);
 var import_ml_dsa = require("@noble/post-quantum/ml-dsa.js");
 var import_sha256 = require("@noble/hashes/sha256");
 var te = new TextEncoder();
-var hex = (b) => Buffer.from(b).toString("hex");
-var bytes = (h) => new Uint8Array(Buffer.from(h.replace(/^0x/, ""), "hex"));
+var hex = (b) => Array.from(b, (byte) => byte.toString(16).padStart(2, "0")).join("");
+var bytes = (h) => {
+  const normalized = h.replace(/^0x/, "").toLowerCase();
+  if (normalized.length % 2 !== 0 || !/^[0-9a-f]*$/.test(normalized)) {
+    throw new Error("invalid hexadecimal input");
+  }
+  const out = new Uint8Array(normalized.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = Number.parseInt(normalized.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+};
 async function sha256Hex(message) {
   return hex((0, import_sha256.sha256)(te.encode(message)));
 }
@@ -636,6 +646,7 @@ async function startServer() {
     console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
   }
   const mempool = [];
+  let miningInProgress = false;
   const deployedContracts = [
     {
       id: "sc_pq_escrow_001",
@@ -761,35 +772,43 @@ contract ConwayGliderYield {
     }
   });
   app.post("/api/blockchain/mine", async (req, res) => {
+    if (miningInProgress) {
+      return res.status(409).json({
+        error: "another local mining operation is already in progress",
+        retryable: true
+      });
+    }
+    miningInProgress = true;
     try {
       const { minerAddress, seedGrid, algorithm } = req.body;
       const algo = algorithm || "Dilithium2";
       const minerKeypair = await generatePQKeypair(algo);
       const seed = seedGrid && Array.isArray(seedGrid) ? seedGrid : generateRandomGrid(0.28);
       const latestBlock = blockchain[blockchain.length - 1];
+      const nextHeight = latestBlock.height + 1;
       const proof = await mineConwayBlock(seed, 15, 38);
-      const confirmedTxs = mempool.splice(0, 10).map((tx) => ({
+      const mempoolBatch = mempool.slice(0, 10);
+      const confirmedTxs = mempoolBatch.map((tx) => ({
         ...tx,
         status: "simulated",
-        blockHeight: latestBlock.height + 1
+        blockHeight: nextHeight
       }));
       const rewardTx = {
-        txHash: `0xreward_${await sha256Hex(`REWARD_${latestBlock.height + 1}_${Date.now()}`)}`,
+        txHash: `0xreward_${await sha256Hex(`REWARD_${nextHeight}_${Date.now()}`)}`,
         senderAddress: "pq1q00000000000000000000000000000000000000",
         receiverAddress: minerAddress || minerKeypair.address,
         amount: 50,
-        // 50 QBits reward
         fee: 0,
         algorithm: algo,
-        signatureHex: `REWARD_BLOCK_${latestBlock.height + 1}_SIG`,
+        signatureHex: `REWARD_BLOCK_${nextHeight}_SIG`,
         timestamp: Date.now(),
         status: "simulated",
-        blockHeight: latestBlock.height + 1
+        blockHeight: nextHeight
       };
       confirmedTxs.unshift(rewardTx);
-      const signature = await signPQPayload(`BLOCK_${latestBlock.height + 1}_${proof.hash}`, minerKeypair);
+      const signature = await signPQPayload(`BLOCK_${nextHeight}_${proof.hash}`, minerKeypair);
       const newBlock = {
-        height: latestBlock.height + 1,
+        height: nextHeight,
         previousHash: latestBlock.hash,
         hash: proof.hash,
         timestamp: Date.now(),
@@ -807,6 +826,7 @@ contract ConwayGliderYield {
         blockchain.pop();
         throw new Error(`failed to persist new block: ${error instanceof Error ? error.message : String(error)}`);
       }
+      mempool.splice(0, mempoolBatch.length);
       res.json({
         success: true,
         block: newBlock,
@@ -816,6 +836,8 @@ contract ConwayGliderYield {
       });
     } catch (err) {
       res.status(500).json({ error: err.message || "Block mining failed" });
+    } finally {
+      miningInProgress = false;
     }
   });
   app.post("/api/quantum/generate-keypair", (_req, res) => {
