@@ -36,13 +36,13 @@ jobs:
 
     steps:
       - name: 📥 Checkout PQ-RDL Blockchain
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 🦀 Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: 📦 Setup Node.js Runtime (Node 22 LTS)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
@@ -172,7 +172,7 @@ jobs:
           echo "Generated evidence files in evidence/"
 
       - name: 📤 Upload Cloud Validator Evidence Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cloud-validator-evidence-${{ github.run_id }}
           path: evidence/
@@ -183,7 +183,7 @@ jobs:
         id: evidence_pr
         continue-on-error: true
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(evidence): update cloud validator attestation (Gate R6)"
