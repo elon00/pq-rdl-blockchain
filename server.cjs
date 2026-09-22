@@ -232,18 +232,25 @@ var CANONICAL_TESTNET_TOKENS = [
 ];
 var TokenEngine = class {
   constructor(initialTokens = CANONICAL_TESTNET_TOKENS) {
-    this.tokens = [...initialTokens];
+    this.tokens = structuredClone(initialTokens);
   }
   getTokens() {
-    return this.tokens;
+    return structuredClone(this.tokens);
   }
   getTokenById(id) {
+    const token = this.findToken(id);
+    return token ? structuredClone(token) : void 0;
+  }
+  findToken(id) {
     const q = (id || "").toUpperCase();
     return this.tokens.find(
       (t) => t.id === id || t.symbol.toUpperCase() === q || t.contractAddress === id || q === "RDL-USD" && t.symbol === "rUSD" || q === "RDL-MEME" && t.symbol === "RLD"
     );
   }
   createToken(params) {
+    if (!this.validAmount(params.totalSupply) || !this.validAddress(params.creatorAddress) || !Number.isInteger(params.decimals) || params.decimals < 0 || params.decimals > 18 || params.burnRatePercentage !== void 0 && (!Number.isFinite(params.burnRatePercentage) || params.burnRatePercentage < 0 || params.burnRatePercentage > 100)) {
+      throw new Error("Invalid token supply, address, decimals or burn rate");
+    }
     const id = `tok_${params.symbol.toLowerCase()}_${Date.now().toString(16)}`;
     const contractAddress = `pq1sc_${params.symbol.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Math.random().toString(16).slice(2, 10)}`;
     const balances = {
@@ -271,21 +278,32 @@ var TokenEngine = class {
       automatonEvolutionYield: params.type === "STABLECOIN" ? 5 : 1.414
     };
     this.tokens.push(newToken);
-    return newToken;
+    return structuredClone(newToken);
+  }
+  validAmount(amount) {
+    return Number.isFinite(amount) && amount > 0 && amount <= Number.MAX_SAFE_INTEGER;
+  }
+  validAddress(address) {
+    return typeof address === "string" && address.trim().length > 0 && !["__proto__", "constructor", "prototype"].includes(address);
   }
   mintToken(tokenId, recipientAddress, amount) {
-    const token = this.getTokenById(tokenId);
+    const token = this.findToken(tokenId);
     if (!token) return { success: false, error: "Token not found" };
     if (!token.isUnlimitedSupply) {
       return { success: false, error: "Token has fixed supply; minting is disabled." };
     }
+    if (!this.validAmount(amount) || !this.validAddress(recipientAddress)) return { success: false, error: "Invalid amount or recipient" };
+    if (!this.validAmount(token.totalSupply + amount) || !this.validAmount((token.balances[recipientAddress] || 0) + amount)) return { success: false, error: "Balance or supply overflow" };
     token.totalSupply += amount;
     token.balances[recipientAddress] = (token.balances[recipientAddress] || 0) + amount;
     return { success: true, newTotalSupply: token.totalSupply };
   }
   transferToken(tokenId, senderAddress, receiverAddress, amount) {
-    const token = this.getTokenById(tokenId);
+    const token = this.findToken(tokenId);
     if (!token) return { success: false, error: "Token not found" };
+    if (!this.validAmount(amount) || !this.validAddress(senderAddress) || !this.validAddress(receiverAddress)) return { success: false, error: "Invalid amount or address" };
+    if (senderAddress !== receiverAddress && !this.validAmount((token.balances[receiverAddress] || 0) + amount)) return { success: false, error: "Balance overflow" };
+    if (token.burnRatePercentage !== void 0 && (!Number.isFinite(token.burnRatePercentage) || token.burnRatePercentage < 0 || token.burnRatePercentage > 100)) return { success: false, error: "Invalid burn rate" };
     const senderBalance = token.balances[senderAddress] || 0;
     if (senderBalance < amount) {
       return { success: false, error: `Insufficient balance. Available: ${senderBalance} ${token.symbol}` };
@@ -302,19 +320,23 @@ var TokenEngine = class {
     return { success: true, transferredAmount: transferAmount, burnedAmount };
   }
   claimFaucet(tokenId, recipientAddress, amount) {
-    const token = this.getTokenById(tokenId);
+    const token = this.findToken(tokenId);
     if (!token) return { success: false, amountClaimed: 0, error: "Token not found" };
-    const faucetBalance = token.balances["testnet_faucet"] || 0;
-    const claimAmount = Math.min(amount, faucetBalance > 0 ? faucetBalance : amount);
-    if (faucetBalance >= claimAmount) {
-      token.balances["testnet_faucet"] -= claimAmount;
+    if (!this.validAmount(amount) || !this.validAddress(recipientAddress) || recipientAddress === "testnet_faucet") {
+      return { success: false, amountClaimed: 0, error: "Invalid amount or recipient" };
     }
-    token.balances[recipientAddress] = (token.balances[recipientAddress] || 0) + claimAmount;
+    const faucetBalance = token.balances["testnet_faucet"] || 0;
+    if (faucetBalance < amount) return { success: false, amountClaimed: 0, error: "Faucet has insufficient funds" };
+    const nextBalance = (token.balances[recipientAddress] || 0) + amount;
+    if (!this.validAmount(nextBalance)) return { success: false, amountClaimed: 0, error: "Balance overflow" };
+    const claimAmount = amount;
+    token.balances["testnet_faucet"] -= claimAmount;
+    token.balances[recipientAddress] = nextBalance;
     return { success: true, amountClaimed: claimAmount };
   }
   getBalancesForAddress(address) {
     return this.tokens.map((t) => ({
-      token: t,
+      token: structuredClone(t),
       balance: t.balances[address] || 0
     }));
   }
@@ -332,9 +354,11 @@ var tokenEngine = new TokenEngine();
 
 // src/lib/faucetEngine.ts
 var FaucetEngine = class {
-  constructor() {
+  constructor(tokens = tokenEngine) {
+    this.tokens = tokens;
     this.claims = [];
-    this.lastClaimByAddress = {};
+    this.lastClaimByAddress = /* @__PURE__ */ new Map();
+    this.pending = /* @__PURE__ */ new Set();
     this.COOLDOWN_MS = 60 * 1e3;
   }
   // 60-second cooldown per address for testnet rate limiting
@@ -342,8 +366,13 @@ var FaucetEngine = class {
     if (!recipientAddress || recipientAddress.trim().length < 8) {
       return { success: false, error: "Please specify a valid post-quantum recipient address (e.g. pq1dil2...)" };
     }
+    recipientAddress = recipientAddress.trim();
+    if (!["ALL", "NATIVE", "STABLECOIN", "MEMECOIN"].includes(dropType) || recipientAddress === "testnet_faucet") {
+      return { success: false, error: "Invalid faucet request" };
+    }
+    if (this.pending.has(recipientAddress)) return { success: false, error: "Claim already pending" };
     const now = Date.now();
-    const lastClaim = this.lastClaimByAddress[recipientAddress];
+    const lastClaim = this.lastClaimByAddress.get(recipientAddress);
     if (lastClaim && now - lastClaim < this.COOLDOWN_MS) {
       const waitSecs = Math.ceil((this.COOLDOWN_MS - (now - lastClaim)) / 1e3);
       return { success: false, error: `Anti-spam cooldown active: please wait ${waitSecs} seconds before requesting another faucet drop.` };
@@ -356,40 +385,60 @@ var FaucetEngine = class {
     }
     if (dropType === "ALL" || dropType === "STABLECOIN") {
       stablecoinAmount = 1e3;
-      tokenEngine.claimFaucet("tok_rdl_stablecoin_001", recipientAddress, stablecoinAmount);
     }
     if (dropType === "ALL" || dropType === "MEMECOIN") {
       memecoinAmount = 1e7;
-      tokenEngine.claimFaucet("tok_rdl_memecoin_002", recipientAddress, memecoinAmount);
     }
-    const conwayNonce = Math.floor(Math.random() * 1e5);
-    const hashPayload = `FAUCET_DROP_${recipientAddress}_${nativeCoins}_${stablecoinAmount}_${memecoinAmount}_${now}_${conwayNonce}`;
-    const txHash = `0xfaucet_${await sha256Hex(hashPayload)}`;
-    const claim = {
-      txHash,
-      recipientAddress,
-      nativeCoins,
-      stablecoinAmount,
-      memecoinAmount,
-      timestamp: now,
-      conwayProofNonce: conwayNonce,
-      status: "CONFIRMED"
-    };
-    this.claims.unshift(claim);
-    this.lastClaimByAddress[recipientAddress] = now;
-    return { success: true, claim };
+    this.pending.add(recipientAddress);
+    try {
+      const conwayNonce = Math.floor(Math.random() * 1e5);
+      const hashPayload = `FAUCET_DROP_${recipientAddress}_${nativeCoins}_${stablecoinAmount}_${memecoinAmount}_${now}_${conwayNonce}`;
+      const txHash = `0xfaucet_${await sha256Hex(hashPayload)}`;
+      const drops = [
+        ["tok_rdl_stablecoin_001", stablecoinAmount],
+        ["tok_rdl_memecoin_002", memecoinAmount]
+      ];
+      for (const [id, amount] of drops) {
+        if (!amount) continue;
+        const token = this.tokens.getTokenById(id);
+        if (!token || (token.balances.testnet_faucet || 0) < amount || (token.balances[recipientAddress] || 0) + amount > Number.MAX_SAFE_INTEGER) {
+          return { success: false, error: "Faucet has insufficient funds or recipient balance overflow" };
+        }
+      }
+      for (const [id, amount] of drops) {
+        if (amount) {
+          const result = this.tokens.claimFaucet(id, recipientAddress, amount);
+          if (!result.success) return { success: false, error: result.error };
+        }
+      }
+      const claim = {
+        txHash,
+        recipientAddress,
+        nativeCoins,
+        stablecoinAmount,
+        memecoinAmount,
+        timestamp: now,
+        conwayProofNonce: conwayNonce,
+        status: "CONFIRMED"
+      };
+      this.claims.unshift(claim);
+      this.lastClaimByAddress.set(recipientAddress, now);
+      return { success: true, claim };
+    } finally {
+      this.pending.delete(recipientAddress);
+    }
   }
   getRecentClaims() {
     return this.claims.slice(0, 10);
   }
   getStats() {
     return {
-      totalDispensations: this.claims.length + 42,
-      // Includes initial testnet genesis distributions
-      totalNativeDispensed: this.claims.reduce((acc, c) => acc + c.nativeCoins, 2100),
-      totalStablecoinDispensed: this.claims.reduce((acc, c) => acc + c.stablecoinAmount, 42e3),
-      totalMemecoinDispensed: this.claims.reduce((acc, c) => acc + c.memecoinAmount, 42e7),
-      remainingDailyAllowance: 1e6
+      totalDispensations: this.claims.length,
+      totalNativeDispensed: this.claims.reduce((acc, c) => acc + c.nativeCoins, 0),
+      totalStablecoinDispensed: this.claims.reduce((acc, c) => acc + c.stablecoinAmount, 0),
+      totalMemecoinDispensed: this.claims.reduce((acc, c) => acc + c.memecoinAmount, 0),
+      remainingDailyAllowance: 0
+      // No daily allowance accounting is implemented.
     };
   }
 };
