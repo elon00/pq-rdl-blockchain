@@ -34,7 +34,8 @@ var PROTECTED_POSTS = /* @__PURE__ */ new Set([
   "/api/tokens/transfer",
   "/api/tokens/mint",
   "/api/faucet/dispense",
-  "/api/gemini/smart-contract-copilot"
+  "/api/gemini/smart-contract-copilot",
+  "/api/automaton/step"
 ]);
 var SERVER_KEYGEN_PATH = "/api/quantum/generate-keypair";
 function secureTokenEquals(header, token) {
@@ -83,11 +84,24 @@ function applyRuntimeSecurity(app) {
     next();
   });
   const buckets = /* @__PURE__ */ new Map();
+  let lastBucketSweep = 0;
   app.use("/api", (req, res, next) => {
     const now = Date.now();
     const key = req.ip || req.socket.remoteAddress || "unknown";
+    if (now - lastBucketSweep >= 6e4) {
+      for (const [entryKey, entry] of buckets) {
+        if (now - entry.startedAt >= 12e4) buckets.delete(entryKey);
+      }
+      lastBucketSweep = now;
+    }
     let bucket = buckets.get(key);
-    if (!bucket || now - bucket.startedAt >= 6e4) {
+    if (!bucket) {
+      if (buckets.size >= 1e4) {
+        return res.status(429).json({ error: "rate-limit capacity reached; retry later" });
+      }
+      bucket = { startedAt: now, count: 0 };
+      buckets.set(key, bucket);
+    } else if (now - bucket.startedAt >= 6e4) {
       bucket = { startedAt: now, count: 0 };
       buckets.set(key, bucket);
     }
@@ -95,16 +109,11 @@ function applyRuntimeSecurity(app) {
     if (bucket.count > requestsPerMinute) {
       return res.status(429).json({ error: "rate limit exceeded" });
     }
-    if (buckets.size > 1e4) {
-      for (const [entryKey, entry] of buckets) {
-        if (now - entry.startedAt >= 12e4) buckets.delete(entryKey);
-      }
-    }
     next();
   });
   app.use((req, res, next) => {
     if (!production || req.method !== "POST") return next();
-    const path2 = req.path;
+    const path2 = req.path.replace(/\/+$/, "") || "/";
     if (path2 === SERVER_KEYGEN_PATH) {
       return res.status(403).json({
         error: "server-side private-key generation is disabled in production; generate keys in a trusted client or offline environment"
@@ -561,58 +570,69 @@ async function startServer() {
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
   applyRuntimeSecurity(app);
   const DATA_DIR = process.env.RDL_WEB_DATA_DIR ? import_path.default.resolve(process.env.RDL_WEB_DATA_DIR) : import_path.default.join(process.cwd(), "data");
-  if (!import_fs.default.existsSync(DATA_DIR)) {
-    import_fs.default.mkdirSync(DATA_DIR, { recursive: true });
-  }
+  import_fs.default.mkdirSync(DATA_DIR, { recursive: true });
   const LEDGER_FILE = import_path.default.join(DATA_DIR, "rdl-ledger-chain.json");
-  const createPrototypeGenesis = async () => {
-    const genesisKeypair = await generatePQKeypair("Dilithium2");
-    const genesisSeed = generateRandomGrid(0.3);
-    const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
-    const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
-    const timestamp = Date.now();
+  const createPrototypeGenesis = () => {
+    const timestamp = 17264e8;
+    const hash = "0xd1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8";
     return {
       height: 0,
       previousHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
-      hash: genesisProof.hash,
+      hash,
       timestamp,
-      minerAddress: genesisKeypair.address,
-      transactions: [
-        {
-          txHash: "0xgenesis_local_prototype",
-          senderAddress: "pq1q00000000000000000000000000000000000000",
-          receiverAddress: genesisKeypair.address,
-          amount: 1e6,
-          fee: 0,
-          algorithm: "Dilithium2",
-          signatureHex: genesisSignature.signatureHex,
-          conwayStatePayload: "LOCAL_PROTOTYPE_GENESIS",
-          timestamp,
-          status: "simulated",
-          blockHeight: 0
-        }
-      ],
-      miningProof: genesisProof,
-      pqSignature: { ...genesisSignature, valid: true },
+      minerAddress: "local-prototype-genesis",
+      transactions: [],
+      miningProof: {
+        initialSeed: [[0, 1, 0], [0, 0, 1], [1, 1, 1]],
+        finalGrid: [[1, 0, 1], [0, 1, 1], [1, 1, 0]],
+        generationsRun: 15,
+        entropyScore: 42.8,
+        nonce: 1042,
+        hash
+      },
+      pqSignature: {
+        algorithm: "Dilithium2",
+        signatureHex: "DEMO_FIXTURE_NOT_A_CRYPTOGRAPHIC_SIGNATURE",
+        publicKeyHex: "DEMO_FIXTURE_PUBLIC_KEY_NOT_REAL",
+        hashMessage: "LOCAL_PROTOTYPE_GENESIS_FIXTURE",
+        timestamp,
+        valid: false
+      },
       quantumDifficulty: 4.8,
-      entropyIndex: genesisProof.entropyScore
+      entropyIndex: 42.8
     };
   };
-  let blockchain = [];
-  if (import_fs.default.existsSync(LEDGER_FILE)) {
+  const isValidStoredBlock = (value) => {
+    if (!value || typeof value !== "object") return false;
+    const block = value;
+    return Number.isInteger(block.height) && Number(block.height) >= 0 && typeof block.previousHash === "string" && typeof block.hash === "string" && typeof block.timestamp === "number" && Number.isFinite(block.timestamp) && typeof block.minerAddress === "string" && Array.isArray(block.transactions) && !!block.miningProof && typeof block.miningProof === "object" && !!block.pqSignature && typeof block.pqSignature === "object" && typeof block.quantumDifficulty === "number" && Number.isFinite(block.quantumDifficulty) && typeof block.entropyIndex === "number" && Number.isFinite(block.entropyIndex);
+  };
+  const persistLedger = (chain) => {
+    const tempPath = `${LEDGER_FILE}.${process.pid}.tmp`;
     try {
-      const parsed = JSON.parse(import_fs.default.readFileSync(LEDGER_FILE, "utf8"));
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("empty or invalid ledger");
-      blockchain = parsed;
-      console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
-    } catch (error) {
-      console.error("[PERSISTENCE] Existing local prototype ledger is invalid; reinitializing:", error);
-      blockchain = [await createPrototypeGenesis()];
-      import_fs.default.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2), { mode: 384 });
+      import_fs.default.writeFileSync(tempPath, JSON.stringify(chain, null, 2), { mode: 384 });
+      import_fs.default.renameSync(tempPath, LEDGER_FILE);
+    } finally {
+      try {
+        import_fs.default.rmSync(tempPath, { force: true });
+      } catch {
+      }
     }
-  } else {
-    blockchain = [await createPrototypeGenesis()];
-    import_fs.default.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2), { mode: 384 });
+  };
+  let blockchain = [];
+  try {
+    const parsed = JSON.parse(import_fs.default.readFileSync(LEDGER_FILE, "utf8"));
+    if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every(isValidStoredBlock)) {
+      throw new Error("empty or invalid ledger");
+    }
+    blockchain = parsed;
+    console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      console.error("[PERSISTENCE] Existing local prototype ledger is invalid; reinitializing:", error);
+    }
+    blockchain = [createPrototypeGenesis()];
+    persistLedger(blockchain);
     console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
   }
   const mempool = [];
@@ -744,7 +764,7 @@ contract ConwayGliderYield {
     try {
       const { minerAddress, seedGrid, algorithm } = req.body;
       const algo = algorithm || "Dilithium2";
-      const minerKeypair = await generatePQKeypair(algo, `Miner-${minerAddress || "Node"}`);
+      const minerKeypair = await generatePQKeypair(algo);
       const seed = seedGrid && Array.isArray(seedGrid) ? seedGrid : generateRandomGrid(0.28);
       const latestBlock = blockchain[blockchain.length - 1];
       const proof = await mineConwayBlock(seed, 15, 38);
@@ -782,11 +802,18 @@ contract ConwayGliderYield {
       };
       blockchain.push(newBlock);
       try {
-        import_fs.default.writeFileSync(LEDGER_FILE, JSON.stringify(blockchain, null, 2));
-      } catch (e) {
-        console.error("Failed to persist block to disk:", e);
+        persistLedger(blockchain);
+      } catch (error) {
+        blockchain.pop();
+        throw new Error(`failed to persist new block: ${error instanceof Error ? error.message : String(error)}`);
       }
-      res.json({ success: true, block: newBlock, chainHeight: blockchain.length, persistedOnDisk: true, statusNote: "Block mined with Conway cellular automata and persisted to disk ledger." });
+      res.json({
+        success: true,
+        block: newBlock,
+        chainHeight: blockchain.length,
+        persistedOnDisk: true,
+        statusNote: "Local prototype block generated and durably written to the configured ledger file."
+      });
     } catch (err) {
       res.status(500).json({ error: err.message || "Block mining failed" });
     }
