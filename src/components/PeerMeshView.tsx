@@ -65,9 +65,9 @@ export const PeerMeshView: React.FC = () => {
   const [newNodeAlgo, setNewNodeAlgo] = useState<PQAlgorithm>('Dilithium2');
 
   const handleBroadcast = () => {
-    setBroadcastMsg('Broadcasting Post-Quantum Transaction across Web 4.0 Mesh Network...');
+    setBroadcastMsg('Simulating payload propagation across synthetic peer fixtures...');
     setTimeout(() => {
-      setBroadcastMsg('Transaction propagated to 100% of Web 4.0 Peer Nodes in 184ms!');
+      setBroadcastMsg('Simulation completed across the local synthetic peer set. No network broadcast occurred.');
     }, 1200);
   };
 
@@ -101,10 +101,10 @@ export const PeerMeshView: React.FC = () => {
             <span>Autonomous Web 4.0 Peer Topology</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold font-mono text-white">
-            Peer-to-Peer Quantum Mesh Simulator
+            Peer Mesh Simulator (Synthetic Data)
           </h2>
           <p className="text-slate-400 text-xs">
-            Decentralized node mesh communicating via zero-knowledge post-quantum protocols.
+            Interactive synthetic peer fixtures for UI and protocol-flow demonstrations. These are not discovered or externally reachable nodes.
           </p>
         </div>
 
@@ -113,7 +113,7 @@ export const PeerMeshView: React.FC = () => {
           className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold font-mono px-5 py-2.5 rounded-xl text-xs shadow-lg shadow-cyan-900/30 cursor-pointer transition-all"
         >
           <Radio className="w-4 h-4 text-slate-950" />
-          <span>Broadcast Quantum Payload to Mesh</span>
+          <span>Simulate Payload Propagation</span>
         </button>
       </div>
 
@@ -172,7 +172,7 @@ export const PeerMeshView: React.FC = () => {
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h3 className="font-bold font-mono text-white text-sm flex items-center gap-2">
           <Plus className="w-4 h-4 text-cyan-400" />
-          <span>Add Custom Web 4.0 Node to Network</span>
+          <span>Add Synthetic Node Fixture</span>
         </h3>
 
         <form onSubmit={handleAddNode} className="grid grid-cols-1 sm:grid-cols-4 gap-3 font-mono text-xs">
@@ -216,7 +216,7 @@ export const PeerMeshView: React.FC = () => {
               type="submit"
               className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2 rounded-xl cursor-pointer"
             >
-              Connect Node to Mesh
+              Add to Simulation
             </button>
           </div>
         </form>
