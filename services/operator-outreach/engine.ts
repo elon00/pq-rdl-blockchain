@@ -115,23 +115,51 @@ export class OutreachEngine {
     return e;
   }
 
+  private async autoReply(contact: OperatorContact): Promise<void> {
+    if (process.env.OPERATOR_AUTO_REPLY !== 'true' || !contact.email || !contact.consent) return;
+    const t = briefing(contact);
+    const e = event(contact.id, 'email', 'response', t.body, `Re: ${t.subject}`);
+    const r = await sendEmail(contact, e.subject || t.subject, t.body);
+    e.status = r.ok ? 'sent' : 'failed';
+    e.providerMessageId = r.providerMessageId;
+    e.error = r.error;
+    await this.store.appendEvent(e);
+    if (r.ok) {
+      contact.stage = 'briefed';
+      contact.lastContactAt = new Date().toISOString();
+      contact.updatedAt = contact.lastContactAt;
+      await this.store.upsertOperator(contact);
+    }
+  }
+
   async recordResponse(operatorId: string, body: string): Promise<OperatorContact> {
     const state = await this.store.load();
     const contact = state.operators.find(x => x.id === operatorId);
     if (!contact) throw new Error('operator not found');
+
     const normalized = body.toLowerCase();
-    if (/unsubscribe|stop|do not contact|opt out/.test(normalized)) {
+    const isOptOut = /unsubscribe|\bstop\b|do not contact|opt out/.test(normalized);
+    const isDecline = /not interested|no thanks|no thank you|decline|do not want/.test(normalized);
+    const isInterested = /\binterested\b|\byes\b|\bbrief\b|tell me more|run a node/.test(normalized);
+
+    if (isOptOut) {
       contact.stage = 'do-not-contact';
       contact.consent = false;
-    } else if (/interested|yes|brief|tell me more|run a node/.test(normalized)) {
+    } else if (isDecline) {
+      contact.stage = 'declined';
+    } else if (isInterested) {
       contact.stage = 'interested';
     }
+
     contact.notes = [contact.notes, `Response: ${body}`].filter(Boolean).join('\n');
     contact.updatedAt = new Date().toISOString();
     await this.store.upsertOperator(contact);
-    const e = event(operatorId, 'email', 'response', body);
-    e.status = 'received';
-    await this.store.appendEvent(e);
+
+    const inbound = event(operatorId, 'email', 'response', body);
+    inbound.status = 'received';
+    await this.store.appendEvent(inbound);
+
+    if (isInterested) await this.autoReply(contact);
     return contact;
   }
 }
