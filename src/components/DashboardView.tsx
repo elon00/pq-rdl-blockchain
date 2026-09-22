@@ -38,20 +38,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="relative z-10 space-y-4 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-xs font-mono">
             <BrainCircuit className="w-4 h-4 text-cyan-400" />
-            <span>Web 4.0 Post-Quantum Cellular Engine</span>
+            <span>PQC + Consensus Research Prototype</span>
           </div>
 
           <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white font-mono leading-tight">
             PQ-RDL Blockchain <br />
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-purple-400 bg-clip-text text-transparent">
-              Post-Quantum Crypto & Conway Automaton Consensus
+              ML-DSA Cryptography & Conway Simulation
             </span>
           </h2>
 
           <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-            A next-generation Web 4.0 decentralized ledger secured by NIST Post-Quantum lattice cryptography
-            (<strong className="text-cyan-300">CRYSTALS-Dilithium</strong> & <strong className="text-purple-300">SPHINCS+</strong>)
-            and validated by <strong className="text-amber-300">Conway's Game of Life Proof-of-Automaton</strong> entropy evolution.
+            A research prototype combining a NIST FIPS 204 ML-DSA-65 implementation with HotStuff-style consensus code and Conway cellular-automaton experiments. Public-network security and performance are not independently verified.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -60,7 +58,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold font-mono px-5 py-2.5 rounded-xl text-xs sm:text-sm shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
             >
               <Cpu className="w-4 h-4" />
-              <span>Launch Conway Automaton Miner</span>
+              <span>Run Conway Proof Simulation</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -69,7 +67,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="flex items-center gap-2 bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-purple-500/40 font-mono px-5 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer"
             >
               <Lock className="w-4 h-4 text-purple-400" />
-              <span>Generate Quantum Keypair</span>
+              <span>Generate ML-DSA Keypair</span>
             </button>
           </div>
         </div>
@@ -101,11 +99,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <ShieldCheck className="w-4 h-4 text-purple-400" />
           </div>
           <div className="text-2xl font-bold font-mono text-purple-300">
-            NIST L5 Lattice
+            ML-DSA-65
           </div>
           <div className="text-[11px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/60">
             <span>Algorithms:</span>
-            <span className="text-purple-300">Dilithium2 / Falcon / SPHINCS+</span>
+            <span className="text-purple-300">FIPS 204 ML-DSA-65 implementation</span>
           </div>
         </div>
 
@@ -119,7 +117,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {chainState?.averageEntropy ?? 0} H(x)
           </div>
           <div className="text-[11px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/60">
-            <span>Consensus Engine:</span>
+            <span>Simulation Engine:</span>
             <span className="text-amber-300">B3/S23 Automaton</span>
           </div>
         </div>
@@ -131,11 +129,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Zap className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-2xl font-bold font-mono text-emerald-300">
-            {chainState?.tps !== null && chainState?.tps !== undefined ? `${chainState.tps} TPS` : 'Devnet (Target)'}
+            {chainState?.tps !== null && chainState?.tps !== undefined ? `${chainState.tps} TPS` : 'Not measured'}
           </div>
           <div className="text-[11px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/60">
             <span>Active Mesh Nodes:</span>
-            <span className="text-emerald-300">{chainState?.activeNodes !== null && chainState?.activeNodes !== undefined ? `${chainState.activeNodes} Peers` : '3 Nodes (Devnet)'}</span>
+            <span className="text-emerald-300">{chainState?.activeNodes !== null && chainState?.activeNodes !== undefined ? `${chainState.activeNodes} Peers` : 'Not measured'}</span>
           </div>
         </div>
       </div>
@@ -148,11 +146,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-cyan-400" />
               <h3 className="font-bold text-white font-mono text-base">
-                Quantum Threat Resistance Analysis
+                PQC Implementation Status
               </h3>
             </div>
             <span className="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-mono">
-              Quantum Secure
+              PQC Candidate
             </span>
           </div>
 
@@ -171,11 +169,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {/* CRYSTALS-Dilithium row */}
             <div className="bg-slate-950/60 p-3 rounded-lg border border-cyan-500/30 flex items-center justify-between">
               <div>
-                <div className="text-cyan-300 font-semibold">CRYSTALS-Dilithium2 / 3 / 5</div>
-                <div className="text-slate-400 text-[11px]">Module Lattice Hardness (ML-DSA)</div>
+                <div className="text-cyan-300 font-semibold">ML-DSA-65</div>
+                <div className="text-slate-400 text-[11px]">NIST FIPS 204 standardized signature algorithm</div>
               </div>
               <span className="px-2 py-1 rounded bg-cyan-950 text-cyan-300 text-[11px] font-bold">
-                RESISTANT (128-256 Bits)
+                STANDARDIZED PQC
               </span>
             </div>
 
