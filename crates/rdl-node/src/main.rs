@@ -8,7 +8,7 @@ use std::fs;
 use std::io::Cursor;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -176,7 +176,7 @@ fn load_lock_state() -> LockState {
         .unwrap_or_default()
 }
 fn save_lock_state(lock: &LockState) {
-    let _ = fs::create_dir_all("data");
+    let _ = ensure_data_dir();
     let _ = fs::write(
         lock_state_path(),
         serde_json::to_vec_pretty(lock).unwrap_or_default(),
@@ -254,7 +254,7 @@ fn load_consensus_context(height: u64) -> ConsensusContext {
     }
 }
 fn save_consensus_context(ctx: ConsensusContext) {
-    let _ = fs::create_dir_all("data");
+    let _ = ensure_data_dir();
     let _ = fs::write(
         consensus_state_path(),
         serde_json::to_vec_pretty(&ctx).unwrap_or_default(),
@@ -348,7 +348,7 @@ fn load_peer_table() -> Vec<String> {
     peers
 }
 fn save_peer_table(peers: &[String]) {
-    let _ = fs::create_dir_all("data");
+    let _ = ensure_data_dir();
     let _ = fs::write(
         data_path("rdl-peers.json"),
         serde_json::to_vec_pretty(peers).unwrap_or_default(),
