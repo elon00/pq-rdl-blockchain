@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::Cursor;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -848,9 +848,11 @@ fn identity_rate_allowed(limits: &mut HashMap<[u8; 32], VecDeque<Instant>>, pk: 
     q.push_back(now);
     true
 }
-fn read_bounded_line(reader: &mut BufReader<TcpStream>) -> std::io::Result<String> {
+fn read_bounded_line<R: BufRead>(reader: &mut R) -> std::io::Result<String> {
     let mut line = String::new();
-    let n = reader.read_line(&mut line)?;
+    let n = reader
+        .take((MAX_FRAME_BYTES + 1) as u64)
+        .read_line(&mut line)?;
     if n == 0 {
         return Err(std::io::Error::new(
             std::io::ErrorKind::UnexpectedEof,
@@ -861,6 +863,12 @@ fn read_bounded_line(reader: &mut BufReader<TcpStream>) -> std::io::Result<Strin
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             "frame too large",
+        ));
+    }
+    if !line.ends_with('\n') {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "incomplete frame",
         ));
     }
     Ok(line)
@@ -1552,5 +1560,51 @@ mod reality_tests {
             ],
         };
         assert!(!verify_timeout_certificate(&tc, &validators));
+    }
+}
+
+#[cfg(test)]
+mod frame_limit_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_oversized_frame_before_reading_entire_input() {
+        let bytes = vec![b'x'; MAX_FRAME_BYTES * 4];
+        let mut input = Cursor::new(bytes);
+        assert_eq!(
+            read_bounded_line(&mut input).unwrap_err().kind(),
+            std::io::ErrorKind::InvalidData
+        );
+        assert_eq!(input.position(), (MAX_FRAME_BYTES + 1) as u64);
+    }
+
+    #[test]
+    fn accepts_boundary_and_preserves_next_frame() {
+        let mut bytes = vec![b'x'; MAX_FRAME_BYTES - 1];
+        bytes.extend_from_slice(b"\nPING\n");
+        let mut input = Cursor::new(bytes);
+        assert_eq!(
+            read_bounded_line(&mut input).unwrap().len(),
+            MAX_FRAME_BYTES
+        );
+        assert_eq!(read_bounded_line(&mut input).unwrap(), "PING\n");
+    }
+
+    #[test]
+    fn rejects_truncated_and_invalid_utf8_frames() {
+        for bytes in [b"PING".to_vec(), Vec::new()] {
+            assert_eq!(
+                read_bounded_line(&mut Cursor::new(bytes))
+                    .unwrap_err()
+                    .kind(),
+                std::io::ErrorKind::UnexpectedEof
+            );
+        }
+        assert_eq!(
+            read_bounded_line(&mut Cursor::new(vec![0xff, b'\n']))
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::InvalidData
+        );
     }
 }
