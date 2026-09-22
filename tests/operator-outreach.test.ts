@@ -48,3 +48,24 @@ test('invite is skipped without consent', async () => {
   const events = await new OutreachEngine(store).invite(contact);
   assert.equal(events[0]?.status, 'skipped');
 });
+
+test('invite does not advance stage when there is no enabled delivery channel', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pq-rdl-outreach-'));
+  const store = new OutreachStore(path.join(dir, 'db.json'));
+  const now = new Date().toISOString();
+  const contact: OperatorContact = {
+    id: 'operator-3',
+    name: 'No Route',
+    stage: 'prospect',
+    consent: true,
+    source: 'test',
+    tags: [],
+    createdAt: now,
+    updatedAt: now
+  };
+  await store.upsertOperator(contact);
+  const events = await new OutreachEngine(store).invite(contact);
+  assert.equal(events[0]?.status, 'skipped');
+  const saved = (await store.load()).operators.find(x => x.id === contact.id);
+  assert.equal(saved?.stage, 'prospect');
+});
