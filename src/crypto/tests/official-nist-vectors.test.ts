@@ -12,8 +12,8 @@
  * 8. RDL Dual Hybrid Transaction Conjunction (Ed25519 ∧ ML-DSA-65)
  */
 
-import { hkdf } from '@noble/hashes/hkdf';
-import { sha256 } from '@noble/hashes/sha256';
+import { hkdf } from '@noble/hashes/hkdf.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { mlKemEngine } from '../pqc/ml-kem.js';
 import { mlDsaEngine } from '../pqc/ml-dsa.js';
 import { rdlHybridSigner } from '../rdl/rdl-hybrid-signer.js';
