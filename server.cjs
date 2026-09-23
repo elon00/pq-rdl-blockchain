@@ -142,7 +142,7 @@ var import_dotenv = __toESM(require("dotenv"), 1);
 
 // src/lib/pqCrypto.ts
 var import_ml_dsa = require("@noble/post-quantum/ml-dsa.js");
-var import_sha256 = require("@noble/hashes/sha256");
+var import_sha2 = require("@noble/hashes/sha2.js");
 var te = new TextEncoder();
 var hex = (b) => Array.from(b, (byte) => byte.toString(16).padStart(2, "0")).join("");
 var bytes = (h) => {
@@ -157,7 +157,7 @@ var bytes = (h) => {
   return out;
 };
 async function sha256Hex(message) {
-  return hex((0, import_sha256.sha256)(te.encode(message)));
+  return hex((0, import_sha2.sha256)(te.encode(message)));
 }
 function requireMLDSA(algorithm) {
   if (algorithm !== "Dilithium2") {
@@ -170,7 +170,7 @@ async function generatePQKeypair(algorithm, _seedPhrase) {
   const k = import_ml_dsa.ml_dsa65.keygen();
   const publicKeyHex = hex(k.publicKey);
   const privateKeyHex = hex(k.secretKey);
-  const address = `pq1mldsa65${hex((0, import_sha256.sha256)(k.publicKey)).slice(0, 38)}`;
+  const address = `pq1mldsa65${hex((0, import_sha2.sha256)(k.publicKey)).slice(0, 38)}`;
   return {
     algorithm,
     address,
@@ -188,7 +188,7 @@ async function signPQPayload(payload, keypair) {
     algorithm: keypair.algorithm,
     signatureHex: hex(signature),
     publicKeyHex: keypair.publicKeyHex,
-    hashMessage: hex((0, import_sha256.sha256)(message)),
+    hashMessage: hex((0, import_sha2.sha256)(message)),
     timestamp: Date.now(),
     valid: true
   };
@@ -198,7 +198,7 @@ async function verifyPQSignature(payload, signature, publicKeyHex) {
     requireMLDSA(signature.algorithm);
     if (signature.publicKeyHex.replace(/^0x/, "").toLowerCase() !== publicKeyHex.replace(/^0x/, "").toLowerCase()) return false;
     const message = te.encode(payload);
-    if (signature.hashMessage.replace(/^0x/, "").toLowerCase() !== hex((0, import_sha256.sha256)(message))) return false;
+    if (signature.hashMessage.replace(/^0x/, "").toLowerCase() !== hex((0, import_sha2.sha256)(message))) return false;
     return import_ml_dsa.ml_dsa65.verify(bytes(signature.signatureHex), message, bytes(publicKeyHex));
   } catch {
     return false;
