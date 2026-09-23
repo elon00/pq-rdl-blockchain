@@ -12,8 +12,8 @@
  * - RDL Dual Hybrid Conjunction conformance
  */
 
-import { hkdf } from '@noble/hashes/hkdf';
-import { sha256 } from '@noble/hashes/sha256';
+import { hkdf } from '@noble/hashes/hkdf.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { generateKeyPairSync, sign as ed25519Sign, verify as ed25519Verify } from 'node:crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
