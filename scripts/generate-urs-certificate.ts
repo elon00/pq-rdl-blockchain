@@ -7,7 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { sha256 } from '@noble/hashes/sha256';
+import { sha256 } from '@noble/hashes/sha2.js';
 
 function runStep(title: string, cmd: string) {
   console.log(`\n▶ ${title}...`);
