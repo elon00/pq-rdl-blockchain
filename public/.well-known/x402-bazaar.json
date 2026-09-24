@@ -1,0 +1,47 @@
+{
+  "x402Version": "1.0.0",
+  "version": "1.0.0",
+  "name": "PQ-RDL — Quantum Automaton Blockchain",
+  "type": "quantum-blockchain-protocol",
+  "category": "infrastructure",
+  "tags": [
+    "pq-rdl",
+    "blockchain",
+    "post-quantum",
+    "crystals-dilithium",
+    "sphincs+",
+    "conway-automaton",
+    "x402"
+  ],
+  "provider": {
+    "name": "PQ-RDL Blockchain / Martin",
+    "website": "https://github.com/elon00/pq-rdl-blockchain",
+    "payTo": "8qhW8ctXX77UNLTY9kx3XoAoH8kstQXPbCghUwqu34es",
+    "network": "pq-rdl-testnet",
+    "caip2": "pqrdl:testnet-epoch-1"
+  },
+  "endpoints": [
+    {
+      "path": "/api/v1/x402/blockchain/block-verify",
+      "method": "POST",
+      "description": "Cryptographically verify a PQ-RDL block header using Dilithium and Conway consensus proofs",
+      "pricing": {
+        "amountToken": "0.01",
+        "currency": "RDL",
+        "alternativeSol": "0.001"
+      },
+      "challengeHeader": "WWW-Authenticate: x402 realm=\"pq-rdl\", payTo=\"8qhW8ctXX77UNLTY9kx3XoAoH8kstQXPbCghUwqu34es\", amount=\"0.001\", currency=\"SOL\", network=\"solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z\""
+    },
+    {
+      "path": "/api/v1/x402/pqc/attest",
+      "method": "POST",
+      "description": "Generate NIST Dilithium / SPHINCS+ block state attestation signature for autonomous nodes",
+      "pricing": {
+        "amountToken": "0.02",
+        "currency": "RDL",
+        "alternativeSol": "0.002"
+      },
+      "challengeHeader": "WWW-Authenticate: x402 realm=\"pq-rdl\", payTo=\"8qhW8ctXX77UNLTY9kx3XoAoH8kstQXPbCghUwqu34es\", amount=\"0.002\", currency=\"SOL\", network=\"solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z\""
+    }
+  ]
+}

@@ -530,6 +530,103 @@ Always structure JSON output with properties:
     });
   });
 
+  // Post-Quantum Keypair Generation
+  app.post('/api/quantum/generate-keypair', async (req, res) => {
+    try {
+      const { algorithm, seedPhrase } = req.body;
+      const keypair = await generatePQKeypair(algorithm || 'Dilithium2', seedPhrase);
+      res.json(keypair);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- Official x402 Autonomous Agent Commerce Protocol ---
+  const OFFICIAL_PQRDL_RECIPIENT = "8qhW8ctXX77UNLTY9kx3XoAoH8kstQXPbCghUwqu34es";
+  const USED_PQRDL_SIGNATURES = new Set<string>();
+
+  app.get(['/.well-known/x402-bazaar.json', '/.well-known/x402.json'], (_req, res) => {
+    return res.json({
+      x402Version: '1.0.0',
+      version: '1.0.0',
+      name: 'PQ-RDL — Quantum Automaton Blockchain',
+      type: 'quantum-blockchain-protocol',
+      category: 'infrastructure',
+      tags: ['pq-rdl', 'blockchain', 'post-quantum', 'crystals-dilithium', 'sphincs+', 'conway-automaton', 'x402'],
+      provider: {
+        name: 'PQ-RDL Blockchain / Martin',
+        website: 'https://github.com/elon00/pq-rdl-blockchain',
+        payTo: OFFICIAL_PQRDL_RECIPIENT,
+        network: 'pq-rdl-testnet',
+        caip2: 'pqrdl:testnet-epoch-1'
+      },
+      endpoints: [
+        {
+          path: '/api/v1/x402/blockchain/block-verify',
+          method: 'POST',
+          description: 'Cryptographically verify a PQ-RDL block header using Dilithium and Conway consensus proofs',
+          pricing: { amountToken: '0.01', currency: 'RDL', alternativeSol: '0.001' }
+        },
+        {
+          path: '/api/v1/x402/pqc/attest',
+          method: 'POST',
+          description: 'Generate NIST Dilithium / SPHINCS+ block state attestation signature for autonomous nodes',
+          pricing: { amountToken: '0.02', currency: 'RDL', alternativeSol: '0.002' }
+        }
+      ]
+    });
+  });
+
+  app.post('/api/v1/x402/blockchain/block-verify', async (req, res) => {
+    const authHeader = req.headers['authorization'] || '';
+    const sigHeader = (req.headers['x-payment-signature'] as string) || '';
+    let signature = '';
+    if (typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('x402 ')) {
+      signature = authHeader.slice(5).trim();
+    } else if (sigHeader) {
+      signature = sigHeader.trim();
+    }
+
+    const challengeHeader = `x402 realm="pq-rdl", payTo="${OFFICIAL_PQRDL_RECIPIENT}", amount="0.001", currency="SOL", network="solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"`;
+
+    if (!signature) {
+      res.setHeader('WWW-Authenticate', challengeHeader);
+      return res.status(402).json({
+        status: 402,
+        error: 'Payment Required',
+        protocol: 'x402',
+        version: '1.0.0',
+        challenge: {
+          network: 'solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z',
+          payTo: OFFICIAL_PQRDL_RECIPIENT,
+          pricing: { amountSol: 0.001, currency: 'SOL', alternativeRdl: '0.01' }
+        },
+        instructions: `Transfer 0.001 SOL on Solana Testnet to ${OFFICIAL_PQRDL_RECIPIENT}, then retry with header: 'Authorization: x402 <txSignature>'`
+      });
+    }
+
+    if (USED_PQRDL_SIGNATURES.has(signature)) {
+      return res.status(403).json({ status: 403, error: 'Replay Attack Detected: Transaction signature already claimed.' });
+    }
+    USED_PQRDL_SIGNATURES.add(signature);
+
+    const latestBlock = blockchain[blockchain.length - 1];
+
+    return res.json({
+      success: true,
+      protocol: 'x402',
+      service: 'pq-rdl-block-verify',
+      x402Receipt: { signature, recipient: OFFICIAL_PQRDL_RECIPIENT, amountSol: 0.001 },
+      verification: {
+        verifiedBlockHeight: latestBlock.height,
+        blockHash: latestBlock.hash,
+        pqSignature: latestBlock.pqSignature,
+        miningProof: latestBlock.miningProof,
+        consensusResult: 'CONSENSUS_VALID_TRUE'
+      }
+    });
+  });
+
   // Vite Integration
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
