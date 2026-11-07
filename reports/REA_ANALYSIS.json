@@ -1,0 +1,605 @@
+{
+  "engine": "REA_Reverse_Engineer_Anything",
+  "status": "STRUCTURE_RECONSTRUCTED",
+  "analyzed_files": 199,
+  "manifest": {
+    "1-click-qualify-testnet.bat": {
+      "bytes": 1257
+    },
+    "1-click-qualify-testnet.sh": {
+      "bytes": 939
+    },
+    "Cargo.lock": {
+      "bytes": 16871
+    },
+    "Cargo.toml": {
+      "bytes": 224
+    },
+    "check-env.mjs": {
+      "bytes": 211
+    },
+    "check-truth.mjs": {
+      "bytes": 2838
+    },
+    "DEPLOYMENT_EVIDENCE.json": {
+      "bytes": 1080
+    },
+    "DEVNET_MANIFEST.md": {
+      "bytes": 726
+    },
+    "docker-compose.testnet.yml": {
+      "bytes": 3954
+    },
+    "docker-compose.yml": {
+      "bytes": 2025
+    },
+    "Dockerfile": {
+      "bytes": 469
+    },
+    "Dockerfile.bot": {
+      "bytes": 332
+    },
+    "Dockerfile.web": {
+      "bytes": 695
+    },
+    "index.html": {
+      "bytes": 714
+    },
+    "LICENSE": {
+      "bytes": 10349
+    },
+    "MAINNET_LAUNCH_BOUNDARY.md": {
+      "bytes": 1073
+    },
+    "metadata.json": {
+      "bytes": 350
+    },
+    "OPERATIONAL_DEVNET.md": {
+      "bytes": 474
+    },
+    "package-lock.json": {
+      "bytes": 153943
+    },
+    "package.json": {
+      "bytes": 3371
+    },
+    "QMOOSA_FINISH_ALL_REALITY_EXECUTION.md": {
+      "bytes": 1295
+    },
+    "QMOOSA_MASTER_FINISHER.md": {
+      "bytes": 1436
+    },
+    "QMOOSA_MASTER_FINISHER_REPORT.md": {
+      "bytes": 878
+    },
+    "RDL_CONSTITUTION.md": {
+      "bytes": 2313
+    },
+    "RDL_NETWORK_COMPLETION.md": {
+      "bytes": 1335
+    },
+    "README.md": {
+      "bytes": 2618
+    },
+    "REALITY_MANIFEST.json": {
+      "bytes": 1580
+    },
+    "run-public-tunnel.bat": {
+      "bytes": 878
+    },
+    "SECURITY.md": {
+      "bytes": 2426
+    },
+    "server.ts": {
+      "bytes": 23339
+    },
+    "TESTNET_MAINNET_READINESS.md": {
+      "bytes": 2661
+    },
+    "TESTNET_OPERATOR_RUNBOOK.md": {
+      "bytes": 1525
+    },
+    "TESTNET_PROMOTION_CHECKLIST.md": {
+      "bytes": 955
+    },
+    "tsconfig.json": {
+      "bytes": 508
+    },
+    "vite.config.ts": {
+      "bytes": 459
+    },
+    "artifacts\\active-tunnel-url.txt": {
+      "bytes": 53
+    },
+    "artifacts\\deployment-evidence-codespaces.json": {
+      "bytes": 499
+    },
+    "artifacts\\deployment-state.json": {
+      "bytes": 1887
+    },
+    "artifacts\\explorer-evidence.json": {
+      "bytes": 241
+    },
+    "artifacts\\faucet-evidence.json": {
+      "bytes": 229
+    },
+    "artifacts\\multi-node-topology.json": {
+      "bytes": 1571
+    },
+    "artifacts\\public-rpc-evidence.json": {
+      "bytes": 428
+    },
+    "artifacts\\rdl-network-readiness.json": {
+      "bytes": 1372
+    },
+    "artifacts\\test-mine.json": {
+      "bytes": 52
+    },
+    "deploy\\cloudshell-direct-node.sh": {
+      "bytes": 2438
+    },
+    "deploy\\gcp-cloudshell-1click.sh": {
+      "bytes": 3423
+    },
+    "deploy\\gcp-setup.sh": {
+      "bytes": 2615
+    },
+    "deploy\\oracle-setup.sh": {
+      "bytes": 2454
+    },
+    "docs\\2026-09-21-integrity-review.md": {
+      "bytes": 3107
+    },
+    "docs\\CLOUD_NODE_SETUP.md": {
+      "bytes": 6166
+    },
+    "docs\\CONSENSUS-SPECIFICATION.md": {
+      "bytes": 1220
+    },
+    "docs\\DOCUMENTATION-INDEX.md": {
+      "bytes": 1125
+    },
+    "docs\\GLOBAL_STANDARDS_STRATEGY.md": {
+      "bytes": 5839
+    },
+    "docs\\GOVERNANCE-DAO.md": {
+      "bytes": 1340
+    },
+    "docs\\MAINNET-SPECIFICATION.md": {
+      "bytes": 1566
+    },
+    "docs\\NODE-OPERATOR-GUIDE.md": {
+      "bytes": 3517
+    },
+    "docs\\OPERATOR_OUTREACH_AUTOMATION.md": {
+      "bytes": 6342
+    },
+    "docs\\QMOOSA_REALITY_CHAIN_V1.md": {
+      "bytes": 1263
+    },
+    "docs\\QMOOSA_REALITY_SUPERSET_BENCHMARK.md": {
+      "bytes": 1082
+    },
+    "docs\\RDL_ADVERSARIAL_TEST_PLAN.md": {
+      "bytes": 1061
+    },
+    "docs\\RDL_AUTHENTICATED_PEER_FOUNDATION.md": {
+      "bytes": 721
+    },
+    "docs\\RDL_AUTOMATED_CONSENSUS_TESTS.md": {
+      "bytes": 976
+    },
+    "docs\\RDL_BLOCKCHAIN_MASTER_ARCHITECTURE.md": {
+      "bytes": 3510
+    },
+    "docs\\RDL_BLOCK_PROPAGATION_FOUNDATION.md": {
+      "bytes": 1020
+    },
+    "docs\\RDL_BOUNDED_FRAME_FOUNDATION.md": {
+      "bytes": 597
+    },
+    "docs\\RDL_CHAIN_SYNC_FOUNDATION.md": {
+      "bytes": 955
+    },
+    "docs\\RDL_CHALLENGE_RESPONSE_AUTH.md": {
+      "bytes": 786
+    },
+    "docs\\RDL_CONNECTION_CONCURRENCY_FOUNDATION.md": {
+      "bytes": 690
+    },
+    "docs\\RDL_DEVELOPMENT_CONSENSUS_PROFILE.md": {
+      "bytes": 984
+    },
+    "docs\\RDL_EQUIVOCATION_EVIDENCE.md": {
+      "bytes": 939
+    },
+    "docs\\RDL_HEIGHT_ROUND_VIEW_FOUNDATION.md": {
+      "bytes": 871
+    },
+    "docs\\RDL_IDENTITY_RATE_LIMITING_FOUNDATION.md": {
+      "bytes": 845
+    },
+    "docs\\RDL_MULTI_NODE_REALITY_HARNESS.md": {
+      "bytes": 1635
+    },
+    "docs\\RDL_MULTI_NODE_REALITY_TEST_PLAN.md": {
+      "bytes": 821
+    },
+    "docs\\RDL_NETWORKING_FOUNDATION.md": {
+      "bytes": 709
+    },
+    "docs\\RDL_NEXT_REALITY_GATE.md": {
+      "bytes": 1104
+    },
+    "docs\\RDL_PEER_AUTHORIZATION_FOUNDATION.md": {
+      "bytes": 920
+    },
+    "docs\\RDL_PEER_DISCOVERY_FOUNDATION.md": {
+      "bytes": 836
+    },
+    "docs\\RDL_PEER_STATE_FOUNDATION.md": {
+      "bytes": 584
+    },
+    "docs\\RDL_PER_IP_CONNECTION_CAP.md": {
+      "bytes": 600
+    },
+    "docs\\RDL_PROPOSAL_LOCK_SAFETY.md": {
+      "bytes": 1055
+    },
+    "docs\\RDL_QUORUM_COMMIT_GATE.md": {
+      "bytes": 1021
+    },
+    "docs\\RDL_REALITY_MODE_ROADMAP.md": {
+      "bytes": 1956
+    },
+    "docs\\RDL_REQUEST_LIMIT_FOUNDATION.md": {
+      "bytes": 722
+    },
+    "docs\\RDL_REQUEST_PACING_FOUNDATION.md": {
+      "bytes": 698
+    },
+    "docs\\RDL_SECURE_TRANSPORT_GATE.md": {
+      "bytes": 1006
+    },
+    "docs\\RDL_SIGNED_VALIDATOR_VOTES.md": {
+      "bytes": 947
+    },
+    "docs\\RDL_SOCKET_TIMEOUT_FOUNDATION.md": {
+      "bytes": 684
+    },
+    "docs\\RDL_TESTNET_GATE.md": {
+      "bytes": 1083
+    },
+    "docs\\RDL_TIMEOUT_CERTIFICATES_VIEW_CHANGE.md": {
+      "bytes": 1080
+    },
+    "docs\\RDL_TRANSACTION_ADMISSION_FOUNDATION.md": {
+      "bytes": 719
+    },
+    "docs\\RDL_TRANSACTION_PROPAGATION_FOUNDATION.md": {
+      "bytes": 991
+    },
+    "docs\\RDL_VALIDATOR_MEMBERSHIP_FOUNDATION.md": {
+      "bytes": 871
+    },
+    "docs\\RDL_VERIFIED_QUORUM_CERTIFICATES.md": {
+      "bytes": 1066
+    },
+    "docs\\SECURITY-COMPLIANCE.md": {
+      "bytes": 1467
+    },
+    "docs\\TESTNET-SPECIFICATION.md": {
+      "bytes": 1216
+    },
+    "docs\\TOKENOMICS.md": {
+      "bytes": 1803
+    },
+    "evidence\\CONSENSUS.json": {
+      "bytes": 861
+    },
+    "evidence\\MULTINODE_TESTNET.json": {
+      "bytes": 811
+    },
+    "evidence\\P2P_NETWORK.json": {
+      "bytes": 739
+    },
+    "evidence\\PERSISTENT_LEDGER.json": {
+      "bytes": 518
+    },
+    "reality\\URS_EVIDENCE_CERTIFICATE.json": {
+      "bytes": 564
+    },
+    "reality\\URS_SCORECARD.json": {
+      "bytes": 2365
+    },
+    "scripts\\audit-crypto.mjs": {
+      "bytes": 7257
+    },
+    "scripts\\backup-snapshots.mjs": {
+      "bytes": 2306
+    },
+    "scripts\\build-release-artifacts.mjs": {
+      "bytes": 1378
+    },
+    "scripts\\devnet-operational-smoke.sh": {
+      "bytes": 741
+    },
+    "scripts\\finish-all.mjs": {
+      "bytes": 5351
+    },
+    "scripts\\generate-urs-certificate.ts": {
+      "bytes": 3721
+    },
+    "scripts\\multi-node-smoke.sh": {
+      "bytes": 1117
+    },
+    "scripts\\node-diagnostics.sh": {
+      "bytes": 1017
+    },
+    "scripts\\one-click-r6-fix.ps1": {
+      "bytes": 1142
+    },
+    "scripts\\preflight-build.mjs": {
+      "bytes": 645
+    },
+    "scripts\\public-testnet-reality-gate.mjs": {
+      "bytes": 11518
+    },
+    "scripts\\qmoosa-reality-check.mjs": {
+      "bytes": 4317
+    },
+    "scripts\\qmoosa-reality-finisher.mjs": {
+      "bytes": 2995
+    },
+    "scripts\\qualify-testnet-1click.mjs": {
+      "bytes": 11771
+    },
+    "scripts\\rdl-network-finisher.mjs": {
+      "bytes": 3354
+    },
+    "scripts\\reality-gate.sh": {
+      "bytes": 377
+    },
+    "scripts\\reality-gates.sh": {
+      "bytes": 225
+    },
+    "scripts\\reality-universal.ts": {
+      "bytes": 9289
+    },
+    "scripts\\rea_inspector.py": {
+      "bytes": 1485
+    },
+    "scripts\\rsi_engine.py": {
+      "bytes": 2039
+    },
+    "scripts\\run-cloud-testnet.ps1": {
+      "bytes": 1964
+    },
+    "scripts\\run-cloud-testnet.sh": {
+      "bytes": 3577
+    },
+    "scripts\\start-and-finish-everything.mjs": {
+      "bytes": 897
+    },
+    "scripts\\start-public-tunnel-node.mjs": {
+      "bytes": 7507
+    },
+    "scripts\\sync-deployment-state.mjs": {
+      "bytes": 2915
+    },
+    "scripts\\telegram-node-bot.mjs": {
+      "bytes": 735
+    },
+    "scripts\\test-live-tunnel.mjs": {
+      "bytes": 3319
+    },
+    "scripts\\testnet-genesis-hash.mjs": {
+      "bytes": 305
+    },
+    "src\\App.tsx": {
+      "bytes": 10156
+    },
+    "src\\index.css": {
+      "bytes": 771
+    },
+    "src\\main.tsx": {
+      "bytes": 241
+    },
+    "src\\types.ts": {
+      "bytes": 3499
+    },
+    "testnet\\DEPLOYMENT_EVIDENCE_TEMPLATE.md": {
+      "bytes": 908
+    },
+    "testnet\\GCP_DEPLOYMENT_GUIDE.md": {
+      "bytes": 2672
+    },
+    "testnet\\genesis.json": {
+      "bytes": 277
+    },
+    "testnet\\INFRASTRUCTURE_SPEC.md": {
+      "bytes": 1221
+    },
+    "testnet\\LAUNCH_BOUNDARY.md": {
+      "bytes": 1217
+    },
+    "testnet\\network-manifest.example.json": {
+      "bytes": 699
+    },
+    "testnet\\ORACLE_AND_TERABOX_SETUP.md": {
+      "bytes": 2659
+    },
+    "tests\\operator-outreach.test.ts": {
+      "bytes": 5739
+    },
+    "tests\\reality_check_harness.py": {
+      "bytes": 1250
+    },
+    "tests\\runtime-security.test.ts": {
+      "bytes": 4818
+    },
+    "tests\\token-integrity.test.ts": {
+      "bytes": 4219
+    },
+    ".github\\workflows\\ci.yml": {
+      "bytes": 877
+    },
+    ".github\\workflows\\operator-outreach.yml": {
+      "bytes": 922
+    },
+    ".github\\workflows\\pages.yml": {
+      "bytes": 792
+    },
+    ".github\\workflows\\production-readiness.yml": {
+      "bytes": 3266
+    },
+    ".github\\workflows\\qmoosa-master-finisher.yml": {
+      "bytes": 1062
+    },
+    ".github\\workflows\\qmoosa-rsi-rea-sync.yml": {
+      "bytes": 531
+    },
+    ".github\\workflows\\rdl-reality-gate.yml": {
+      "bytes": 839
+    },
+    ".github\\workflows\\reality-gates.yml": {
+      "bytes": 711
+    },
+    ".github\\workflows\\security.yml": {
+      "bytes": 1357
+    },
+    ".github\\workflows\\testnet-node.yml": {
+      "bytes": 9699
+    },
+    ".github\\workflows\\token-integrity.yml": {
+      "bytes": 450
+    },
+    "crates\\rdl-node\\Cargo.toml": {
+      "bytes": 385
+    },
+    "crates\\rdl-types\\Cargo.toml": {
+      "bytes": 343
+    },
+    "crates\\rdl-node\\src\\main.rs": {
+      "bytes": 57568
+    },
+    "crates\\rdl-node\\tests\\development_consensus.rs": {
+      "bytes": 209
+    },
+    "crates\\rdl-types\\src\\lib.rs": {
+      "bytes": 1479
+    },
+    "crates\\rdl-types\\tests\\transaction_security.rs": {
+      "bytes": 835
+    },
+    "deploy\\terraform\\main.tf": {
+      "bytes": 3969
+    },
+    "deploy\\terraform\\outputs.tf": {
+      "bytes": 748
+    },
+    "deploy\\terraform\\variables.tf": {
+      "bytes": 514
+    },
+    "docs\\reality\\URS_EVIDENCE_CERTIFICATE.md": {
+      "bytes": 298
+    },
+    "services\\operator-outreach\\cli.ts": {
+      "bytes": 2589
+    },
+    "services\\operator-outreach\\config.ts": {
+      "bytes": 1149
+    },
+    "services\\operator-outreach\\engine.ts": {
+      "bytes": 6476
+    },
+    "services\\operator-outreach\\providers.ts": {
+      "bytes": 2580
+    },
+    "services\\operator-outreach\\sanitize.ts": {
+      "bytes": 299
+    },
+    "services\\operator-outreach\\server.ts": {
+      "bytes": 1934
+    },
+    "services\\operator-outreach\\store.ts": {
+      "bytes": 3124
+    },
+    "services\\operator-outreach\\templates.ts": {
+      "bytes": 3241
+    },
+    "services\\operator-outreach\\types.ts": {
+      "bytes": 1125
+    },
+    "services\\telegram-bot\\bot.ts": {
+      "bytes": 11484
+    },
+    "src\\components\\BlockExplorerView.tsx": {
+      "bytes": 10218
+    },
+    "src\\components\\ConwayMinerView.tsx": {
+      "bytes": 12606
+    },
+    "src\\components\\DashboardView.tsx": {
+      "bytes": 15360
+    },
+    "src\\components\\DeveloperView.tsx": {
+      "bytes": 23143
+    },
+    "src\\components\\FaucetView.tsx": {
+      "bytes": 16603
+    },
+    "src\\components\\Navbar.tsx": {
+      "bytes": 6900
+    },
+    "src\\components\\PeerMeshView.tsx": {
+      "bytes": 8877
+    },
+    "src\\components\\PQWalletView.tsx": {
+      "bytes": 19543
+    },
+    "src\\components\\ProjectQRCode.tsx": {
+      "bytes": 918
+    },
+    "src\\components\\RdlSwapView.tsx": {
+      "bytes": 14110
+    },
+    "src\\components\\SmartContractsView.tsx": {
+      "bytes": 12248
+    },
+    "src\\components\\TokenLaunchpadView.tsx": {
+      "bytes": 34328
+    },
+    "src\\config\\networkState.json": {
+      "bytes": 1887
+    },
+    "src\\lib\\conwayEngine.ts": {
+      "bytes": 6874
+    },
+    "src\\lib\\faucetEngine.ts": {
+      "bytes": 4787
+    },
+    "src\\lib\\pqCrypto.ts": {
+      "bytes": 2987
+    },
+    "src\\lib\\tokenEngine.ts": {
+      "bytes": 9077
+    },
+    "src\\server\\runtimeSecurity.ts": {
+      "bytes": 4710
+    },
+    "src\\crypto\\pqc\\ml-dsa.ts": {
+      "bytes": 1749
+    },
+    "src\\crypto\\pqc\\ml-kem.ts": {
+      "bytes": 2236
+    },
+    "src\\crypto\\rdl\\rdl-hybrid-signer.ts": {
+      "bytes": 5309
+    },
+    "src\\crypto\\tests\\official-nist-vectors.test.ts": {
+      "bytes": 6705
+    }
+  },
+  "timestamp": 1794017492
+}
