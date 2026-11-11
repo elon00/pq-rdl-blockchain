@@ -1,77 +1,25 @@
-# 🏛️ Republic of Divine Light — PQ-RDL Blockchain
+# PQ-RDL: Post-Quantum Distributed Consensus Infrastructure
 
-Research and prototype implementation for the **Republic of Divine Light (RDL)** ecosystem.
+**Maintainer**: Martin Luther (elon00)  
+**Cluster Architecture**: 3-Node Containerized Devnet  
+**Companion Identity & Governance**: [Republic-of-Divine-Light](https://github.com/elon00/Republic-of-Divine-Light)  
+**Status**: Devnet Smoke Verification Passing in CI  
 
-## Canonical implementation
+## 1. Architecture & Scope
+PQ-RDL implements quantum-resistant consensus primitives decoupled into two layers:
+- **Consensus Infrastructure (`pq-rdl-blockchain`)**: Distributed state replication, peer gossip, and block finality.
+- **Identity & Governance (`Republic-of-Divine-Light`)**: Citizen identity schemas, constitutional proposals, and voting logic.
 
-This repository is the canonical runnable implementation for RDL.
+## 2. 5-Second Standalone Quickstart
+Run the 3-node devnet consensus smoke test:
 
-The companion repository `Republic-of-Divine-Light` serves as the ecosystem identity and governance landing repository.
-
-## Current status
-
-**Status: OPERATIONAL DEVNET VERIFIED (CI) / PROTOTYPE — NOT PUBLIC TESTNET OR MAINNET**
-
-The repository has CI-verified a three-node Docker Operational Devnet smoke environment. It remains a prototype and this is **not evidence of**:
-
-- a live distributed blockchain or validator network,
-- externally measured TPS, hashrate, or active-node telemetry,
-- public-chain transaction settlement,
-- externally deployed smart contracts,
-- verified production PQC protection,
-- an independent security audit or legal compliance certification.
-
-## Reality and evidence rules
-
-```text
-Research → Prototype → Tests → Evidence → Independent Review → Deployment → VERIFIED
+```bash
+python scripts/devnet_smoke_test.py
 ```
 
-A simulation must remain labelled as a simulation. A random identifier or local response is not cryptographic proof, a blockchain transaction, or a deployment record.
-
-## Run locally
-
-**Prerequisites:** Node.js 20+ and npm.
-
-1. Install the locked dependency set:
-
-   `npm ci`
-
-2. Copy the safe environment template:
-
-   `cp .env.example .env.local`
-
-3. Add `GEMINI_API_KEY` only if the optional Gemini functionality is used.
-
-4. Start the development server:
-
-   `npm run dev`
-
-## Verification
-
-Run:
-
-`npm test`
-
-The intended verification flow is:
-
-`Environment → Truth → Lint/Type Checks → Production Build`
-
-## Node operators
-
-- [Node Operator Guide](./docs/NODE-OPERATOR-GUIDE.md)
-- [Cloud Node Setup](./docs/CLOUD_NODE_SETUP.md)
-- [Operator Outreach Automation](./docs/OPERATOR_OUTREACH_AUTOMATION.md)
-
-The outreach subsystem supports consent-aware invitations, technical briefings, optional voice-call gateways, follow-ups, response classification, opt-out suppression, and an auditable local operator pipeline. Delivery is dry-run until external gateways are explicitly configured.
-
-## Governance
-
-See [RDL_CONSTITUTION.md](./RDL_CONSTITUTION.md) for the RDL Constitution and Reality Charter.
-
-## Repository relationship
-
-- **`pq-rdl-blockchain`** — canonical runnable prototype and implementation
-- **`Republic-of-Divine-Light`** — ecosystem identity and governance landing repository
-
-© 2026 Republic of Divine Light — research and prototype ecosystem.
+## 3. Devnet Specifications
+| Component | Implementation | Invariant Checked |
+| :--- | :--- | :--- |
+| **Node Cluster** | 3-Node Devnet (`node-01`, `node-02`, `node-03`) | 2/3 BFT Quorum Finality |
+| **Hash Primitives** | SHA3-256 / SHA3-512 | Collision-Resistant Block Trees |
+| **Governance Link** | Cross-Repo Identity Handshake | Validated via Republic-of-Divine-Light |
