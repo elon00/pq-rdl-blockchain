@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-11-11T05:26:13Z",
+  "validator_id": "github-azure-cloud-validator-2",
+  "cloud_provider": "GitHub Actions (Microsoft Azure Cloud Runner)",
+  "runner_public_ip": "51.8.190.247",
+  "runner_os": "ubuntu-latest (Linux)",
+  "status": "EPHEMERAL_VALIDATOR_TEST_COMPLETED",
+  "remote_bootstrap_url": "",
+  "remote_bootstrap_observed": false,
+  "port": 7102,
+  "tls_fingerprint": "9E988A1AFDE18F29C37B329A9C38A481E6EDE9A3F104CD3EF5CF7E81F755240B",
+  "crash_recovery_verified": true,
+  "tip_hash": "TIP 0000000000000000000000000000000000000000000000000000000000000000",
+  "tip_height": HEIGHT 0,
+  "pqc_standards": ["NIST FIPS 204 (ML-DSA-65)", "Ed25519"],
+  "bft_role": "EPHEMERAL_CI_VALIDATOR"
+}

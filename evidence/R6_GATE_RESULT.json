@@ -1,0 +1,9 @@
+{
+  "gate": "R6",
+  "verdict": "LOCAL_CI_VALIDATOR_PASS_REMOTE_UNVERIFIED",
+  "crash_recovery_verified": true,
+  "remote_bootstrap_observed": false,
+  "independent_public_testnet_verified": false,
+  "tip_parity": true,
+  "timestamp": "2026-11-11T05:26:13Z"
+}
