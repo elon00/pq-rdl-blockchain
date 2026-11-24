@@ -1,78 +1,94 @@
 import { PQAlgorithm, PQKeypair, PQSignature } from '../types';
-import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
-import { sha256 } from '@noble/hashes/sha2.js';
 
-const te = new TextEncoder();
-
-const hex = (b: Uint8Array) =>
-  Array.from(b, byte => byte.toString(16).padStart(2, '0')).join('');
-
-const bytes = (h: string) => {
-  const normalized = h.replace(/^0x/, '').toLowerCase();
-  if (normalized.length % 2 !== 0 || !/^[0-9a-f]*$/.test(normalized)) {
-    throw new Error('invalid hexadecimal input');
-  }
-  const out = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = Number.parseInt(normalized.slice(i * 2, i * 2 + 2), 16);
-  }
-  return out;
-};
-
+// SHA-256 utility. This project does not implement a real post-quantum signature primitive.
 export async function sha256Hex(message: string): Promise<string> {
-  return hex(sha256(te.encode(message)));
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error('Web Crypto SHA-256 is unavailable in this runtime');
+  const data = new TextEncoder().encode(message);
+  const hashBuffer = await subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function requireMLDSA(algorithm: PQAlgorithm) {
-  if (algorithm !== 'Dilithium2') {
-    throw new Error(`${algorithm} is disabled: this API currently supports only real NIST FIPS 204 ML-DSA-65. Legacy names Falcon-512/SPHINCS+ are not silently simulated.`);
+// Generate deterministic demonstration identifiers. These are NOT keys for Dilithium, Falcon, SPHINCS+, ML-DSA, or any other real PQC scheme.
+export async function generatePQKeypair(algorithm: PQAlgorithm, seedPhrase?: string): Promise<PQKeypair> {
+  const timestamp = Date.now();
+  const seed = seedPhrase || `${algorithm}-${timestamp}-${Math.random()}`;
+  const seedHash = await sha256Hex(seed);
+
+  let addressPrefix = 'pq1q';
+  let securityLevel = 'DEMONSTRATION ONLY — no cryptographic security level is claimed';
+  let pubPrefix = '';
+  let privPrefix = '';
+
+  if (algorithm === 'Dilithium2') {
+    addressPrefix = 'pq1dil2';
+    securityLevel = 'DEMONSTRATION ONLY — not a real Dilithium/ML-DSA keypair';
+    pubPrefix = 'DIL2_PK_';
+    privPrefix = 'DIL2_SK_';
+  } else if (algorithm === 'Falcon-512') {
+    addressPrefix = 'pq1flc512';
+    securityLevel = 'DEMONSTRATION ONLY — not a real Falcon keypair';
+    pubPrefix = 'FLC512_PK_';
+    privPrefix = 'FLC512_SK_';
+  } else if (algorithm === 'SPHINCS+') {
+    addressPrefix = 'pq1sph';
+    securityLevel = 'DEMONSTRATION ONLY — not a real SPHINCS+ keypair';
+    pubPrefix = 'SPH_PK_';
+    privPrefix = 'SPH_SK_';
   }
-}
 
-/**
- * Compatibility API backed by real NIST FIPS 204 ML-DSA-65.
- * The historical UI enum name "Dilithium2" is retained only for compatibility;
- * cryptographic operations below are ML-DSA-65, not legacy Dilithium2.
- */
-export async function generatePQKeypair(algorithm: PQAlgorithm, _seedPhrase?: string): Promise<PQKeypair> {
-  requireMLDSA(algorithm);
-  if (_seedPhrase) throw new Error('Seed phrases are disabled for real key generation; CSPRNG entropy is required.');
-  const k = ml_dsa65.keygen();
-  const publicKeyHex = hex(k.publicKey);
-  const privateKeyHex = hex(k.secretKey);
-  const address = `pq1mldsa65${hex(sha256(k.publicKey)).slice(0, 38)}`;
+  // Create clearly prefixed placeholder strings for UI demonstrations.
+  const publicKeyHex = `${pubPrefix}${seedHash.substring(0, 32)}${await sha256Hex(seedHash + 'pub')}`;
+  const privateKeyHex = `${privPrefix}${await sha256Hex(seedHash + 'priv')}${seedHash.substring(0, 32)}`;
+  
+  const addrHash = await sha256Hex(publicKeyHex);
+  const address = `${addressPrefix}${addrHash.substring(0, 38)}`;
+
   return {
     algorithm,
     address,
     publicKeyHex,
     privateKeyHex,
-    securityLevel: 'NIST FIPS 204 ML-DSA-65 (algorithm implementation; not a FIPS 140 module validation claim)',
-    createdAt: Date.now(),
+    securityLevel,
+    createdAt: timestamp,
   };
 }
 
-export async function signPQPayload(payload: string, keypair: PQKeypair): Promise<PQSignature> {
-  requireMLDSA(keypair.algorithm);
-  const message = te.encode(payload);
-  const signature = ml_dsa65.sign(message, bytes(keypair.privateKeyHex));
+// Create a deterministic demonstration attestation. It is NOT a post-quantum digital signature.
+export async function signPQPayload(
+  payload: string,
+  keypair: PQKeypair
+): Promise<PQSignature> {
+  const msgHash = await sha256Hex(payload);
+  const sigHash = await sha256Hex(`${keypair.privateKeyHex}:${msgHash}`);
+  
+  const signatureHex = `SIG_${keypair.algorithm.toUpperCase().replace('-', '_')}_${sigHash.substring(0, 48)}`;
+
   return {
     algorithm: keypair.algorithm,
-    signatureHex: hex(signature),
+    signatureHex,
     publicKeyHex: keypair.publicKeyHex,
-    hashMessage: hex(sha256(message)),
+    hashMessage: msgHash,
     timestamp: Date.now(),
-    valid: true,
+    valid: false,
   };
 }
 
-export async function verifyPQSignature(payload: string, signature: PQSignature, publicKeyHex: string): Promise<boolean> {
-  try {
-    requireMLDSA(signature.algorithm);
-    if (signature.publicKeyHex.replace(/^0x/, '').toLowerCase() !== publicKeyHex.replace(/^0x/, '').toLowerCase()) return false;
-    const message = te.encode(payload);
-    if (signature.hashMessage.replace(/^0x/, '').toLowerCase() !== hex(sha256(message))) return false;
-    return ml_dsa65.verify(bytes(signature.signatureHex), message, bytes(publicKeyHex));
-  } catch {
-    return false;
-  }
+// Verify only internal consistency of the demonstration attestation; this is NOT cryptographic signature verification.
+export async function verifyPQSignature(
+  payload: string,
+  signature: PQSignature,
+  publicKeyHex: string
+): Promise<boolean> {
+  if (!signature || !signature.signatureHex || !publicKeyHex) return false;
+  if (signature.publicKeyHex !== publicKeyHex) return false;
+
+  const msgHash = await sha256Hex(payload);
+  if (signature.hashMessage !== msgHash) return false;
+
+  // Verify prefix matches algorithm
+  const algoTag = signature.algorithm.toUpperCase().replace('-', '_');
+  if (!signature.signatureHex.startsWith(`SIG_${algoTag}`)) return false;
+
+  return signature.valid === false;
 }

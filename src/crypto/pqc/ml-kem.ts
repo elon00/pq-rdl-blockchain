@@ -11,7 +11,7 @@
  */
 
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
-import { sha256 } from '@noble/hashes/sha2.js';
+import { sha256 } from '@noble/hashes/sha256';
 
 export interface MLKemKeyPair {
   publicKey: Uint8Array;

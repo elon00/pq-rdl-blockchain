@@ -8,7 +8,7 @@
  */
 
 import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
-import { sha256 } from '@noble/hashes/sha2.js';
+import { sha256 } from '@noble/hashes/sha256';
 
 export interface MLDsaKeyPair {
   publicKey: Uint8Array;

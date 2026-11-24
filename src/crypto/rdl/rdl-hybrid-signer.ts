@@ -9,7 +9,7 @@
  * 5. Fail-Closed Rejection: 1-bit tampering strictly rejects.
  */
 
-import { sha256 } from '@noble/hashes/sha2.js';
+import { sha256 } from '@noble/hashes/sha256';
 import { mlDsaEngine, MLDsaKeyPair } from '../pqc/ml-dsa.js';
 import { mlKemEngine, MLKemKeyPair } from '../pqc/ml-kem.js';
 

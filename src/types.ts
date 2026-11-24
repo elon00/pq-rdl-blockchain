@@ -28,7 +28,7 @@ export interface Transaction {
   signatureHex: string;
   conwayStatePayload?: string; // Optional Conway pattern attached to tx
   timestamp: number;
-  status: 'pending' | 'simulated' | 'confirmed' | 'rejected';
+  status: 'pending' | 'confirmed' | 'rejected';
   blockHeight?: number;
 }
 

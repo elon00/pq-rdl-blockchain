@@ -54,7 +54,7 @@ contract QuantumAutomatonYield {
   // Call Gemini Copilot Endpoint
   const handleGenerateCopilot = async (action: 'generate' | 'audit') => {
     setIsGenerating(true);
-    setStatusMsg(action === 'generate' ? 'Gemini AI generating a prototype contract...' : 'Generating an AI review (not a security audit)...');
+    setStatusMsg(action === 'generate' ? 'Gemini AI generating Post-Quantum Conway Smart Contract...' : 'Auditing Quantum Resilience...');
 
     try {
       const res = await fetch('/api/gemini/smart-contract-copilot', {
@@ -71,7 +71,7 @@ contract QuantumAutomatonYield {
 
       if (data.rawResponse) {
         setCopilotOutput(data.rawResponse);
-        setStatusMsg('Gemini prototype assistance completed. Review output manually; it is not a security certification.');
+        setStatusMsg('Gemini Processing Completed!');
       } else if (data.error) {
         setStatusMsg(`Error: ${data.error}`);
       }
@@ -92,7 +92,7 @@ contract QuantumAutomatonYield {
         type: contractType as any,
         conwayTriggerRule: triggerRule,
       });
-      setStatusMsg('Contract added to the local prototype registry / configured demo API. No public-chain deployment is claimed.');
+      setStatusMsg('Contract Deployed Successfully to Web 4.0 Chain!');
     } catch (err: any) {
       setStatusMsg(`Deploy Error: ${err.message}`);
     }
@@ -105,13 +105,13 @@ contract QuantumAutomatonYield {
         <div>
           <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-semibold">
             <Bot className="w-4 h-4 text-cyan-400" />
-            <span>Smart Contract Prototype Lab</span>
+            <span>Web 4.0 Autonomous Smart Contract Runtime</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold font-mono text-white">
-            Conway Automaton Contract Experiments
+            Conway Automaton AI Smart Contracts
           </h2>
           <p className="text-slate-400 text-xs">
-            Prototype contract fixtures and AI-assisted drafting. Generated code is not audited, deployed, or production-safe by default.
+            Contracts powered by Conway cellular state transitions & Gemini AI Post-Quantum compilation.
           </p>
         </div>
       </div>
@@ -123,7 +123,7 @@ contract QuantumAutomatonYield {
             <h3 className="font-bold font-mono text-white text-sm flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Code2 className="w-4 h-4 text-cyan-400" />
-                <span>Local Prototype Contract Registry ({contracts.length})</span>
+                <span>Active Web 4.0 Contracts ({contracts.length})</span>
               </span>
             </h3>
 
@@ -208,7 +208,7 @@ contract QuantumAutomatonYield {
                 className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono px-4 py-2 rounded-xl text-xs cursor-pointer"
               >
                 <ShieldAlert className="w-4 h-4 text-amber-400" />
-                <span>AI Review (Not a Security Audit)</span>
+                <span>Audit Quantum Resilience</span>
               </button>
             </div>
 

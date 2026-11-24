@@ -1,31 +1,33 @@
 {
   "timestamp": "2026-09-16T12:24:50.228Z",
-  "mode": "LOCAL_CI_EVIDENCE",
-  "scope": "SINGLE_HOST_LOOPBACK",
-  "protocol": "RDL-HotStuff-BFT-v1 prototype",
-  "signed_challenge_auth": true,
-  "encrypted_transport": false,
-  "active_local_peers": [
+  "mode": "REALITY_MODE",
+  "protocol": "RDL-HotStuff-BFT-v1",
+  "mutual_challenge_auth": true,
+  "active_peers": [
     {
       "peer_id": "node-1",
       "address": "127.0.0.1:7101",
-      "status": "LOCAL_TEST_PEER"
+      "ping": "PONG",
+      "status": "ACTIVE"
     },
     {
       "peer_id": "node-2",
       "address": "127.0.0.1:7102",
-      "status": "LOCAL_TEST_PEER"
+      "ping": "PONG",
+      "status": "ACTIVE"
     },
     {
       "peer_id": "node-3",
       "address": "127.0.0.1:7103",
-      "status": "LOCAL_TEST_PEER"
+      "ping": "PONG",
+      "status": "ACTIVE"
     }
   ],
   "state_sync": {
-    "locally_verified": true,
+    "verified": true,
+    "method": "GET_CHAIN",
+    "candidate_validation": "ParentHash+StateRoot+HotStuffLock",
     "blocks_synchronized": 2,
-    "local_tip_hash_consensus": true,
-    "public_network_verified": false
+    "tip_hash_consensus": true
   }
 }

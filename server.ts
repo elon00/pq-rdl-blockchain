@@ -1,7 +1,5 @@
 import express from 'express';
-import { applyRuntimeSecurity } from './src/server/runtimeSecurity';
 import path from 'path';
-import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
@@ -38,108 +36,57 @@ const ai = process.env.GEMINI_API_KEY
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = 3000;
 
-  applyRuntimeSecurity(app);
+  app.use(express.json({ limit: '10mb' }));
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+  });
 
-  // Initialize Persistent Disk Ledger Storage
-  const DATA_DIR = process.env.RDL_WEB_DATA_DIR
-    ? path.resolve(process.env.RDL_WEB_DATA_DIR)
-    : path.join(process.cwd(), 'data');
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  const LEDGER_FILE = path.join(DATA_DIR, 'rdl-ledger-chain.json');
+  // Initialize in-memory demonstration state. This is not a distributed blockchain network.
+  const genesisKeypair = await generatePQKeypair('Dilithium2', 'Genesis-PostQuantum-Node-0');
+  const genesisSeed = generateRandomGrid(0.3);
+  const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
+  const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
 
-  const createPrototypeGenesis = (): Block => {
-    const timestamp = 1726400000000;
-    const hash = '0xd1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8';
-    return {
-      height: 0,
-      previousHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-      hash,
-      timestamp,
-      minerAddress: 'local-prototype-genesis',
-      transactions: [],
-      miningProof: {
-        initialSeed: [[0, 1, 0], [0, 0, 1], [1, 1, 1]],
-        finalGrid: [[1, 0, 1], [0, 1, 1], [1, 1, 0]],
-        generationsRun: 15,
-        entropyScore: 42.8,
-        nonce: 1042,
-        hash,
-      },
-      pqSignature: {
+  const genesisBlock: Block = {
+    height: 0,
+    previousHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    hash: genesisProof.hash,
+    timestamp: Date.now() - 3600000,
+    minerAddress: genesisKeypair.address,
+    transactions: [
+      {
+        txHash: '0xgen_tx_001_qbits_distribution',
+        senderAddress: 'pq1q00000000000000000000000000000000000000',
+        receiverAddress: genesisKeypair.address,
+        amount: 1000000,
+        fee: 0,
         algorithm: 'Dilithium2',
-        signatureHex: 'DEMO_FIXTURE_NOT_A_CRYPTOGRAPHIC_SIGNATURE',
-        publicKeyHex: 'DEMO_FIXTURE_PUBLIC_KEY_NOT_REAL',
-        hashMessage: 'LOCAL_PROTOTYPE_GENESIS_FIXTURE',
-        timestamp,
-        valid: false,
+        signatureHex: genesisSignature.signatureHex,
+        conwayStatePayload: 'GENESIS_QUANTUM_PATTERNS',
+        timestamp: Date.now() - 3600000,
+        status: 'confirmed',
+        blockHeight: 0,
       },
-      quantumDifficulty: 4.8,
-      entropyIndex: 42.8,
-    };
+    ],
+    miningProof: genesisProof,
+    pqSignature: genesisSignature,
+    quantumDifficulty: 4.8,
+    entropyIndex: genesisProof.entropyScore,
   };
 
-  const isValidStoredBlock = (value: unknown): value is Block => {
-    if (!value || typeof value !== 'object') return false;
-    const block = value as Partial<Block>;
-    return (
-      Number.isInteger(block.height) &&
-      Number(block.height) >= 0 &&
-      typeof block.previousHash === 'string' &&
-      typeof block.hash === 'string' &&
-      typeof block.timestamp === 'number' &&
-      Number.isFinite(block.timestamp) &&
-      typeof block.minerAddress === 'string' &&
-      Array.isArray(block.transactions) &&
-      !!block.miningProof &&
-      typeof block.miningProof === 'object' &&
-      !!block.pqSignature &&
-      typeof block.pqSignature === 'object' &&
-      typeof block.quantumDifficulty === 'number' &&
-      Number.isFinite(block.quantumDifficulty) &&
-      typeof block.entropyIndex === 'number' &&
-      Number.isFinite(block.entropyIndex)
-    );
-  };
-
-  const persistLedger = (chain: Block[]) => {
-    const tempPath = `${LEDGER_FILE}.${process.pid}.tmp`;
-    try {
-      fs.writeFileSync(tempPath, JSON.stringify(chain, null, 2), { mode: 0o600 });
-      fs.renameSync(tempPath, LEDGER_FILE);
-    } finally {
-      try {
-        fs.rmSync(tempPath, { force: true });
-      } catch {
-        // Best-effort cleanup only; the original persistence error must win.
-      }
-    }
-  };
-
-  let blockchain: Block[] = [];
-  try {
-    const parsed = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
-    if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every(isValidStoredBlock)) {
-      throw new Error('empty or invalid ledger');
-    }
-    blockchain = parsed;
-    console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
-  } catch (error: any) {
-    if (error?.code !== 'ENOENT') {
-      console.error('[PERSISTENCE] Existing local prototype ledger is invalid; reinitializing:', error);
-    }
-    blockchain = [createPrototypeGenesis()];
-    persistLedger(blockchain);
-    console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
-  }
+  const blockchain: Block[] = [genesisBlock];
   const mempool: Transaction[] = [];
-  let miningInProgress = false;
   const deployedContracts: SmartContract[] = [
     {
       id: 'sc_pq_escrow_001',
       name: 'Post-Quantum Escrow Vault',
-      creatorAddress: blockchain[0]?.minerAddress || 'local-prototype-genesis',
+      creatorAddress: genesisKeypair.address,
       code: `// Web 4.0 Quantum Escrow
 contract PostQuantumEscrow {
   state { owner: Address, balance: QBits, entropyMin: Number }
@@ -152,7 +99,7 @@ contract PostQuantumEscrow {
 }`,
       abi: ['releaseFunds()', 'getVaultBalance()', 'verifyPqSig()'],
       type: 'Escrow',
-      state: { owner: blockchain[0]?.minerAddress || 'local-prototype-genesis', lockedQBits: 50000, minEntropy: 42.5 },
+      state: { owner: genesisKeypair.address, lockedQBits: 50000, minEntropy: 42.5 },
       createdBlock: 0,
       conwayTriggerRule: 'B3/S23 Entropy > 42.5',
       isAiAutonomous: true,
@@ -160,7 +107,7 @@ contract PostQuantumEscrow {
     {
       id: 'sc_conway_yield_002',
       name: 'Conway Glider Yield Synthesizer',
-      creatorAddress: blockchain[0]?.minerAddress || 'local-prototype-genesis',
+      creatorAddress: genesisKeypair.address,
       code: `// Web 4.0 Autonomous Glider Yield
 contract ConwayGliderYield {
   state { totalStaked: QBits, gliderCount: Number }
@@ -181,29 +128,20 @@ contract ConwayGliderYield {
 
   // API Routes
   
-  // Health & Status. This endpoint reports only what this process can directly observe.
-  app.get('/api/health', (_req, res) => {
-    res.json({
-      status: 'ok',
-      mode: 'LOCAL_DEVNET_PROTOTYPE',
-      time: new Date().toISOString(),
-      persistence: 'LOCAL_FILE',
-      ledger_path: LEDGER_FILE,
-      blocks_on_disk: blockchain.length,
-      active_nodes: null,
-      public_network_verified: false
-    });
+  // Health & Status
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', mode: 'DEMONSTRATION_IN_MEMORY', time: new Date().toISOString(), statusNote: 'No external blockchain consensus, validator network, or Solana settlement is connected by this server.' });
   });
 
-  // Local prototype status; no synthetic public-network telemetry.
-  const handleStatus = (_req: any, res: any) => {
+  // Get Chain Status & Network Metrics
+  app.get('/api/blockchain/status', (req, res) => {
     const latestBlock = blockchain[blockchain.length - 1];
     const totalTx = blockchain.reduce((sum, b) => sum + b.transactions.length, 0);
     const avgEntropy = Number(
       (blockchain.reduce((sum, b) => sum + b.entropyIndex, 0) / blockchain.length).toFixed(2)
     );
 
-    const chainState = {
+    const chainState: ChainState = {
       height: latestBlock.height,
       latestHash: latestBlock.hash,
       quantumDifficulty: latestBlock.quantumDifficulty,
@@ -213,34 +151,15 @@ contract ConwayGliderYield {
       averageEntropy: avgEntropy,
       tps: null,
       networkHashrate: null,
-      mode: 'LOCAL_DEVNET_PROTOTYPE',
-      publicNetworkVerified: false,
-      persistence: {
-        storage: 'LOCAL_FILE',
-        ledger_path: LEDGER_FILE,
-        blocks_on_disk: blockchain.length,
-        crash_recovery: 'NOT_MEASURED_BY_THIS_PROCESS'
-      },
-      p2p_network: {
-        protocol: 'RDL-HotStuff-BFT-v1 prototype',
-        active_peers: [],
-        state_sync: 'NOT_MEASURED_BY_THIS_PROCESS',
-        quorum: 'NOT_MEASURED_BY_THIS_PROCESS'
-      },
-      statusNote: 'Local prototype telemetry only. Public Testnet/Mainnet status requires independently reproducible external evidence.',
+      mode: 'DEMONSTRATION_IN_MEMORY',
+      statusNote: 'Metrics are derived from local in-memory state and are not live network telemetry.',
     };
 
     res.json(chainState);
-  };
-
-  app.get('/api/blockchain/status', handleStatus);
-  app.get('/api/network', handleStatus);
+  });
 
   // Get All Blocks
   app.get('/api/blockchain/blocks', (req, res) => {
-    res.json(blockchain);
-  });
-  app.get('/api/blocks', (req, res) => {
     res.json(blockchain);
   });
 
@@ -273,62 +192,52 @@ contract ConwayGliderYield {
         status: 'pending',
       };
 
-      return res.status(501).json({ success: false, error: 'Transaction submission disabled until sender authorization and cryptographic signature verification are enforced server-side.', simulation: true });
+      mempool.push(newTx);
+      res.json({ success: true, simulation: true, transaction: newTx, mempoolSize: mempool.length, statusNote: 'Transaction exists only in this process memory and has not been broadcast to an external network.' });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Failed to submit transaction' });
     }
   });
 
-  // Mine a New Post-Quantum Conway Block.
-  // Local mining mutations are serialized so concurrent requests cannot derive
-  // competing blocks from the same chain tip.
+  // Mine a New Post-Quantum Conway Block
   app.post('/api/blockchain/mine', async (req, res) => {
-    if (miningInProgress) {
-      return res.status(409).json({
-        error: 'another local mining operation is already in progress',
-        retryable: true,
-      });
-    }
-
-    miningInProgress = true;
     try {
       const { minerAddress, seedGrid, algorithm } = req.body;
       const algo = algorithm || 'Dilithium2';
 
-      const minerKeypair = await generatePQKeypair(algo);
+      const minerKeypair = await generatePQKeypair(algo, `Miner-${minerAddress || 'Node'}`);
       const seed = seedGrid && Array.isArray(seedGrid) ? seedGrid : generateRandomGrid(0.28);
 
       const latestBlock = blockchain[blockchain.length - 1];
-      const nextHeight = latestBlock.height + 1;
       const proof = await mineConwayBlock(seed, 15, 38);
 
-      // Read but do not remove mempool entries until persistence succeeds.
-      const mempoolBatch = mempool.slice(0, 10);
-      const confirmedTxs: Transaction[] = mempoolBatch.map((tx) => ({
+      // Confirm transactions from mempool
+      const confirmedTxs: Transaction[] = mempool.splice(0, 10).map((tx) => ({
         ...tx,
-        status: 'simulated',
-        blockHeight: nextHeight,
+        status: 'confirmed',
+        blockHeight: latestBlock.height + 1,
       }));
 
+      // Add mining reward transaction
       const rewardTx: Transaction = {
-        txHash: `0xreward_${await sha256Hex(`REWARD_${nextHeight}_${Date.now()}`)}`,
+        txHash: `0xreward_${await sha256Hex(`REWARD_${latestBlock.height + 1}_${Date.now()}`)}`,
         senderAddress: 'pq1q00000000000000000000000000000000000000',
         receiverAddress: minerAddress || minerKeypair.address,
-        amount: 50,
+        amount: 50, // 50 QBits reward
         fee: 0,
         algorithm: algo,
-        signatureHex: `REWARD_BLOCK_${nextHeight}_SIG`,
+        signatureHex: `REWARD_BLOCK_${latestBlock.height + 1}_SIG`,
         timestamp: Date.now(),
-        status: 'simulated',
-        blockHeight: nextHeight,
+        status: 'confirmed',
+        blockHeight: latestBlock.height + 1,
       };
 
       confirmedTxs.unshift(rewardTx);
 
-      const signature = await signPQPayload(`BLOCK_${nextHeight}_${proof.hash}`, minerKeypair);
+      const signature = await signPQPayload(`BLOCK_${latestBlock.height + 1}_${proof.hash}`, minerKeypair);
 
       const newBlock: Block = {
-        height: nextHeight,
+        height: latestBlock.height + 1,
         previousHash: latestBlock.hash,
         hash: proof.hash,
         timestamp: Date.now(),
@@ -341,34 +250,22 @@ contract ConwayGliderYield {
       };
 
       blockchain.push(newBlock);
-      try {
-        persistLedger(blockchain);
-      } catch (error) {
-        blockchain.pop();
-        throw new Error(`failed to persist new block: ${error instanceof Error ? error.message : String(error)}`);
-      }
 
-      mempool.splice(0, mempoolBatch.length);
-
-      res.json({
-        success: true,
-        block: newBlock,
-        chainHeight: blockchain.length,
-        persistedOnDisk: true,
-        statusNote: 'Local prototype block generated and durably written to the configured ledger file.'
-      });
+      res.json({ success: true, simulation: true, block: newBlock, chainHeight: blockchain.length, statusNote: 'Block is an in-memory Conway demonstration and is not consensus-finalized on an external blockchain.' });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Block mining failed' });
-    } finally {
-      miningInProgress = false;
     }
   });
 
-  // Secret keys must never be generated or returned by the server.
-  app.post('/api/quantum/generate-keypair', (_req, res) => {
-    return res.status(410).json({
-      error: 'server-side key generation is disabled; generate ML-DSA keys locally in a trusted client'
-    });
+  // Generate PQ Keypair
+  app.post('/api/quantum/generate-keypair', async (req, res) => {
+    try {
+      const { algorithm, seedPhrase } = req.body;
+      const keypair = await generatePQKeypair(algorithm || 'Dilithium2', seedPhrase);
+      res.json(keypair);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Verify PQ Signature
@@ -541,92 +438,6 @@ Always structure JSON output with properties:
     }
   });
 
-  // --- Official x402 Autonomous Agent Commerce Protocol ---
-  const OFFICIAL_PQRDL_RECIPIENT = "8qhW8ctXX77UNLTY9kx3XoAoH8kstQXPbCghUwqu34es";
-  const USED_PQRDL_SIGNATURES = new Set<string>();
-
-  app.get(['/.well-known/x402-bazaar.json', '/.well-known/x402.json'], (_req, res) => {
-    return res.json({
-      x402Version: '1.0.0',
-      version: '1.0.0',
-      name: 'PQ-RDL — Quantum Automaton Blockchain',
-      type: 'quantum-blockchain-protocol',
-      category: 'infrastructure',
-      tags: ['pq-rdl', 'blockchain', 'post-quantum', 'crystals-dilithium', 'sphincs+', 'conway-automaton', 'x402'],
-      provider: {
-        name: 'PQ-RDL Blockchain / Martin',
-        website: 'https://github.com/elon00/pq-rdl-blockchain',
-        payTo: OFFICIAL_PQRDL_RECIPIENT,
-        network: 'pq-rdl-testnet',
-        caip2: 'pqrdl:testnet-epoch-1'
-      },
-      endpoints: [
-        {
-          path: '/api/v1/x402/blockchain/block-verify',
-          method: 'POST',
-          description: 'Cryptographically verify a PQ-RDL block header using Dilithium and Conway consensus proofs',
-          pricing: { amountToken: '0.01', currency: 'RDL', alternativeSol: '0.001' }
-        },
-        {
-          path: '/api/v1/x402/pqc/attest',
-          method: 'POST',
-          description: 'Generate NIST Dilithium / SPHINCS+ block state attestation signature for autonomous nodes',
-          pricing: { amountToken: '0.02', currency: 'RDL', alternativeSol: '0.002' }
-        }
-      ]
-    });
-  });
-
-  app.post('/api/v1/x402/blockchain/block-verify', async (req, res) => {
-    const authHeader = req.headers['authorization'] || '';
-    const sigHeader = (req.headers['x-payment-signature'] as string) || '';
-    let signature = '';
-    if (typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('x402 ')) {
-      signature = authHeader.slice(5).trim();
-    } else if (sigHeader) {
-      signature = sigHeader.trim();
-    }
-
-    const challengeHeader = `x402 realm="pq-rdl", payTo="${OFFICIAL_PQRDL_RECIPIENT}", amount="0.001", currency="SOL", network="solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"`;
-
-    if (!signature) {
-      res.setHeader('WWW-Authenticate', challengeHeader);
-      return res.status(402).json({
-        status: 402,
-        error: 'Payment Required',
-        protocol: 'x402',
-        version: '1.0.0',
-        challenge: {
-          network: 'solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z',
-          payTo: OFFICIAL_PQRDL_RECIPIENT,
-          pricing: { amountSol: 0.001, currency: 'SOL', alternativeRdl: '0.01' }
-        },
-        instructions: `Transfer 0.001 SOL on Solana Testnet to ${OFFICIAL_PQRDL_RECIPIENT}, then retry with header: 'Authorization: x402 <txSignature>'`
-      });
-    }
-
-    if (USED_PQRDL_SIGNATURES.has(signature)) {
-      return res.status(403).json({ status: 403, error: 'Replay Attack Detected: Transaction signature already claimed.' });
-    }
-    USED_PQRDL_SIGNATURES.add(signature);
-
-    const latestBlock = blockchain[blockchain.length - 1];
-
-    return res.json({
-      success: true,
-      protocol: 'x402',
-      service: 'pq-rdl-block-verify',
-      x402Receipt: { signature, recipient: OFFICIAL_PQRDL_RECIPIENT, amountSol: 0.001 },
-      verification: {
-        verifiedBlockHeight: latestBlock.height,
-        blockHash: latestBlock.hash,
-        pqSignature: latestBlock.pqSignature,
-        miningProof: latestBlock.miningProof,
-        consensusResult: 'CONSENSUS_VALID_TRUE'
-      }
-    });
-  });
-
   // Vite Integration
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -643,7 +454,7 @@ Always structure JSON output with properties:
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`PQ-RDL prototype web server listening on port ${PORT}; public testnet/mainnet claims require independent deployment evidence`);
+    console.log(`PQ-RDL Quantum Automaton Blockchain Server running on http://localhost:${PORT}`);
   });
 }
 
