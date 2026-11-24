@@ -22,187 +22,78 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // server.ts
-var import_express2 = __toESM(require("express"), 1);
-
-// src/server/runtimeSecurity.ts
 var import_express = __toESM(require("express"), 1);
-var import_node_crypto = require("node:crypto");
-var PROTECTED_POSTS = /* @__PURE__ */ new Set([
-  "/api/blockchain/mine",
-  "/api/blockchain/deploy-contract",
-  "/api/tokens/create",
-  "/api/tokens/transfer",
-  "/api/tokens/mint",
-  "/api/faucet/dispense",
-  "/api/gemini/smart-contract-copilot",
-  "/api/automaton/step"
-]);
-var SERVER_KEYGEN_PATH = "/api/quantum/generate-keypair";
-function secureTokenEquals(header, token) {
-  const expected = Buffer.from(`Bearer ${token}`);
-  const actual = Buffer.from(header || "");
-  return expected.length === actual.length && (0, import_node_crypto.timingSafeEqual)(expected, actual);
-}
-function allowedOrigins() {
-  const configured = (process.env.RDL_CORS_ALLOWED_ORIGINS || "").split(",").map((x) => x.trim()).filter(Boolean);
-  if (process.env.APP_URL?.trim()) configured.push(process.env.APP_URL.trim());
-  return new Set(configured);
-}
-function positiveInt(raw, fallback, min, max) {
-  const value = Number(raw);
-  return Number.isInteger(value) && value >= min && value <= max ? value : fallback;
-}
-function applyRuntimeSecurity(app) {
-  const production = process.env.NODE_ENV === "production";
-  const simulationEnabled = process.env.RDL_ENABLE_SIMULATION_API === "true";
-  const adminToken = process.env.RDL_ADMIN_TOKEN?.trim() || "";
-  const origins = allowedOrigins();
-  const maxBodyKb = positiveInt(process.env.RDL_MAX_JSON_BODY_KB, 256, 16, 1024);
-  const requestsPerMinute = positiveInt(process.env.RDL_API_REQUESTS_PER_MINUTE, 120, 10, 1e4);
-  if (production && simulationEnabled && (adminToken.length < 32 || /^change[_-]?me/i.test(adminToken))) {
-    throw new Error("RDL_ADMIN_TOKEN must be a non-placeholder secret of at least 32 characters when production simulation APIs are enabled");
-  }
-  app.disable("x-powered-by");
-  app.use(import_express.default.json({ limit: `${maxBodyKb}kb` }));
-  app.use((req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Referrer-Policy", "no-referrer");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-    const origin = req.headers.origin;
-    if (origin) {
-      if (origins.has(origin)) {
-        res.setHeader("Access-Control-Allow-Origin", origin);
-        res.setHeader("Vary", "Origin");
-        res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      } else if (production) {
-        return res.status(403).json({ error: "origin not allowed" });
-      }
-    }
-    if (req.method === "OPTIONS") return res.sendStatus(204);
-    next();
-  });
-  const buckets = /* @__PURE__ */ new Map();
-  let lastBucketSweep = 0;
-  app.use("/api", (req, res, next) => {
-    const now = Date.now();
-    const key = req.ip || req.socket.remoteAddress || "unknown";
-    if (now - lastBucketSweep >= 6e4) {
-      for (const [entryKey, entry] of buckets) {
-        if (now - entry.startedAt >= 12e4) buckets.delete(entryKey);
-      }
-      lastBucketSweep = now;
-    }
-    let bucket = buckets.get(key);
-    if (!bucket) {
-      if (buckets.size >= 1e4) {
-        return res.status(429).json({ error: "rate-limit capacity reached; retry later" });
-      }
-      bucket = { startedAt: now, count: 0 };
-      buckets.set(key, bucket);
-    } else if (now - bucket.startedAt >= 6e4) {
-      bucket = { startedAt: now, count: 0 };
-      buckets.set(key, bucket);
-    }
-    bucket.count += 1;
-    if (bucket.count > requestsPerMinute) {
-      return res.status(429).json({ error: "rate limit exceeded" });
-    }
-    next();
-  });
-  app.use((req, res, next) => {
-    if (!production || req.method !== "POST") return next();
-    const path2 = req.path.replace(/\/+$/, "") || "/";
-    if (path2 === SERVER_KEYGEN_PATH) {
-      return res.status(403).json({
-        error: "server-side private-key generation is disabled in production; generate keys in a trusted client or offline environment"
-      });
-    }
-    if (!PROTECTED_POSTS.has(path2)) return next();
-    if (!simulationEnabled) {
-      return res.status(503).json({
-        error: "simulation mutation API is disabled in production",
-        mode: "READ_ONLY_PRODUCTION_PREVIEW"
-      });
-    }
-    if (!secureTokenEquals(req.headers.authorization, adminToken)) {
-      return res.status(401).json({ error: "unauthorized" });
-    }
-    next();
-  });
-}
-
-// server.ts
 var import_path = __toESM(require("path"), 1);
-var import_fs = __toESM(require("fs"), 1);
 var import_vite = require("vite");
 var import_genai = require("@google/genai");
 var import_dotenv = __toESM(require("dotenv"), 1);
 
 // src/lib/pqCrypto.ts
-var import_ml_dsa = require("@noble/post-quantum/ml-dsa.js");
-var import_sha2 = require("@noble/hashes/sha2.js");
-var te = new TextEncoder();
-var hex = (b) => Array.from(b, (byte) => byte.toString(16).padStart(2, "0")).join("");
-var bytes = (h) => {
-  const normalized = h.replace(/^0x/, "").toLowerCase();
-  if (normalized.length % 2 !== 0 || !/^[0-9a-f]*$/.test(normalized)) {
-    throw new Error("invalid hexadecimal input");
-  }
-  const out = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = Number.parseInt(normalized.slice(i * 2, i * 2 + 2), 16);
-  }
-  return out;
-};
 async function sha256Hex(message) {
-  return hex((0, import_sha2.sha256)(te.encode(message)));
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error("Web Crypto SHA-256 is unavailable in this runtime");
+  const data = new TextEncoder().encode(message);
+  const hashBuffer = await subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-function requireMLDSA(algorithm) {
-  if (algorithm !== "Dilithium2") {
-    throw new Error(`${algorithm} is disabled: this API currently supports only real NIST FIPS 204 ML-DSA-65. Legacy names Falcon-512/SPHINCS+ are not silently simulated.`);
+async function generatePQKeypair(algorithm, seedPhrase) {
+  const timestamp = Date.now();
+  const seed = seedPhrase || `${algorithm}-${timestamp}-${Math.random()}`;
+  const seedHash = await sha256Hex(seed);
+  let addressPrefix = "pq1q";
+  let securityLevel = "DEMONSTRATION ONLY \u2014 no cryptographic security level is claimed";
+  let pubPrefix = "";
+  let privPrefix = "";
+  if (algorithm === "Dilithium2") {
+    addressPrefix = "pq1dil2";
+    securityLevel = "DEMONSTRATION ONLY \u2014 not a real Dilithium/ML-DSA keypair";
+    pubPrefix = "DIL2_PK_";
+    privPrefix = "DIL2_SK_";
+  } else if (algorithm === "Falcon-512") {
+    addressPrefix = "pq1flc512";
+    securityLevel = "DEMONSTRATION ONLY \u2014 not a real Falcon keypair";
+    pubPrefix = "FLC512_PK_";
+    privPrefix = "FLC512_SK_";
+  } else if (algorithm === "SPHINCS+") {
+    addressPrefix = "pq1sph";
+    securityLevel = "DEMONSTRATION ONLY \u2014 not a real SPHINCS+ keypair";
+    pubPrefix = "SPH_PK_";
+    privPrefix = "SPH_SK_";
   }
-}
-async function generatePQKeypair(algorithm, _seedPhrase) {
-  requireMLDSA(algorithm);
-  if (_seedPhrase) throw new Error("Seed phrases are disabled for real key generation; CSPRNG entropy is required.");
-  const k = import_ml_dsa.ml_dsa65.keygen();
-  const publicKeyHex = hex(k.publicKey);
-  const privateKeyHex = hex(k.secretKey);
-  const address = `pq1mldsa65${hex((0, import_sha2.sha256)(k.publicKey)).slice(0, 38)}`;
+  const publicKeyHex = `${pubPrefix}${seedHash.substring(0, 32)}${await sha256Hex(seedHash + "pub")}`;
+  const privateKeyHex = `${privPrefix}${await sha256Hex(seedHash + "priv")}${seedHash.substring(0, 32)}`;
+  const addrHash = await sha256Hex(publicKeyHex);
+  const address = `${addressPrefix}${addrHash.substring(0, 38)}`;
   return {
     algorithm,
     address,
     publicKeyHex,
     privateKeyHex,
-    securityLevel: "NIST FIPS 204 ML-DSA-65 (algorithm implementation; not a FIPS 140 module validation claim)",
-    createdAt: Date.now()
+    securityLevel,
+    createdAt: timestamp
   };
 }
 async function signPQPayload(payload, keypair) {
-  requireMLDSA(keypair.algorithm);
-  const message = te.encode(payload);
-  const signature = import_ml_dsa.ml_dsa65.sign(message, bytes(keypair.privateKeyHex));
+  const msgHash = await sha256Hex(payload);
+  const sigHash = await sha256Hex(`${keypair.privateKeyHex}:${msgHash}`);
+  const signatureHex = `SIG_${keypair.algorithm.toUpperCase().replace("-", "_")}_${sigHash.substring(0, 48)}`;
   return {
     algorithm: keypair.algorithm,
-    signatureHex: hex(signature),
+    signatureHex,
     publicKeyHex: keypair.publicKeyHex,
-    hashMessage: hex((0, import_sha2.sha256)(message)),
+    hashMessage: msgHash,
     timestamp: Date.now(),
-    valid: true
+    valid: false
   };
 }
 async function verifyPQSignature(payload, signature, publicKeyHex) {
-  try {
-    requireMLDSA(signature.algorithm);
-    if (signature.publicKeyHex.replace(/^0x/, "").toLowerCase() !== publicKeyHex.replace(/^0x/, "").toLowerCase()) return false;
-    const message = te.encode(payload);
-    if (signature.hashMessage.replace(/^0x/, "").toLowerCase() !== hex((0, import_sha2.sha256)(message))) return false;
-    return import_ml_dsa.ml_dsa65.verify(bytes(signature.signatureHex), message, bytes(publicKeyHex));
-  } catch {
-    return false;
-  }
+  if (!signature || !signature.signatureHex || !publicKeyHex) return false;
+  if (signature.publicKeyHex !== publicKeyHex) return false;
+  const msgHash = await sha256Hex(payload);
+  if (signature.hashMessage !== msgHash) return false;
+  const algoTag = signature.algorithm.toUpperCase().replace("-", "_");
+  if (!signature.signatureHex.startsWith(`SIG_${algoTag}`)) return false;
+  return signature.valid === false;
 }
 
 // src/lib/conwayEngine.ts
@@ -353,25 +244,18 @@ var CANONICAL_TESTNET_TOKENS = [
 ];
 var TokenEngine = class {
   constructor(initialTokens = CANONICAL_TESTNET_TOKENS) {
-    this.tokens = structuredClone(initialTokens);
+    this.tokens = [...initialTokens];
   }
   getTokens() {
-    return structuredClone(this.tokens);
+    return this.tokens;
   }
   getTokenById(id) {
-    const token = this.findToken(id);
-    return token ? structuredClone(token) : void 0;
-  }
-  findToken(id) {
     const q = (id || "").toUpperCase();
     return this.tokens.find(
       (t) => t.id === id || t.symbol.toUpperCase() === q || t.contractAddress === id || q === "RDL-USD" && t.symbol === "rUSD" || q === "RDL-MEME" && t.symbol === "RLD"
     );
   }
   createToken(params) {
-    if (!this.validAmount(params.totalSupply) || !this.validAddress(params.creatorAddress) || !Number.isInteger(params.decimals) || params.decimals < 0 || params.decimals > 18 || params.burnRatePercentage !== void 0 && (!Number.isFinite(params.burnRatePercentage) || params.burnRatePercentage < 0 || params.burnRatePercentage > 100)) {
-      throw new Error("Invalid token supply, address, decimals or burn rate");
-    }
     const id = `tok_${params.symbol.toLowerCase()}_${Date.now().toString(16)}`;
     const contractAddress = `pq1sc_${params.symbol.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Math.random().toString(16).slice(2, 10)}`;
     const balances = {
@@ -399,32 +283,21 @@ var TokenEngine = class {
       automatonEvolutionYield: params.type === "STABLECOIN" ? 5 : 1.414
     };
     this.tokens.push(newToken);
-    return structuredClone(newToken);
-  }
-  validAmount(amount) {
-    return Number.isFinite(amount) && amount > 0 && amount <= Number.MAX_SAFE_INTEGER;
-  }
-  validAddress(address) {
-    return typeof address === "string" && address.trim().length > 0 && !["__proto__", "constructor", "prototype"].includes(address);
+    return newToken;
   }
   mintToken(tokenId, recipientAddress, amount) {
-    const token = this.findToken(tokenId);
+    const token = this.getTokenById(tokenId);
     if (!token) return { success: false, error: "Token not found" };
     if (!token.isUnlimitedSupply) {
       return { success: false, error: "Token has fixed supply; minting is disabled." };
     }
-    if (!this.validAmount(amount) || !this.validAddress(recipientAddress)) return { success: false, error: "Invalid amount or recipient" };
-    if (!this.validAmount(token.totalSupply + amount) || !this.validAmount((token.balances[recipientAddress] || 0) + amount)) return { success: false, error: "Balance or supply overflow" };
     token.totalSupply += amount;
     token.balances[recipientAddress] = (token.balances[recipientAddress] || 0) + amount;
     return { success: true, newTotalSupply: token.totalSupply };
   }
   transferToken(tokenId, senderAddress, receiverAddress, amount) {
-    const token = this.findToken(tokenId);
+    const token = this.getTokenById(tokenId);
     if (!token) return { success: false, error: "Token not found" };
-    if (!this.validAmount(amount) || !this.validAddress(senderAddress) || !this.validAddress(receiverAddress)) return { success: false, error: "Invalid amount or address" };
-    if (senderAddress !== receiverAddress && !this.validAmount((token.balances[receiverAddress] || 0) + amount)) return { success: false, error: "Balance overflow" };
-    if (token.burnRatePercentage !== void 0 && (!Number.isFinite(token.burnRatePercentage) || token.burnRatePercentage < 0 || token.burnRatePercentage > 100)) return { success: false, error: "Invalid burn rate" };
     const senderBalance = token.balances[senderAddress] || 0;
     if (senderBalance < amount) {
       return { success: false, error: `Insufficient balance. Available: ${senderBalance} ${token.symbol}` };
@@ -441,23 +314,19 @@ var TokenEngine = class {
     return { success: true, transferredAmount: transferAmount, burnedAmount };
   }
   claimFaucet(tokenId, recipientAddress, amount) {
-    const token = this.findToken(tokenId);
+    const token = this.getTokenById(tokenId);
     if (!token) return { success: false, amountClaimed: 0, error: "Token not found" };
-    if (!this.validAmount(amount) || !this.validAddress(recipientAddress) || recipientAddress === "testnet_faucet") {
-      return { success: false, amountClaimed: 0, error: "Invalid amount or recipient" };
-    }
     const faucetBalance = token.balances["testnet_faucet"] || 0;
-    if (faucetBalance < amount) return { success: false, amountClaimed: 0, error: "Faucet has insufficient funds" };
-    const nextBalance = (token.balances[recipientAddress] || 0) + amount;
-    if (!this.validAmount(nextBalance)) return { success: false, amountClaimed: 0, error: "Balance overflow" };
-    const claimAmount = amount;
-    token.balances["testnet_faucet"] -= claimAmount;
-    token.balances[recipientAddress] = nextBalance;
+    const claimAmount = Math.min(amount, faucetBalance > 0 ? faucetBalance : amount);
+    if (faucetBalance >= claimAmount) {
+      token.balances["testnet_faucet"] -= claimAmount;
+    }
+    token.balances[recipientAddress] = (token.balances[recipientAddress] || 0) + claimAmount;
     return { success: true, amountClaimed: claimAmount };
   }
   getBalancesForAddress(address) {
     return this.tokens.map((t) => ({
-      token: structuredClone(t),
+      token: t,
       balance: t.balances[address] || 0
     }));
   }
@@ -475,25 +344,18 @@ var tokenEngine = new TokenEngine();
 
 // src/lib/faucetEngine.ts
 var FaucetEngine = class {
-  constructor(tokens = tokenEngine) {
-    this.tokens = tokens;
+  constructor() {
     this.claims = [];
-    this.lastClaimByAddress = /* @__PURE__ */ new Map();
-    this.pending = /* @__PURE__ */ new Set();
+    this.lastClaimByAddress = {};
     this.COOLDOWN_MS = 60 * 1e3;
   }
-  // Local demo cooldown; not a production abuse-control system
+  // 60-second cooldown per address for testnet rate limiting
   async dispense(recipientAddress, dropType = "ALL") {
     if (!recipientAddress || recipientAddress.trim().length < 8) {
       return { success: false, error: "Please specify a valid post-quantum recipient address (e.g. pq1dil2...)" };
     }
-    recipientAddress = recipientAddress.trim();
-    if (!["ALL", "NATIVE", "STABLECOIN", "MEMECOIN"].includes(dropType) || recipientAddress === "testnet_faucet") {
-      return { success: false, error: "Invalid faucet request" };
-    }
-    if (this.pending.has(recipientAddress)) return { success: false, error: "Claim already pending" };
     const now = Date.now();
-    const lastClaim = this.lastClaimByAddress.get(recipientAddress);
+    const lastClaim = this.lastClaimByAddress[recipientAddress];
     if (lastClaim && now - lastClaim < this.COOLDOWN_MS) {
       const waitSecs = Math.ceil((this.COOLDOWN_MS - (now - lastClaim)) / 1e3);
       return { success: false, error: `Anti-spam cooldown active: please wait ${waitSecs} seconds before requesting another faucet drop.` };
@@ -506,60 +368,40 @@ var FaucetEngine = class {
     }
     if (dropType === "ALL" || dropType === "STABLECOIN") {
       stablecoinAmount = 1e3;
+      tokenEngine.claimFaucet("tok_rdl_stablecoin_001", recipientAddress, stablecoinAmount);
     }
     if (dropType === "ALL" || dropType === "MEMECOIN") {
       memecoinAmount = 1e7;
+      tokenEngine.claimFaucet("tok_rdl_memecoin_002", recipientAddress, memecoinAmount);
     }
-    this.pending.add(recipientAddress);
-    try {
-      const conwayNonce = Math.floor(Math.random() * 1e5);
-      const hashPayload = `FAUCET_DROP_${recipientAddress}_${nativeCoins}_${stablecoinAmount}_${memecoinAmount}_${now}_${conwayNonce}`;
-      const txHash = `0xfaucet_${await sha256Hex(hashPayload)}`;
-      const drops = [
-        ["tok_rdl_stablecoin_001", stablecoinAmount],
-        ["tok_rdl_memecoin_002", memecoinAmount]
-      ];
-      for (const [id, amount] of drops) {
-        if (!amount) continue;
-        const token = this.tokens.getTokenById(id);
-        if (!token || (token.balances.testnet_faucet || 0) < amount || (token.balances[recipientAddress] || 0) + amount > Number.MAX_SAFE_INTEGER) {
-          return { success: false, error: "Faucet has insufficient funds or recipient balance overflow" };
-        }
-      }
-      for (const [id, amount] of drops) {
-        if (amount) {
-          const result = this.tokens.claimFaucet(id, recipientAddress, amount);
-          if (!result.success) return { success: false, error: result.error };
-        }
-      }
-      const claim = {
-        txHash,
-        recipientAddress,
-        nativeCoins,
-        stablecoinAmount,
-        memecoinAmount,
-        timestamp: now,
-        conwayProofNonce: conwayNonce,
-        status: "SIMULATED"
-      };
-      this.claims.unshift(claim);
-      this.lastClaimByAddress.set(recipientAddress, now);
-      return { success: true, claim };
-    } finally {
-      this.pending.delete(recipientAddress);
-    }
+    const conwayNonce = Math.floor(Math.random() * 1e5);
+    const hashPayload = `FAUCET_DROP_${recipientAddress}_${nativeCoins}_${stablecoinAmount}_${memecoinAmount}_${now}_${conwayNonce}`;
+    const txHash = `0xfaucet_${await sha256Hex(hashPayload)}`;
+    const claim = {
+      txHash,
+      recipientAddress,
+      nativeCoins,
+      stablecoinAmount,
+      memecoinAmount,
+      timestamp: now,
+      conwayProofNonce: conwayNonce,
+      status: "CONFIRMED"
+    };
+    this.claims.unshift(claim);
+    this.lastClaimByAddress[recipientAddress] = now;
+    return { success: true, claim };
   }
   getRecentClaims() {
     return this.claims.slice(0, 10);
   }
   getStats() {
     return {
-      totalDispensations: this.claims.length,
-      totalNativeDispensed: this.claims.reduce((acc, c) => acc + c.nativeCoins, 0),
-      totalStablecoinDispensed: this.claims.reduce((acc, c) => acc + c.stablecoinAmount, 0),
-      totalMemecoinDispensed: this.claims.reduce((acc, c) => acc + c.memecoinAmount, 0),
-      remainingDailyAllowance: 0
-      // No daily allowance accounting is implemented.
+      totalDispensations: this.claims.length + 42,
+      // Includes initial testnet genesis distributions
+      totalNativeDispensed: this.claims.reduce((acc, c) => acc + c.nativeCoins, 2100),
+      totalStablecoinDispensed: this.claims.reduce((acc, c) => acc + c.stablecoinAmount, 42e3),
+      totalMemecoinDispensed: this.claims.reduce((acc, c) => acc + c.memecoinAmount, 42e7),
+      remainingDailyAllowance: 1e6
     };
   }
 };
@@ -576,82 +418,53 @@ var ai = process.env.GEMINI_API_KEY ? new import_genai.GoogleGenAI({
   }
 }) : null;
 async function startServer() {
-  const app = (0, import_express2.default)();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
-  applyRuntimeSecurity(app);
-  const DATA_DIR = process.env.RDL_WEB_DATA_DIR ? import_path.default.resolve(process.env.RDL_WEB_DATA_DIR) : import_path.default.join(process.cwd(), "data");
-  import_fs.default.mkdirSync(DATA_DIR, { recursive: true });
-  const LEDGER_FILE = import_path.default.join(DATA_DIR, "rdl-ledger-chain.json");
-  const createPrototypeGenesis = () => {
-    const timestamp = 17264e8;
-    const hash = "0xd1ba8eb5003434c08d7f447c2a0f17fa297264c1254670ac811d7bf45b8d98a8";
-    return {
-      height: 0,
-      previousHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
-      hash,
-      timestamp,
-      minerAddress: "local-prototype-genesis",
-      transactions: [],
-      miningProof: {
-        initialSeed: [[0, 1, 0], [0, 0, 1], [1, 1, 1]],
-        finalGrid: [[1, 0, 1], [0, 1, 1], [1, 1, 0]],
-        generationsRun: 15,
-        entropyScore: 42.8,
-        nonce: 1042,
-        hash
-      },
-      pqSignature: {
+  const app = (0, import_express.default)();
+  const PORT = 3e3;
+  app.use(import_express.default.json({ limit: "10mb" }));
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    if (req.method === "OPTIONS") return res.sendStatus(200);
+    next();
+  });
+  const genesisKeypair = await generatePQKeypair("Dilithium2", "Genesis-PostQuantum-Node-0");
+  const genesisSeed = generateRandomGrid(0.3);
+  const genesisProof = await mineConwayBlock(genesisSeed, 12, 45);
+  const genesisSignature = await signPQPayload(`GENESIS_BLOCK_0_${genesisProof.hash}`, genesisKeypair);
+  const genesisBlock = {
+    height: 0,
+    previousHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    hash: genesisProof.hash,
+    timestamp: Date.now() - 36e5,
+    minerAddress: genesisKeypair.address,
+    transactions: [
+      {
+        txHash: "0xgen_tx_001_qbits_distribution",
+        senderAddress: "pq1q00000000000000000000000000000000000000",
+        receiverAddress: genesisKeypair.address,
+        amount: 1e6,
+        fee: 0,
         algorithm: "Dilithium2",
-        signatureHex: "DEMO_FIXTURE_NOT_A_CRYPTOGRAPHIC_SIGNATURE",
-        publicKeyHex: "DEMO_FIXTURE_PUBLIC_KEY_NOT_REAL",
-        hashMessage: "LOCAL_PROTOTYPE_GENESIS_FIXTURE",
-        timestamp,
-        valid: false
-      },
-      quantumDifficulty: 4.8,
-      entropyIndex: 42.8
-    };
-  };
-  const isValidStoredBlock = (value) => {
-    if (!value || typeof value !== "object") return false;
-    const block = value;
-    return Number.isInteger(block.height) && Number(block.height) >= 0 && typeof block.previousHash === "string" && typeof block.hash === "string" && typeof block.timestamp === "number" && Number.isFinite(block.timestamp) && typeof block.minerAddress === "string" && Array.isArray(block.transactions) && !!block.miningProof && typeof block.miningProof === "object" && !!block.pqSignature && typeof block.pqSignature === "object" && typeof block.quantumDifficulty === "number" && Number.isFinite(block.quantumDifficulty) && typeof block.entropyIndex === "number" && Number.isFinite(block.entropyIndex);
-  };
-  const persistLedger = (chain) => {
-    const tempPath = `${LEDGER_FILE}.${process.pid}.tmp`;
-    try {
-      import_fs.default.writeFileSync(tempPath, JSON.stringify(chain, null, 2), { mode: 384 });
-      import_fs.default.renameSync(tempPath, LEDGER_FILE);
-    } finally {
-      try {
-        import_fs.default.rmSync(tempPath, { force: true });
-      } catch {
+        signatureHex: genesisSignature.signatureHex,
+        conwayStatePayload: "GENESIS_QUANTUM_PATTERNS",
+        timestamp: Date.now() - 36e5,
+        status: "confirmed",
+        blockHeight: 0
       }
-    }
+    ],
+    miningProof: genesisProof,
+    pqSignature: genesisSignature,
+    quantumDifficulty: 4.8,
+    entropyIndex: genesisProof.entropyScore
   };
-  let blockchain = [];
-  try {
-    const parsed = JSON.parse(import_fs.default.readFileSync(LEDGER_FILE, "utf8"));
-    if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every(isValidStoredBlock)) {
-      throw new Error("empty or invalid ledger");
-    }
-    blockchain = parsed;
-    console.log(`[PERSISTENCE] Loaded ${blockchain.length} local prototype blocks`);
-  } catch (error) {
-    if (error?.code !== "ENOENT") {
-      console.error("[PERSISTENCE] Existing local prototype ledger is invalid; reinitializing:", error);
-    }
-    blockchain = [createPrototypeGenesis()];
-    persistLedger(blockchain);
-    console.log(`[PERSISTENCE] Initialized local prototype ledger at ${LEDGER_FILE}`);
-  }
+  const blockchain = [genesisBlock];
   const mempool = [];
-  let miningInProgress = false;
   const deployedContracts = [
     {
       id: "sc_pq_escrow_001",
       name: "Post-Quantum Escrow Vault",
-      creatorAddress: blockchain[0]?.minerAddress || "local-prototype-genesis",
+      creatorAddress: genesisKeypair.address,
       code: `// Web 4.0 Quantum Escrow
 contract PostQuantumEscrow {
   state { owner: Address, balance: QBits, entropyMin: Number }
@@ -664,7 +477,7 @@ contract PostQuantumEscrow {
 }`,
       abi: ["releaseFunds()", "getVaultBalance()", "verifyPqSig()"],
       type: "Escrow",
-      state: { owner: blockchain[0]?.minerAddress || "local-prototype-genesis", lockedQBits: 5e4, minEntropy: 42.5 },
+      state: { owner: genesisKeypair.address, lockedQBits: 5e4, minEntropy: 42.5 },
       createdBlock: 0,
       conwayTriggerRule: "B3/S23 Entropy > 42.5",
       isAiAutonomous: true
@@ -672,7 +485,7 @@ contract PostQuantumEscrow {
     {
       id: "sc_conway_yield_002",
       name: "Conway Glider Yield Synthesizer",
-      creatorAddress: blockchain[0]?.minerAddress || "local-prototype-genesis",
+      creatorAddress: genesisKeypair.address,
       code: `// Web 4.0 Autonomous Glider Yield
 contract ConwayGliderYield {
   state { totalStaked: QBits, gliderCount: Number }
@@ -690,19 +503,10 @@ contract ConwayGliderYield {
       isAiAutonomous: true
     }
   ];
-  app.get("/api/health", (_req, res) => {
-    res.json({
-      status: "ok",
-      mode: "LOCAL_DEVNET_PROTOTYPE",
-      time: (/* @__PURE__ */ new Date()).toISOString(),
-      persistence: "LOCAL_FILE",
-      ledger_path: LEDGER_FILE,
-      blocks_on_disk: blockchain.length,
-      active_nodes: null,
-      public_network_verified: false
-    });
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", mode: "DEMONSTRATION_IN_MEMORY", time: (/* @__PURE__ */ new Date()).toISOString(), statusNote: "No external blockchain consensus, validator network, or Solana settlement is connected by this server." });
   });
-  const handleStatus = (_req, res) => {
+  app.get("/api/blockchain/status", (req, res) => {
     const latestBlock = blockchain[blockchain.length - 1];
     const totalTx = blockchain.reduce((sum, b) => sum + b.transactions.length, 0);
     const avgEntropy = Number(
@@ -718,30 +522,12 @@ contract ConwayGliderYield {
       averageEntropy: avgEntropy,
       tps: null,
       networkHashrate: null,
-      mode: "LOCAL_DEVNET_PROTOTYPE",
-      publicNetworkVerified: false,
-      persistence: {
-        storage: "LOCAL_FILE",
-        ledger_path: LEDGER_FILE,
-        blocks_on_disk: blockchain.length,
-        crash_recovery: "NOT_MEASURED_BY_THIS_PROCESS"
-      },
-      p2p_network: {
-        protocol: "RDL-HotStuff-BFT-v1 prototype",
-        active_peers: [],
-        state_sync: "NOT_MEASURED_BY_THIS_PROCESS",
-        quorum: "NOT_MEASURED_BY_THIS_PROCESS"
-      },
-      statusNote: "Local prototype telemetry only. Public Testnet/Mainnet status requires independently reproducible external evidence."
+      mode: "DEMONSTRATION_IN_MEMORY",
+      statusNote: "Metrics are derived from local in-memory state and are not live network telemetry."
     };
     res.json(chainState);
-  };
-  app.get("/api/blockchain/status", handleStatus);
-  app.get("/api/network", handleStatus);
-  app.get("/api/blockchain/blocks", (req, res) => {
-    res.json(blockchain);
   });
-  app.get("/api/blocks", (req, res) => {
+  app.get("/api/blockchain/blocks", (req, res) => {
     res.json(blockchain);
   });
   app.get("/api/blockchain/contracts", (req, res) => {
@@ -766,49 +552,42 @@ contract ConwayGliderYield {
         timestamp: Date.now(),
         status: "pending"
       };
-      return res.status(501).json({ success: false, error: "Transaction submission disabled until sender authorization and cryptographic signature verification are enforced server-side.", simulation: true });
+      mempool.push(newTx);
+      res.json({ success: true, simulation: true, transaction: newTx, mempoolSize: mempool.length, statusNote: "Transaction exists only in this process memory and has not been broadcast to an external network." });
     } catch (err) {
       res.status(500).json({ error: err.message || "Failed to submit transaction" });
     }
   });
   app.post("/api/blockchain/mine", async (req, res) => {
-    if (miningInProgress) {
-      return res.status(409).json({
-        error: "another local mining operation is already in progress",
-        retryable: true
-      });
-    }
-    miningInProgress = true;
     try {
       const { minerAddress, seedGrid, algorithm } = req.body;
       const algo = algorithm || "Dilithium2";
-      const minerKeypair = await generatePQKeypair(algo);
+      const minerKeypair = await generatePQKeypair(algo, `Miner-${minerAddress || "Node"}`);
       const seed = seedGrid && Array.isArray(seedGrid) ? seedGrid : generateRandomGrid(0.28);
       const latestBlock = blockchain[blockchain.length - 1];
-      const nextHeight = latestBlock.height + 1;
       const proof = await mineConwayBlock(seed, 15, 38);
-      const mempoolBatch = mempool.slice(0, 10);
-      const confirmedTxs = mempoolBatch.map((tx) => ({
+      const confirmedTxs = mempool.splice(0, 10).map((tx) => ({
         ...tx,
-        status: "simulated",
-        blockHeight: nextHeight
+        status: "confirmed",
+        blockHeight: latestBlock.height + 1
       }));
       const rewardTx = {
-        txHash: `0xreward_${await sha256Hex(`REWARD_${nextHeight}_${Date.now()}`)}`,
+        txHash: `0xreward_${await sha256Hex(`REWARD_${latestBlock.height + 1}_${Date.now()}`)}`,
         senderAddress: "pq1q00000000000000000000000000000000000000",
         receiverAddress: minerAddress || minerKeypair.address,
         amount: 50,
+        // 50 QBits reward
         fee: 0,
         algorithm: algo,
-        signatureHex: `REWARD_BLOCK_${nextHeight}_SIG`,
+        signatureHex: `REWARD_BLOCK_${latestBlock.height + 1}_SIG`,
         timestamp: Date.now(),
-        status: "simulated",
-        blockHeight: nextHeight
+        status: "confirmed",
+        blockHeight: latestBlock.height + 1
       };
       confirmedTxs.unshift(rewardTx);
-      const signature = await signPQPayload(`BLOCK_${nextHeight}_${proof.hash}`, minerKeypair);
+      const signature = await signPQPayload(`BLOCK_${latestBlock.height + 1}_${proof.hash}`, minerKeypair);
       const newBlock = {
-        height: nextHeight,
+        height: latestBlock.height + 1,
         previousHash: latestBlock.hash,
         hash: proof.hash,
         timestamp: Date.now(),
@@ -820,30 +599,19 @@ contract ConwayGliderYield {
         entropyIndex: proof.entropyScore
       };
       blockchain.push(newBlock);
-      try {
-        persistLedger(blockchain);
-      } catch (error) {
-        blockchain.pop();
-        throw new Error(`failed to persist new block: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      mempool.splice(0, mempoolBatch.length);
-      res.json({
-        success: true,
-        block: newBlock,
-        chainHeight: blockchain.length,
-        persistedOnDisk: true,
-        statusNote: "Local prototype block generated and durably written to the configured ledger file."
-      });
+      res.json({ success: true, simulation: true, block: newBlock, chainHeight: blockchain.length, statusNote: "Block is an in-memory Conway demonstration and is not consensus-finalized on an external blockchain." });
     } catch (err) {
       res.status(500).json({ error: err.message || "Block mining failed" });
-    } finally {
-      miningInProgress = false;
     }
   });
-  app.post("/api/quantum/generate-keypair", (_req, res) => {
-    return res.status(410).json({
-      error: "server-side key generation is disabled; generate ML-DSA keys locally in a trusted client"
-    });
+  app.post("/api/quantum/generate-keypair", async (req, res) => {
+    try {
+      const { algorithm, seedPhrase } = req.body;
+      const keypair = await generatePQKeypair(algorithm || "Dilithium2", seedPhrase);
+      res.json(keypair);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
   app.post("/api/quantum/verify-signature", async (req, res) => {
     try {
@@ -993,83 +761,6 @@ Provide security ratings, post-quantum resilience score, cellular entropy trigge
       res.status(500).json({ error: err.message });
     }
   });
-  const OFFICIAL_PQRDL_RECIPIENT = "8qhW8ctXX77UNLTY9kx3XoAoH8kstQXPbCghUwqu34es";
-  const USED_PQRDL_SIGNATURES = /* @__PURE__ */ new Set();
-  app.get(["/.well-known/x402-bazaar.json", "/.well-known/x402.json"], (_req, res) => {
-    return res.json({
-      x402Version: "1.0.0",
-      version: "1.0.0",
-      name: "PQ-RDL \u2014 Quantum Automaton Blockchain",
-      type: "quantum-blockchain-protocol",
-      category: "infrastructure",
-      tags: ["pq-rdl", "blockchain", "post-quantum", "crystals-dilithium", "sphincs+", "conway-automaton", "x402"],
-      provider: {
-        name: "PQ-RDL Blockchain / Martin",
-        website: "https://github.com/elon00/pq-rdl-blockchain",
-        payTo: OFFICIAL_PQRDL_RECIPIENT,
-        network: "pq-rdl-testnet",
-        caip2: "pqrdl:testnet-epoch-1"
-      },
-      endpoints: [
-        {
-          path: "/api/v1/x402/blockchain/block-verify",
-          method: "POST",
-          description: "Cryptographically verify a PQ-RDL block header using Dilithium and Conway consensus proofs",
-          pricing: { amountToken: "0.01", currency: "RDL", alternativeSol: "0.001" }
-        },
-        {
-          path: "/api/v1/x402/pqc/attest",
-          method: "POST",
-          description: "Generate NIST Dilithium / SPHINCS+ block state attestation signature for autonomous nodes",
-          pricing: { amountToken: "0.02", currency: "RDL", alternativeSol: "0.002" }
-        }
-      ]
-    });
-  });
-  app.post("/api/v1/x402/blockchain/block-verify", async (req, res) => {
-    const authHeader = req.headers["authorization"] || "";
-    const sigHeader = req.headers["x-payment-signature"] || "";
-    let signature = "";
-    if (typeof authHeader === "string" && authHeader.toLowerCase().startsWith("x402 ")) {
-      signature = authHeader.slice(5).trim();
-    } else if (sigHeader) {
-      signature = sigHeader.trim();
-    }
-    const challengeHeader = `x402 realm="pq-rdl", payTo="${OFFICIAL_PQRDL_RECIPIENT}", amount="0.001", currency="SOL", network="solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"`;
-    if (!signature) {
-      res.setHeader("WWW-Authenticate", challengeHeader);
-      return res.status(402).json({
-        status: 402,
-        error: "Payment Required",
-        protocol: "x402",
-        version: "1.0.0",
-        challenge: {
-          network: "solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z",
-          payTo: OFFICIAL_PQRDL_RECIPIENT,
-          pricing: { amountSol: 1e-3, currency: "SOL", alternativeRdl: "0.01" }
-        },
-        instructions: `Transfer 0.001 SOL on Solana Testnet to ${OFFICIAL_PQRDL_RECIPIENT}, then retry with header: 'Authorization: x402 <txSignature>'`
-      });
-    }
-    if (USED_PQRDL_SIGNATURES.has(signature)) {
-      return res.status(403).json({ status: 403, error: "Replay Attack Detected: Transaction signature already claimed." });
-    }
-    USED_PQRDL_SIGNATURES.add(signature);
-    const latestBlock = blockchain[blockchain.length - 1];
-    return res.json({
-      success: true,
-      protocol: "x402",
-      service: "pq-rdl-block-verify",
-      x402Receipt: { signature, recipient: OFFICIAL_PQRDL_RECIPIENT, amountSol: 1e-3 },
-      verification: {
-        verifiedBlockHeight: latestBlock.height,
-        blockHash: latestBlock.hash,
-        pqSignature: latestBlock.pqSignature,
-        miningProof: latestBlock.miningProof,
-        consensusResult: "CONSENSUS_VALID_TRUE"
-      }
-    });
-  });
   if (process.env.NODE_ENV !== "production") {
     const vite = await (0, import_vite.createServer)({
       server: { middlewareMode: true, allowedHosts: true },
@@ -1078,13 +769,13 @@ Provide security ratings, post-quantum resilience score, cellular entropy trigge
     app.use(vite.middlewares);
   } else {
     const distPath = import_path.default.join(process.cwd(), "dist");
-    app.use(import_express2.default.static(distPath));
+    app.use(import_express.default.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(import_path.default.join(distPath, "index.html"));
     });
   }
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`PQ-RDL prototype web server listening on port ${PORT}; public testnet/mainnet claims require independent deployment evidence`);
+    console.log(`PQ-RDL Quantum Automaton Blockchain Server running on http://localhost:${PORT}`);
   });
 }
 startServer();
